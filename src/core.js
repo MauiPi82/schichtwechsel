@@ -16,7 +16,8 @@
   const ACTIONS = ['up', 'right', 'down', 'left', 'shift', 'wait'];
   const DIRS = {up: [0, -1], right: [1, 0], down: [0, 1], left: [-1, 0]};
   const ORDER = ['up', 'right', 'down', 'left'];
-  const SHIFT_COOLDOWN = 3;
+  // Grace equals the cooldown, so a player who shifts next to the previous shift can always shift back in time.
+  const SHIFT_COOLDOWN = 3, GRACE = SHIFT_COOLDOWN;
   const BELL_WARNING = 24;
   // Tiles: # wall, M machine, = glass, o hole, . floor, P start, X airlock exit,
   // 1-8 process stations (visited in order), V previous shift (night only).
@@ -70,7 +71,67 @@
       dist: distanceFields(walk[NIGHT]),
     };
     level.beams = (def.beams || []).map(b => ({...b, phases: b.species.map(sp => traceBeam(level, b, sp))}));
+    level.heat = def.heat ? simulateHeat(level, def.heat) : null;
+    level.pulses = (def.pulses || []).map(p => {
+      const cells = new Uint8Array(N);
+      for (let y = p.y0; y <= p.y1; y++) for (let x = p.x0; x <= p.x1; x++) cells[idx(x, y)] = 1;
+      return {...p, layer: p.layer || DAY, cells};
+    });
     return level;
+  }
+
+  // Furnace heat on the day floor: explicit finite differences of dT/dt = a * laplace(T) - k (T - T0).
+  // Walls insulate. While the furnace door is open its mouth holds the tube temperature.
+  // The cycle is periodic, so one recorded period after warm-up describes every step.
+  function simulateHeat(level, h) {
+    const T = new Float64Array(N).fill(h.ambient), next = new Float64Array(N);
+    const conducts = new Uint8Array(N);
+    for (let i = 0; i < N; i++) conducts[i] = level.walk[DAY][i];
+    for (const [x, y] of h.sources) conducts[idx(x, y)] = 1;
+    // Each furnace mouth may open with its own delay, so the heat can travel along a bank of furnaces.
+    const offset = new Int16Array(N).fill(-1);
+    for (const [x, y, off = 0] of h.sources) offset[idx(x, y)] = off;
+    const temps = [], hot = [];
+    const tick = phase => {
+      const open = i => { const q = ((phase - offset[i]) % h.period + h.period) % h.period; return q >= h.open[0] && q < h.open[1]; };
+      for (let sub = 0; sub < h.substeps; sub++) {
+        for (let i = 0; i < N; i++) {
+          if (!conducts[i]) { next[i] = h.ambient; continue; }
+          if (offset[i] >= 0 && open(i)) { next[i] = h.source; continue; }
+          const x = i % W, y = (i / W) | 0;
+          let lap = 0;
+          for (const k of ORDER) {
+            const nx = x + DIRS[k][0], ny = y + DIRS[k][1];
+            if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+            const n = idx(nx, ny);
+            if (conducts[n]) lap += T[n] - T[i];
+          }
+          next[i] = T[i] + h.alpha * lap - h.cooling * (T[i] - h.ambient);
+        }
+        T.set(next);
+      }
+    };
+    for (let s = 0; s < h.period * 6; s++) tick(s % h.period);
+    for (let s = 0; s < h.period; s++) {
+      tick(s);
+      temps.push(Float32Array.from(T));
+      hot.push(Uint8Array.from(T, (v, i) => level.walk[DAY][i] && v >= h.threshold ? 1 : 0));
+    }
+    // Recorded frame s holds the field after the tick of phase s: index it with step % period.
+    return {...h, temps, hot};
+  }
+
+  function pulseOn(p, step) {
+    const ph = step % p.period;
+    return ph >= p.on[0] && ph < p.on[1];
+  }
+
+  // Hazards that depend only on time: heat by day, plasma in either shift.
+  function timedHazard(level, layer, step, x, y) {
+    const i = idx(x, y);
+    if (layer === DAY && level.heat && level.heat.hot[step % level.heat.period][i]) return 'heat';
+    for (const p of level.pulses) if (p.layer === layer && p.cells[i] && pulseOn(p, step)) return 'plasma';
+    return null;
   }
 
   // Implanter beam: straight outside the magnet, a circle of radius r = sqrt(2 m E) / (q B) inside it.
@@ -135,7 +196,7 @@
       level, step: 0, layer: level.start.layer,
       x: level.start.x, y: level.start.y, px: level.start.x, py: level.start.y, face: 'down',
       got: 0, enemies: level.enemyStarts.map(e => ({x: e.x, y: e.y, px: e.x, py: e.y, moved: -1})),
-      lastShift: -SHIFT_COOLDOWN, shifts: 0, status: 'play', cause: '', events: [],
+      lastShift: -SHIFT_COOLDOWN, shifts: 0, status: 'play', cause: '', events: [], safeUntil: 0,
     };
   }
 
@@ -197,8 +258,9 @@
       if (state.step % L.bell === 0) {
         const other = 1 - state.layer;
         state.events.push('bell');
-        if (!walkable(L, other, state.x, state.y)) return lose(state, 'crushed');
-        state.layer = other; state.lastShift = state.step; state.events.push('shift');
+        if (!walkable(L, other, state.x, state.y)) {
+          if (state.step >= state.safeUntil) return lose(state, 'crushed');
+        } else { state.layer = other; state.lastShift = state.step; state.events.push('shift'); }
       }
     }
 
@@ -207,7 +269,8 @@
       state.got++; state.events.push('station');
     }
 
-    if (state.layer === DAY) {
+    const safe = state.step < state.safeUntil;
+    if (state.layer === DAY && !safe) {
       for (let n = 0; n < L.robots.length; n++) {
         const r = robotAt(L, state.step, n), prev = robotAt(L, state.step - 1, n);
         const hit = r.x === state.x && r.y === state.y;
@@ -218,13 +281,21 @@
         if (b.phases[beamPhase(b, state.step)].cells[idx(state.x, state.y)]) return lose(state, 'beam');
       }
     }
+    const hz = safe ? null : timedHazard(L, state.layer, state.step, state.x, state.y);
+    if (hz) return lose(state, hz);
+    for (const p of L.pulses) {
+      if ((state.step + 6) % p.period === p.on[0]) state.events.push('pulse-warning');
+      if (state.step % p.period === p.on[0]) state.events.push('pulse');
+    }
+    if (L.heat && L.heat.sources.some(([, , off = 0]) => (state.step - off) % L.heat.period === L.heat.open[0])) state.events.push('furnace-open');
     for (const b of L.beams) {
       const before = beamPhase(b, state.step - 1), now = beamPhase(b, state.step);
       if (before !== now) state.events.push('beam-switch');
       if ((state.step + 6) % b.every === 0) state.events.push('beam-warning');
     }
 
-    if (state.step % L.enemyEvery === 0) {
+    // The previous shift creeps at half speed while you are in your own shift.
+    if (state.step % (L.enemyEvery * (state.layer === DAY ? 2 : 1)) === 0) {
       for (const e of state.enemies) {
         const occupied = (x, y) => state.enemies.some(o => o !== e && o.x === x && o.y === y);
         const next = enemyStep(L, e, state.x, state.y, occupied);
@@ -232,7 +303,8 @@
       }
     }
 
-    if (state.layer === NIGHT) {
+    // Grace after a shift into the night: time to shift back after a misjudgement.
+    if (state.layer === NIGHT && !safe && state.step - state.lastShift >= GRACE) {
       for (const e of state.enemies) {
         const onPlayer = e.x === state.x && e.y === state.y;
         const crossed = e.px === state.x && e.py === state.y && e.x === state.px && e.y === state.py;
@@ -271,7 +343,8 @@
 
   // Breadth-first search over complete game states; returns the shortest action list that wins, or null.
   function solve(level, {maxStates = 4e6} = {}) {
-    const period = [level.enemyEvery, level.bell || 1, ...level.robots.map(r => r.length), ...level.beams.map(b => b.every * b.species.length)]
+    const period = [level.enemyEvery * 2, level.bell || 1, ...level.robots.map(r => r.length), ...level.beams.map(b => b.every * b.species.length),
+      level.heat ? level.heat.period : 1, ...level.pulses.map(p => p.period)]
       .reduce((a, b) => a / gcd(a, b) * b, 1);
     const key = s => `${s.x},${s.y},${s.layer},${s.got},${s.step % period},${Math.min(s.step - s.lastShift, SHIFT_COOLDOWN)},` +
       s.enemies.map(e => e.x + ':' + e.y).join(';');
@@ -303,5 +376,5 @@
   }
 
   return {W, H, DAY, NIGHT, ACTIONS, DIRS, SHIFT_COOLDOWN, BELL_WARNING, SPECIES, parseLevel, newState, step, clone,
-    walkable, robotAt, beamPhase, bellIn, nearestEnemy, solve, idx};
+    walkable, robotAt, beamPhase, pulseOn, timedHazard, bellIn, nearestEnemy, solve, idx};
 });

@@ -12,24 +12,24 @@ const levels = LEVELS.map(d => C.parseLevel(d));
 /* ---------- Language ---------- */
 const UI = {
   de: {
-    day: 'TAGSCHICHT', night: 'NACHTSCHICHT', open: 'SCHLEUSE OFFEN', airlock: 'ZUR SCHLEUSE',
+    day: 'DEINE SCHICHT', night: 'VORSCHICHT', open: 'SCHLEUSE OFFEN', airlock: 'ZUR SCHLEUSE', layerWord: 'SCHICHT',
     press: isTouch ? 'SHIFT TIPPEN' : 'SHIFT DRÜCKEN', orSpace: 'oder Leertaste', cont: isTouch ? 'SHIFT: WEITER' : 'SHIFT ODER ENTER: WEITER',
     tagline: 'Die Vorschicht ist nie gegangen. Sie ist eine Schicht geworden.', checkpoint: 'PROZESSSCHRITT GESICHERT',
     sticky: 'Tipp: Die Leertaste wechselt auch die Schicht (Windows-Einrastfunktion).',
     resume: 'Weiter ab', fresh: 'N: neue Nacht ab 22:00', physics: 'PHYSIK DER SCHICHT',
-    caught: 'ERWISCHT', crushed: 'EINGEMAUERT', robot: 'ÜBERFAHREN', beam: 'IM STRAHL',
+    caught: 'ERWISCHT', crushed: 'EINGEMAUERT', robot: 'ÜBERFAHREN', beam: 'IM STRAHL', heat: 'VERBRANNT', plasma: 'IM PLASMA',
     paused: 'PAUSE', pausedHint: 'P oder ESC: weiter', bell: 'GLOCKE', ion: 'IONEN', retry: 'R: neu versuchen',
     stats: (d, s) => `Erwischt: ${d}   Schichtwechsel: ${s}`, thanks: 'Danke fürs Spielen.',
     sub: 'TURNO DI NOTTE · LUINO', credit: 'Ein Spiel von Maurizio Odenwaeller für Game Off 2026 · entwickelt mit Claude',
     sound: on => 'Ton: ' + (on ? 'an' : 'aus'), pause: 'Pause', full: 'Vollbild',
   },
   en: {
-    day: 'DAY SHIFT', night: 'NIGHT SHIFT', open: 'AIRLOCK OPEN', airlock: 'TO THE AIRLOCK',
+    day: 'YOUR SHIFT', night: 'THE SHIFT BEFORE', open: 'AIRLOCK OPEN', airlock: 'TO THE AIRLOCK', layerWord: 'LAYER',
     press: isTouch ? 'TAP SHIFT' : 'PRESS SHIFT', orSpace: 'or Space', cont: isTouch ? 'SHIFT: CONTINUE' : 'SHIFT OR ENTER: CONTINUE',
     tagline: 'The previous shift never left. They became a layer.', checkpoint: 'PROCESS STEP SAVED',
     sticky: 'Tip: Space changes the shift too (Windows Sticky Keys).',
     resume: 'Continue from', fresh: 'N: new night from 22:00', physics: 'PHYSICS OF THE SHIFT',
-    caught: 'CAUGHT', crushed: 'WALLED IN', robot: 'RUN OVER', beam: 'IN THE BEAM',
+    caught: 'CAUGHT', crushed: 'WALLED IN', robot: 'RUN OVER', beam: 'IN THE BEAM', heat: 'BURNED', plasma: 'IN THE PLASMA',
     paused: 'PAUSED', pausedHint: 'P or ESC: resume', bell: 'BELL', ion: 'IONS', retry: 'R: try again',
     stats: (d, s) => `Caught: ${d}   Shift changes: ${s}`, thanks: 'Thank you for playing.',
     sub: 'TURNO DI NOTTE · LUINO', credit: 'A game by Maurizio Odenwaeller for Game Off 2026 · made with Claude',
@@ -187,6 +187,9 @@ const audio = {
         this.tone('sawtooth', 160, t0, 0.8, 0.25, null, 30);
         break;
       case 'won': this.burst(t0, 1.2, 0.16, 'highpass', 1200); this.tone('square', 70, t0 + 1.1, 0.12, 0.12); break;
+      case 'pulse': this.tone('sawtooth', 110, t0, 0.35, 0.07, null, 220); this.burst(t0, 0.3, 0.05, 'bandpass', 1800, 4); break;
+      case 'pulse-warning': this.tone('sine', 330, t0, 0.15, 0.03); break;
+      case 'furnace-open': this.burst(t0, 0.9, 0.08, 'lowpass', 300); this.tone('sine', 40, t0, 0.8, 0.12); break;
     }
   },
   // Shift radio: an original waltz with mandolin tremolo. At night the same tune plays slower, lower and echoed.
@@ -285,10 +288,10 @@ function pollPad() {
 }
 
 /* ---------- Game flow ---------- */
-let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0;
+let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0, shake = 0;
 let progress = clamp(+store.get('level') || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
 const deathsBy = levels.map(() => 0);
-const BUILD = '0.3 · 2026-11-11';
+const BUILD = '0.4 · 2026-11-11';
 // Testers can jump to an hour: ?stunde=3 or ?hour=3 opens the third hour.
 const jump = +(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || 0);
 if (jump >= 1 && jump <= levels.length) progress = jump - 1;
@@ -311,6 +314,7 @@ function startLevel(i, resume = false) {
     state = C.clone(checkpoint);
     state.enemies.forEach((e, n) => { const s0 = levels[i].enemyStarts[n]; Object.assign(e, {x: s0.x, y: s0.y, px: s0.x, py: s0.y, moved: -1, fx: undefined, fy: undefined}); });
     state.px = state.x; state.py = state.y;
+    state.safeUntil = state.step + 14;
   } else { state = C.newState(levels[i]); hintT = 0; toastT = 0; shiftHintT = 0; }
   queuedDir = null; queuedShift = false;
   audio.setLayer(state.layer);
@@ -336,7 +340,8 @@ function doStep(action) {
   totalShifts += state.events.filter(e => e === 'shift').length;
   for (const ev of state.events) {
     if (ev === 'enemy-step') continue;
-    if (['shift', 'blocked', 'station', 'bell', 'bell-warning', 'beam-switch', 'beam-warning', 'won', 'lost'].includes(ev)) audio.sfx(ev);
+    if (['shift', 'blocked', 'station', 'bell', 'bell-warning', 'beam-switch', 'beam-warning', 'won', 'lost', 'pulse', 'pulse-warning', 'furnace-open'].includes(ev)) audio.sfx(ev);
+    if (ev === 'bell' && !reduced) shake = 10;
   }
   if (state.events.includes('enemy-step')) {
     for (const e of state.enemies) {
@@ -373,6 +378,7 @@ function update() {
     }
   }
   if (fx > 0) fx--;
+  if (shake > 0) shake--;
   if (toastT > 0) toastT--;
   if (shiftHintT > 0) shiftHintT--;
   if (mode === 'dead' && ++deadT > 70) startLevel(levelIndex, true);
@@ -493,6 +499,7 @@ function drawPlayer(k) {
   const moving = state.px !== state.x || state.py !== state.y;
   const bob = moving && k < 0.6 ? -1 : 0;
   const night = state.layer === 1;
+  if (state.step < state.safeUntil && (frame >> 2) % 2) return;
   suit(x * T, FY + y * T, state.face, state.layer, night ? '#ffe2a0' : '#ffffff', night ? '#a07a32' : '#aeb8c6', night ? '#ffcf5a' : '#2f6fd0', bob, night ? '#000000' : '#1b2533');
   if (shiftHintT > 0 && (frame >> 3) % 4) {
     // The key itself, above the player: a wall here is open in the other shift.
@@ -566,6 +573,75 @@ function drawBeams(L) {
   }
 }
 
+function drawHeatAndPlasma(L, layer) {
+  if (L.heat && layer === 0) {
+    const temps = L.heat.temps[state.step % L.heat.period];
+    for (let i = 0; i < C.W * C.H; i++) {
+      const v = temps[i];
+      if (v < 35 || !L.walk[0][i]) continue;
+      const x = (i % C.W) * T, y = FY + ((i / C.W) | 0) * T, a = clamp((v - 35) / 260, 0, 0.75);
+      ctx.fillStyle = v >= L.heat.threshold ? `rgba(255,${Math.round(150 - a * 120)},30,${a})` : `rgba(255,170,60,${a * 0.6})`;
+      ctx.fillRect(x, y, T, T);
+      if (v >= L.heat.threshold && !reduced) R('rgba(255,230,160,.25)', x + ((frame + i * 3) % 14), y + ((i * 7) % 12) + 2, 1, 2);
+    }
+    // Furnace mouths glow while they are open.
+    for (const [sx, sy, off = 0] of L.heat.sources) {
+      const q = ((state.step - off) % L.heat.period + L.heat.period) % L.heat.period;
+      if (q >= L.heat.open[0] && q < L.heat.open[1]) R('#ff7a1a', sx * T + 3, FY + sy * T + (sy === 1 ? 11 : 1), 10, 3);
+    }
+  }
+  for (const p of L.pulses) {
+    if (p.layer !== layer) continue;
+    const ph = state.step % p.period, on = C.pulseOn(p, state.step), soon = !on && ((ph + 6) % p.period) >= p.on[0] && ((ph + 6) % p.period) < p.on[0] + 6;
+    if (!on && !soon) continue;
+    for (let y = p.y0; y <= p.y1; y++) for (let x = p.x0; x <= p.x1; x++) {
+      if (!L.walk[layer][y * C.W + x]) continue;
+      const a = on ? 0.42 + 0.18 * Math.sin(frame / 2 + x + y) : ((frame >> 2) % 2 ? 0.12 : 0);
+      ctx.fillStyle = `rgba(190,110,255,${a})`; ctx.fillRect(x * T, FY + y * T, T, T);
+      if (on && !reduced && hash(frame + x * 13 + y * 7) > 0.8) R('#f0dcff', x * T + (hash(x + frame) * 14 | 0), FY + y * T + (hash(y + frame) * 14 | 0), 1, 1);
+    }
+  }
+}
+
+// Cross-section of lot 4471: substrate at the bottom, one more layer after every completed hour.
+function drawStack(x0, y0, w, h, n) {
+  const si = y0 + h - 26, holes = [0.2, 0.5, 0.8].map(f => Math.round(x0 + f * w) - 5), pulse = 0.55 + 0.45 * Math.sin(frame / 10);
+  R('#0b0e16', x0 - 4, y0 - 4, w + 8, h + 8); R('#232b44', x0 - 4, y0 - 4, w + 8, 1);
+  R('#4f5866', x0, si, w, 26);
+  for (let y = si + 3; y < si + 26; y += 4) for (let x = x0 + 2 + (y % 8 ? 2 : 0); x < x0 + w; x += 4) R('#5d6775', x, y, 1, 1);
+  const glow = (k, y, hh) => { if (k === n) { ctx.strokeStyle = `rgba(255,190,80,${pulse})`; ctx.lineWidth = 1; ctx.strokeRect(x0 + 0.5, y + 0.5, w - 1, hh - 1); } };
+  if (n >= 4) for (const hx of holes) {
+    const wide = n >= 5 ? 9 : 5, deep = n >= 5 ? 9 : 5;
+    ctx.fillStyle = 'rgba(150,100,230,.85)'; ctx.beginPath(); ctx.ellipse(hx + 5, si, wide + 3, deep, 0, 0, Math.PI); ctx.fill();
+  }
+  if (n === 4 || n === 5) glow(n, si, 10);
+  let top = si;
+  if (n >= 1) {
+    top = si - 4; R('#cfe8ff', x0, top, w, 4);
+    if (n >= 3) for (const hx of holes) R('#4f5866', hx, top, 10, 4);
+    glow(1, top, 4);
+  }
+  if (n === 2 || n === 3) {
+    R('#d9a032', x0, top - 7, w, 7);
+    if (n === 3) for (const hx of holes) R('#0b0e16', hx, top - 7, 10, 7);
+    glow(n, top - 7, 7);
+  }
+  if (n >= 6) {
+    const ild = top - 10; R('#a9cbe6', x0, ild, w, 10);
+    for (const hx of holes) R(n >= 7 ? '#c9ced6' : '#0b0e16', hx + 2, ild, 6, 14);
+    glow(6, ild, 10); top = ild;
+  }
+  if (n >= 7) { R('#c9ced6', x0, top - 5, w, 5); R('#e6e9ee', x0, top - 5, w, 1); glow(7, top - 5, 5); top -= 5; }
+  if (n >= 8) {
+    R('#262a34', x0, top - 4, w, 4); glow(8, top - 4, 4);
+    // Three faces pressed into the last layer.
+    for (const fx of [0.3, 0.55, 0.78]) {
+      const cx = Math.round(x0 + fx * w);
+      R('#3a3f4c', cx - 2, top - 4, 5, 4); R('#ffb43a', cx - 1, top - 3, 1, 1); R('#ffb43a', cx + 1, top - 3, 1, 1);
+    }
+  }
+}
+
 /* ---------- Drawing: scene and HUD ---------- */
 function drawWorld(layer, k) {
   const L = state.level;
@@ -573,6 +649,7 @@ function drawWorld(layer, k) {
   drawSigns(L, layer);
   drawStationsAndExits(L, layer);
   if (layer === 0) drawBeams(L);
+  drawHeatAndPlasma(L, layer);
   drawEnemies(k, layer);
   if (state.layer === layer) drawPlayer(k);
   if (layer === 1) {
@@ -598,8 +675,8 @@ function drawHUD() {
   const L = state.level, def = LEVELS[levelIndex], night = state.layer === 1;
   R(night ? '#0c0803' : '#0d1420', 0, 0, W, FY);
   R(night ? '#5a4214' : '#2f6db3', 0, FY - 1, W, 1);
-  txt(def.time, 4, 4, {color: night ? '#ffcf5a' : '#9fe0ff'});
-  txt(def.title[lang].toUpperCase(), 34, 4, {color: '#8c93a8', max: 90});
+  txt(`${t().layerWord} ${levelIndex + 1}/${LEVELS.length}`, 4, 4, {color: night ? '#ffcf5a' : '#9fe0ff'});
+  txt(def.layer[lang].toUpperCase(), 66, 4, {color: '#8c93a8', max: 64});
   txt(night ? t().night : t().day, W / 2 + 18, 4, {align: 'center', color: night ? '#ffb43a' : '#e9eef5'});
   let right = '';
   if (state.got < L.stations.length && def.route) right = `${state.got + 1}/${L.stations.length} ${def.route[state.got][lang].toUpperCase()}`;
@@ -627,8 +704,10 @@ function drawHUD() {
 
 function renderPlay() {
   const k = clamp(stepFrame / STEP_FRAMES, 0, 1);
+  R('#000', 0, 0, W, H);
   ctx.save();
   if (fx > 0 && !reduced) ctx.translate(Math.round((hash(frame) - 0.5) * 3), 0);
+  if (shake > 0) ctx.translate(Math.round((hash(frame * 3) - 0.5) * shake * 0.4), Math.round((hash(frame * 5) - 0.5) * shake * 0.3));
   drawWorld(state.layer, mode === 'play' ? k : 1);
   ctx.restore();
   drawHUD();
@@ -670,29 +749,30 @@ function renderDead() {
     ctx.restore();
     if (!reduced) for (let i = 0; i < 300; i++) R(hash(i + frame) > 0.5 ? '#fff' : '#000', hash(i * 3 + frame) * W, hash(i * 7 + frame) * H, 1, 1);
   }
-  const cause = state.cause === 'crushed' ? t().crushed : state.cause === 'robot' ? t().robot : state.cause === 'beam' ? t().beam : t().caught;
+  const cause = t()[state.cause] || t().caught;
   if (deadT > 30) txt(cause, W / 2, H / 2 - 8, {align: 'center', size: 16, font: 'Pixelify Sans', weight: 700, color: '#e0402a'});
 }
 
 function renderCard() {
   const def = LEVELS[levelIndex];
   R('#07080c', 0, 0, W, H);
-  txt('VOGT MICROELETTRONICA · LUINO · BAY 7', W / 2, 10, {align: 'center', color: '#4c5470'});
-  txt(def.time, W / 2, 24, {align: 'center', size: 32, font: 'Pixelify Sans', weight: 700, color: '#ffcf5a', shadow: '#3a2200'});
-  txt(def.title[lang].toUpperCase(), W / 2, 60, {align: 'center', size: 8, color: '#c9c2ae'});
+  txt('VOGT MICROELETTRONICA · LUINO · LOT 4471', W / 2, 6, {align: 'center', color: '#4c5470'});
+  txt(`${t().layerWord} ${levelIndex + 1}/${LEVELS.length}`, 16, 20, {color: '#6b7190'});
+  txt(def.layer[lang].toUpperCase(), 16, 30, {size: 24, font: 'Pixelify Sans', weight: 700, color: '#ffcf5a', shadow: '#3a2200', max: 170});
+  txt(`${def.time} · ${def.title[lang]}`, 16, 58, {color: '#8c93a8', font: 'IBM Plex Sans', size: 8, max: 170});
   const shown = Math.floor(cardT / 1.5);
   let used = 0;
   def.log[lang].forEach((line, i) => {
     const part = line.slice(0, Math.max(0, shown - used)); used += line.length;
-    txt(part, W / 2, 76 + i * 11, {align: 'center', color: '#e9e4d6', font: 'IBM Plex Sans', size: 8});
+    txt(part, 16, 72 + i * 10, {color: '#e9e4d6', font: 'IBM Plex Sans', size: 8, max: 176});
   });
-  if (def.fact) {
-    const y0 = 116;
-    R('#0f1422', 14, y0 - 4, W - 28, 44); R('#2f6db3', 14, y0 - 4, 2, 44);
-    txt(t().physics, 22, y0 - 1, {color: '#9fe0ff'});
-    def.fact[lang].forEach((line, i) => txt(line, 22, y0 + 10 + i * 9, {color: '#b9c2cf', font: 'IBM Plex Sans', size: 7, max: W - 44}));
-  }
-  if (cardT > 20 && (frame >> 5) % 2) txt(t().cont, W / 2, H - 10, {align: 'center', color: '#6b7190'});
+  drawStack(204, 22, 100, 72, levelIndex);
+  txt(def.stack[lang], 254, 100, {align: 'center', color: '#c9c2ae', font: 'IBM Plex Sans', size: 7});
+  const y0 = 116;
+  R('#0f1422', 10, y0 - 4, W - 20, 46); R('#2f6db3', 10, y0 - 4, 2, 46);
+  txt(t().physics, 18, y0 - 1, {color: '#9fe0ff'});
+  def.fact[lang].forEach((line, i) => txt(line, 18, y0 + 10 + i * 9, {color: '#b9c2cf', font: 'IBM Plex Sans', size: 7, max: W - 36}));
+  if (cardT > 20 && (frame >> 5) % 2) txt(t().cont, W / 2, H - 9, {align: 'center', color: '#6b7190'});
 }
 
 function renderTitle() {
@@ -734,23 +814,26 @@ function renderTitle() {
 function renderEnding() {
   R('#07080c', 0, 0, W, H);
   const dawn = clamp(cardT / 600, 0, 1);
-  const g = ctx.createLinearGradient(0, 100, 0, 180);
-  g.addColorStop(0, `rgba(40,50,80,${dawn})`); g.addColorStop(1, `rgba(220,140,90,${dawn * 0.6})`);
-  ctx.fillStyle = g; ctx.fillRect(0, 100, W, 80);
-  R('#0b0f18', 0, 150, W, 30);
-  txt(ENDING.time, W / 2, 16, {align: 'center', size: 32, font: 'Pixelify Sans', weight: 700, color: '#ffcf5a', shadow: '#3a2200'});
+  const g = ctx.createLinearGradient(0, 110, 0, 180);
+  g.addColorStop(0, `rgba(40,50,80,${dawn * 0.8})`); g.addColorStop(1, `rgba(220,140,90,${dawn * 0.5})`);
+  ctx.fillStyle = g; ctx.fillRect(0, 110, W, 70);
+  txt(`${t().layerWord} ${LEVELS.length + 1}`, 16, 20, {color: '#6b7190'});
+  txt(ENDING.layer[lang].toUpperCase(), 16, 30, {size: 24, font: 'Pixelify Sans', weight: 700, color: '#e0402a', shadow: '#2a0800', max: 180});
+  txt(ENDING.time, 16, 58, {color: '#8c93a8', font: 'IBM Plex Sans', size: 8});
   const shown = Math.floor(cardT / 2);
   let used = 0;
   ENDING.log[lang].forEach((line, i) => {
     const part = line.slice(0, Math.max(0, shown - used)); used += line.length + 4;
-    txt(part, W / 2, 56 + i * 11, {align: 'center', color: i >= 4 ? '#e0402a' : '#e9e4d6', font: 'IBM Plex Sans', size: 8});
+    txt(part, 16, 72 + i * 10, {color: i >= 4 ? '#e0402a' : '#e9e4d6', font: 'IBM Plex Sans', size: 8, max: 180});
   });
+  drawStack(204, 22, 100, 72, cardT > 200 ? LEVELS.length : LEVELS.length - 1);
+  if (cardT > 200) txt(ENDING.stack[lang], 254, 100, {align: 'center', color: '#e0402a', font: 'IBM Plex Sans', size: 7});
   if (cardT > 260) {
-    txt(t().stats(deaths, totalShifts), W / 2, 126, {align: 'center', color: '#8c93a8'});
-    txt(LEVELS.map((d, i) => `${d.time} ${deathsBy[i]}`).join('  '), W / 2, 136, {align: 'center', color: '#6b7190', max: W - 20});
+    txt(t().stats(deaths, totalShifts), W / 2, 136, {align: 'center', color: '#8c93a8'});
+    txt(LEVELS.map((d, i) => `${i + 1}:${deathsBy[i]}`).join('  '), W / 2, 146, {align: 'center', color: '#6b7190', max: W - 20});
   }
-  if (cardT > 300) txt(t().thanks, W / 2, 148, {align: 'center', color: '#c9c2ae'});
-  txt(t().credit, W / 2, H - 10, {align: 'center', color: '#4c5470', font: 'IBM Plex Sans', size: 6});
+  if (cardT > 300) txt(t().thanks, W / 2, 158, {align: 'center', color: '#c9c2ae'});
+  txt(t().credit, W / 2, H - 9, {align: 'center', color: '#4c5470', font: 'IBM Plex Sans', size: 6});
 }
 
 function render() {

@@ -9,7 +9,7 @@ const play = (level, actions) => { const s = core.newState(level); for (const a 
 
 test('every level has texts in both languages', () => {
   for (const d of LEVELS) {
-    for (const key of ['title', 'log', 'fact', 'hint']) for (const l of ['de', 'en']) assert.ok(d[key] && d[key][l], `${d.id} ${key} ${l}`);
+    for (const key of ['title', 'layer', 'stack', 'log', 'fact', 'hint']) for (const l of ['de', 'en']) assert.ok(d[key] && d[key][l], `${d.id} ${key} ${l}`);
     if (d.route) for (const r of d.route) assert.ok(r.de && r.en, `${d.id} route`);
     assert.equal(d.route ? d.route.length : 0, core.parseLevel(d).stations.length, `${d.id}: route names match stations`);
   }
@@ -54,7 +54,8 @@ test('a shift into a solid tile is refused, a shift onto the previous shift is f
   core.step(s, 'right');
   core.step(s, 'shift');
   assert.equal(s.layer, core.NIGHT);
-  // Teleport next to the waiting enemy and step onto it.
+  core.step(s, 'wait'); core.step(s, 'wait');
+  // After the grace, teleport next to the waiting enemy and step onto it.
   s.x = 17; s.y = 8;
   core.step(s, 'right');
   assert.equal(s.status, 'lost'); assert.equal(s.cause, 'caught');
@@ -86,10 +87,36 @@ test('process stations only count in order', () => {
 });
 
 test('the previous shift gathers under a player hiding in the day shift', () => {
-  const def = LEVELS.find(d => d.id === '2300');
+  const def = LEVELS.find(d => d.id === 'ox');
   const L = core.parseLevel(def);
   const s = core.newState(L);
-  for (let i = 0; i < 120; i++) core.step(s, 'wait');
+  for (let i = 0; i < 400; i++) core.step(s, 'wait');
   const e = s.enemies[0];
   assert.ok(Math.abs(e.x - s.x) + Math.abs(e.y - s.y) <= 1, `enemy at ${e.x},${e.y}, player at ${s.x},${s.y}`);
+});
+
+test('after a resume nothing can kill for a moment, and the bell skips a walled-in player', () => {
+  const day = ['####################', '#P.................#', '#..................#', '#..................#', '#..................#',
+    '#..................#', '#..................#', '#..................#', '#.................X#', '####################'];
+  const night = day.map((r, y) => y === 1 ? '#o.................#' : r.replace('P', '.').replace('X', '.'));
+  const L = core.parseLevel({id: 't4', time: '', title: {}, day, night, bell: 5});
+  const s = core.newState(L);
+  s.safeUntil = 8;
+  for (let i = 0; i < 5; i++) core.step(s, 'wait');
+  assert.equal(s.status, 'play', 'the bell at step 5 does not wall in a protected player');
+  assert.equal(s.layer, core.DAY);
+});
+
+test('grace after shifting next to the previous shift is long enough to shift back', () => {
+  const day = ['####################', '#P.................#', '#..................#', '#..................#', '#..................#',
+    '#..................#', '#..................#', '#..................#', '#.................X#', '####################'];
+  const night = day.map((r, y) => y === 1 ? '#.V................#' : r.replace('P', '.').replace('X', '.'));
+  const L = core.parseLevel({id: 't5', time: '', title: {}, day, night, enemyEvery: 1});
+  const s = core.newState(L);
+  core.step(s, 'shift');
+  assert.equal(s.status, 'play', 'not caught on the step of the shift');
+  core.step(s, 'wait'); core.step(s, 'wait');
+  assert.equal(s.status, 'play', 'still inside the grace');
+  core.step(s, 'shift');
+  assert.equal(s.status, 'play'); assert.equal(s.layer, core.DAY);
 });

@@ -1,10 +1,12 @@
-/* Schichtwechsel - levels and texts. Each level is one hour of the night shift at
- * Vogt Microelettronica, Stabilimento di Luino, on Lago Maggiore.
- * Both layers are 20 x 10. Legend: # wall, M machine, = window to the lake, o hole, . floor,
- * P start, X airlock, 1-8 process stations in order (in the layer where they are drawn),
- * V previous shift (night only).
- * route: names of the process stations. fact: real semiconductor physics behind the hour.
- * beams: implanter beams (day only), bent by a magnet: r = sqrt(2 m E) / (q B). */
+/* Schichtwechsel - levels and texts. Each level adds one layer to lot 4471, in the order of a real
+ * front-end process flow, during one night at Vogt Microelettronica, Stabilimento di Luino, on Lago Maggiore.
+ * Both maps are 20 x 10: "day" is your shift, "night" is the shift before.
+ * Legend: # wall, M machine, = window to the lake, o hole, . floor, P start, X airlock,
+ * 1-8 process stations in order (in the map where they are drawn), V previous shift (night map only).
+ * route: names of the process stations. fact: the physics behind the layer.
+ * beams: implanter beams (your shift), bent by a magnet: r = sqrt(2 m E) / (q B).
+ * heat: furnace mouths that open in turns; the floor heat follows the heat equation.
+ * pulses: plasma that fires in a fixed rhythm inside a rectangle of one map. */
 (function (root, factory) {
   const api = factory();
   if (typeof module === 'object' && module.exports) module.exports = api;
@@ -14,15 +16,16 @@
 
   const LEVELS = [
     {
-      id: '2200', time: '22:00',
+      id: 'si', time: '22:00',
+      layer: {de: 'Silizium', en: 'Silicon'}, stack: {de: 'Wafer · 775 µm', en: 'Wafer · 775 µm'},
       title: {de: 'Übergabe', en: 'Handover'},
       log: {
-        de: ['Turno B nicht erschienen: Rossi, Colombo, Ferrari.', 'Anlagen laufen.', 'Übernehmen Sie Bay 7 bis zur Frühschicht.'],
-        en: ['Shift B did not show up: Rossi, Colombo, Ferrari.', 'Tools are running.', 'Take over Bay 7 until the morning shift.'],
+        de: ['Turno B nicht erschienen:', 'Rossi, Colombo, Ferrari.', 'Übernehmen Sie Bay 7.'],
+        en: ['Shift B did not show up:', 'Rossi, Colombo, Ferrari.', 'Take over Bay 7.'],
       },
       fact: {
-        de: ['Reinraum ISO-Klasse 3: höchstens 35 Partikel ab 0,5 µm', 'pro Kubikmeter Luft. Ein gehender Mensch verliert', 'Millionen pro Minute. Darum der Anzug.'],
-        en: ['Cleanroom ISO class 3: at most 35 particles of 0.5 µm', 'or larger per cubic metre of air. A walking person', 'sheds millions per minute. Hence the suit.'],
+        de: ['Chip-Silizium ist zu 99,9999999 % rein: Auf eine Milliarde', 'Siliziumatome kommt höchstens ein fremdes. Darum Reinraum,', 'Anzug und Schleuse. Ein Staubkorn ist hier ein Felsbrocken.'],
+        en: ['Chip-grade silicon is 99.9999999 % pure: at most one foreign', 'atom per billion silicon atoms. Hence the cleanroom, the suit', 'and the airlock. Down here, a speck of dust is a boulder.'],
       },
       hint: {de: 'SHIFT wechselt die Schicht', en: 'SHIFT changes the shift'},
       day: [
@@ -51,18 +54,19 @@
       ],
     },
     {
-      id: '2300', time: '23:00',
-      title: {de: 'Gelblicht', en: 'Yellow Light'},
+      id: 'ox', time: '23:00',
+      layer: {de: 'Oxid', en: 'Oxide'}, stack: {de: 'SiO₂ · 50 nm', en: 'SiO₂ · 50 nm'},
+      title: {de: 'Schatten', en: 'Shadows'},
       log: {
-        de: ['Im Gelblicht steht jemand.', 'Niemand ist eingestempelt.'],
-        en: ['Someone is standing in the yellow light.', 'Nobody is clocked in.'],
+        de: ['In der Vorschicht steht jemand.', 'Niemand ist eingestempelt.'],
+        en: ['Someone is standing in the shift before.', 'Nobody is clocked in.'],
       },
       fact: {
-        de: ['Fotolack reagiert auf kurzwelliges Licht. Ein Photon', 'gelben Lichts (580 nm) trägt nur E = hc/λ ≈ 2,1 eV.', 'Zu wenig zum Belichten. Darum ist die Lithografie gelb.'],
-        en: ['Photoresist reacts to short wavelengths. A photon of', 'yellow light (580 nm) carries only E = hc/λ ≈ 2.1 eV.', 'Too little to expose it. That is why litho is yellow.'],
+        de: ['Thermisches Oxid: Bei 1000 °C wächst SiO₂ in trockenem', 'Sauerstoff nur einige zehn Nanometer pro Stunde.', 'Je dicker die Schicht, desto langsamer (Deal-Grove).'],
+        en: ['Thermal oxide: at 1000 °C, SiO₂ grows in dry oxygen', 'by only a few tens of nanometres per hour.', 'The thicker it gets, the slower it grows (Deal-Grove).'],
       },
-      hint: {de: 'Ihre Schatten folgen dir auch am Tag', en: 'Their shadows follow you, even by day'},
-      enemyEvery: 3,
+      hint: {de: 'Ihre Schatten folgen dir auch in deiner Schicht', en: 'Their shadows follow you, even in your shift'},
+      enemyEvery: 4,
       day: [
         '####################',
         '#P.......#.........#',
@@ -89,19 +93,20 @@
       ],
     },
     {
-      id: '0000', time: '00:00',
-      title: {de: 'Los 4471', en: 'Lot 4471'},
+      id: 'pr', time: '00:00',
+      layer: {de: 'Fotolack', en: 'Photoresist'}, stack: {de: 'Fotolack · 1,2 µm', en: 'Resist · 1.2 µm'},
+      title: {de: 'Gelblicht', en: 'Yellow Light'},
       log: {
         de: ['Los 4471 steht seit 21:40 vor dem Coater.', 'Bringen Sie es durch die Lithografie.'],
         en: ['Lot 4471 has been waiting at the coater since 21:40.', 'Take it through lithography.'],
       },
       fact: {
-        de: ['Der Scanner belichtet mit 193 nm, unter Wasser (n ≈ 1,44).', 'Kleinste Struktur ≈ k₁ · λ / NA = 0,28 · 193 nm / 1,35', '≈ 40 nm. Kleiner geht nur mit mehreren Belichtungen.'],
-        en: ['The scanner exposes at 193 nm, through water (n ≈ 1.44).', 'Smallest feature ≈ k₁ · λ / NA = 0.28 · 193 nm / 1.35', '≈ 40 nm. Smaller needs several exposures.'],
+        de: ['Fotolack reagiert auf kurzwelliges Licht. Ein Photon', 'gelben Lichts (580 nm) trägt nur E = hc/λ ≈ 2,1 eV.', 'Zu wenig zum Belichten. Darum ist die Vorschicht gelb.'],
+        en: ['Photoresist reacts to short wavelengths. A photon of', 'yellow light (580 nm) carries only E = hc/λ ≈ 2.1 eV.', 'Too little to expose it. That is why the shift before is yellow.'],
       },
       hint: {de: 'Die Schritte in Reihenfolge, dann zur Schleuse', en: 'The steps in order, then to the airlock'},
       route: [{de: 'Belacken', en: 'Coat'}, {de: 'Belichten', en: 'Expose'}, {de: 'Entwickeln', en: 'Develop'}],
-      enemyEvery: 3,
+      enemyEvery: 4,
       day: [
         '####################',
         '#P.....#.......#..X#',
@@ -128,19 +133,20 @@
       ],
     },
     {
-      id: '0100', time: '01:00',
+      id: 'st', time: '01:00',
+      layer: {de: 'Struktur', en: 'Pattern'}, stack: {de: 'Linien · 40 nm', en: 'Lines · 40 nm'},
       title: {de: 'Campanile', en: 'Campanile'},
       log: {
         de: ['Drüben in Luino schlägt der Campanile.', 'Bei jedem Schlag wechselt die Schicht.', 'Wer dann in der Wand steht, bleibt drin.'],
         en: ['Across the water, the campanile of Luino strikes.', 'With every strike the shift changes.', 'Whoever stands inside a wall then, stays there.'],
       },
       fact: {
-        de: ['Thermisches Oxid: Bei 1000 °C wächst SiO₂ in trockenem', 'Sauerstoff nur einige zehn Nanometer pro Stunde.', 'Je dicker die Schicht, desto langsamer (Deal-Grove).'],
-        en: ['Thermal oxide: at 1000 °C, SiO₂ grows in dry oxygen', 'by only a few tens of nanometres per hour.', 'The thicker it gets, the slower it grows (Deal-Grove).'],
+        de: ['Der Scanner belichtet mit 193 nm, unter Wasser (n ≈ 1,44).', 'Kleinste Struktur ≈ k₁ · λ / NA = 0,28 · 193 nm / 1,35 ≈ 40 nm.', 'Das Ätzen überträgt das Muster dann ins Oxid.'],
+        en: ['The scanner exposes at 193 nm, through water (n ≈ 1.44).', 'Smallest feature ≈ k₁ · λ / NA = 0.28 · 193 nm / 1.35 ≈ 40 nm.', 'Etching then transfers the pattern into the oxide.'],
       },
       hint: {de: 'Die Glocke wechselt für dich. Steh auf festem Boden', en: 'The bell shifts for you. Stand on solid ground'},
-      route: [{de: 'Reinigen', en: 'Clean'}, {de: 'Oxidieren', en: 'Oxidise'}],
-      enemyEvery: 3,
+      route: [{de: 'Ätzen', en: 'Etch'}, {de: 'Lack entfernen', en: 'Strip resist'}],
+      enemyEvery: 4,
       bell: 40,
       day: [
         '####################',
@@ -168,7 +174,8 @@
       ],
     },
     {
-      id: '0200', time: '02:00',
+      id: 'im', time: '02:00',
+      layer: {de: 'Dotierung', en: 'Doping'}, stack: {de: 'Arsen · 10¹⁵ cm⁻²', en: 'Arsenic · 10¹⁵ cm⁻²'},
       title: {de: 'Implanter', en: 'Implanter'},
       log: {
         de: ['Der Implanter fährt sein Rezept: Bor, Phosphor, Arsen.', 'Er hätte um 22:00 stehen sollen.'],
@@ -180,7 +187,7 @@
       },
       hint: {de: 'Lies den Strahl. Schwere Ionen fliegen weiter', en: 'Read the beam. Heavy ions fly wider'},
       route: [{de: 'Implantieren', en: 'Implant'}],
-      enemyEvery: 3,
+      enemyEvery: 4,
       beams: [{x: 1, y: 8, dir: 'right', keV: 40, metersPerTile: 0.15, field: {x0: 3, y0: 1, x1: 12, y1: 8, B: 0.25}, species: ['B', 'P', 'As'], every: 24}],
       day: [
         '####################',
@@ -207,10 +214,142 @@
         '####################',
       ],
     },
+    {
+      id: 'an', time: '03:00',
+      layer: {de: 'Ausheilen', en: 'Anneal'}, stack: {de: '1050 °C · 10 s', en: '1050 °C · 10 s'},
+      title: {de: 'Ofenreihe', en: 'Furnace Row'},
+      log: {
+        de: ['Die Öfen öffnen sich von selbst, einer nach dem anderen.', 'Im Rohr liegen Wafer, die niemand geladen hat.'],
+        en: ['The furnaces open by themselves, one after another.', 'Inside the tubes lie wafers nobody loaded.'],
+      },
+      fact: {
+        de: ['Wärme breitet sich nach ∂T/∂t = α·∇²T aus. Dotieratome', 'wandern genauso: Diffusionslänge ≈ 2·√(D·t). Darum heizen', 'Kurzzeitöfen in Sekunden über 1000 °C und gleich wieder ab.'],
+        en: ['Heat spreads as ∂T/∂t = α·∇²T. Dopant atoms wander', 'the same way: diffusion length ≈ 2·√(D·t). That is why rapid', 'thermal anneals go past 1000 °C for seconds, then cool at once.'],
+      },
+      hint: {de: 'Warte, bis die Hitze zurückweicht', en: 'Wait for the heat to fall back'},
+      route: [{de: 'Ausheilen', en: 'Anneal'}],
+      enemyEvery: 4,
+      heat: {
+        ambient: 22, source: 1000, threshold: 60, alpha: 0.2, cooling: 0.3, substeps: 2, period: 48, open: [0, 14],
+        sources: [[6, 1, 0], [9, 1, 8], [12, 1, 16], [15, 1, 24], [5, 5, 12], [8, 5, 20], [11, 5, 28], [14, 5, 36]],
+      },
+      day: [
+        '####################',
+        '#P..#MMMMMMMMMMM#..#',
+        '#...#.....#.....#.1#',
+        '#.........#........#',
+        '#...#.....#.....#..#',
+        '#...#MMMMMMMMMMM#..#',
+        '#...#...........#..#',
+        '#...#...........#..#',
+        '#...#...........#.X#',
+        '####################',
+      ],
+      night: [
+        '####################',
+        '#...#ooooooooooo#..#',
+        '#...#oooo...oooo#..#',
+        '#...#oooo...oooo#..#',
+        '#...#oooo...oooo#..#',
+        '#...#...........#..#',
+        '#...#...........#..#',
+        '#...........V......#',
+        '#...#...........#..#',
+        '####################',
+      ],
+    },
+    {
+      id: 'ct', time: '04:00',
+      layer: {de: 'Kontakte', en: 'Contacts'}, stack: {de: 'Kontaktloch · 60 nm', en: 'Contact hole · 60 nm'},
+      title: {de: 'Plasma', en: 'Plasma'},
+      log: {
+        de: ['Im Ätzer leuchtet Plasma.', 'Auf dem Bildschirm steht das Rezept ROSSI_01.'],
+        en: ['Plasma glows in the etcher.', 'On the screen: recipe ROSSI_01.'],
+      },
+      fact: {
+        de: ['Der Ätzer zündet Plasma mit 13,56 MHz. Ionen fallen senkrecht', 'durch die Randschicht auf den Wafer. So entstehen gerade,', 'tiefe Kontaktlöcher statt runder Mulden.'],
+        en: ['The etcher strikes a plasma at 13.56 MHz. Ions fall straight', 'down through the sheath onto the wafer. That is how straight,', 'deep contact holes form instead of round dents.'],
+      },
+      hint: {de: 'Das Plasma zündet im Takt', en: 'The plasma fires in rhythm'},
+      route: [{de: 'Oxid abscheiden', en: 'Deposit oxide'}, {de: 'Kontakte ätzen', en: 'Etch contacts'}],
+      enemyEvery: 4,
+      pulses: [
+        {x0: 1, y0: 3, x1: 6, y1: 4, period: 30, on: [0, 10]},
+        {x0: 7, y0: 3, x1: 12, y1: 4, period: 30, on: [10, 20]},
+        {x0: 13, y0: 3, x1: 18, y1: 4, period: 30, on: [20, 30]},
+      ],
+      day: [
+        '####################',
+        '#P..MM....MM....MM.#',
+        '#...MM....MM....MM.#',
+        '#..................#',
+        '#..................#',
+        '####.####.####.#####',
+        '#...1....#.........#',
+        '#........#....2....#',
+        '#........#.......X.#',
+        '####################',
+      ],
+      night: [
+        '####################',
+        '#...oo....oo....oo.#',
+        '#...oo....oo....oo.#',
+        '#..................#',
+        '#........V.........#',
+        '####.####.####.#####',
+        '#..................#',
+        '#.........V........#',
+        '#..................#',
+        '####################',
+      ],
+    },
+    {
+      id: 'me', time: '05:00',
+      layer: {de: 'Metall', en: 'Metal'}, stack: {de: 'Aluminium · 500 nm', en: 'Aluminium · 500 nm'},
+      title: {de: 'Schleuse', en: 'Airlock'},
+      log: {
+        de: ['Letzter Schritt. Die Glocke schlägt öfter.', 'Sie warten an der Schleuse.'],
+        en: ['Last step. The bell strikes more often.', 'They are waiting at the airlock.'],
+      },
+      fact: {
+        de: ['Sputtern im Vakuum: Freie Weglänge λ = kT / (√2·π·d²·p).', 'Bei 10⁻⁶ mbar fliegt ein Argonatom im Mittel rund 70 m weit.', 'Darum treffen die Aluminiumatome geradlinig auf den Wafer.'],
+        en: ['Sputtering in vacuum: mean free path λ = kT / (√2·π·d²·p).', 'At 10⁻⁶ mbar an argon atom flies about 70 m on average.', 'So the aluminium atoms reach the wafer in straight lines.'],
+      },
+      hint: {de: 'Alles zugleich. Die Glocke schlägt öfter', en: 'Everything at once. The bell strikes more often'},
+      route: [{de: 'Sputtern', en: 'Sputter'}, {de: 'Messen', en: 'Measure'}],
+      enemyEvery: 4,
+      bell: 36,
+      pulses: [{x0: 8, y0: 2, x1: 11, y1: 7, period: 30, on: [0, 12]}],
+      day: [
+        '####################',
+        '#P.....#MMMM#.....X#',
+        '#......#....#......#',
+        '#..MM..........MM..#',
+        '#..MM...#..#...MM..#',
+        '#.......#..#.......#',
+        '#..MM...#..#...MM..#',
+        '#..MM..........MM..#',
+        '#..1...#....#...2..#',
+        '####################',
+      ],
+      night: [
+        '####################',
+        '#..o...#oooo#...o..#',
+        '#......#....#......#',
+        '#..MM.....V....MM..#',
+        '#..MM...#..#...MM..#',
+        '#o......#..#......o#',
+        '#..MM...#..#...MM..#',
+        '#..MM..........MM..#',
+        '#......#....#...V..#',
+        '####################',
+      ],
+    },
   ];
 
   const ENDING = {
     time: '06:00',
+    layer: {de: 'Passivierung', en: 'Passivation'}, stack: {de: '12 nm', en: '12 nm'},
     log: {
       de: ['Über dem See tutet das erste Schiff.', 'Die Frühschicht kommt.', '', 'Schichtbuch, 06:12:', 'Nachtschicht nicht erschienen.', 'Neue Schicht auf Los 4471: 12 nm.'],
       en: ['Out on the lake, the first ferry sounds its horn.', 'The morning shift arrives.', '', 'Shift log, 06:12:', 'Night shift did not show up.', 'New layer on lot 4471: 12 nm.'],
