@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Schichtwechsel · Turno di notte</title>
+<meta name="description" content="Schichtwechsel: a dark night-shift game in a chip fab on Lago Maggiore. Press SHIFT to switch between the day shift and the night shift. Made for GitHub Game Off 2026, theme SHIFT.">
+<meta name="theme-color" content="#07080c">
+<style>
+  @font-face{font-family:"Pixelify Sans";src:url("assets/fonts/pixelify-sans-latin.woff2") format("woff2");font-weight:400 700;font-display:swap}
+  @font-face{font-family:"Silkscreen";src:url("assets/fonts/silkscreen-latin.woff2") format("woff2");font-weight:400;font-display:swap}
+  @font-face{font-family:"IBM Plex Sans";src:url("assets/fonts/ibm-plex-sans-latin.woff2") format("woff2");font-weight:100 700;font-display:swap}
+  :root{color-scheme:dark;--bg:#07080c;--panel:#0f1422;--edge:#232b44;--day:#9fe0ff;--night:#ffb43a;--text:#e9e4d6;--muted:#8c93a8}
+  *{box-sizing:border-box}
+  html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text);font:15px/1.5 "IBM Plex Sans",system-ui,sans-serif}
+  body{display:flex;flex-direction:column;align-items:center;gap:12px;padding:14px 16px 28px}
+  header{width:100%;max-width:980px;display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}
+  h1{margin:0;font:700 28px/1 "Pixelify Sans",monospace;letter-spacing:.5px;background:linear-gradient(90deg,#e9eef5 50%,var(--night) 50%);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .sub{margin:4px 0 0;color:var(--muted);font-size:14px}
+  .tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .tools label{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--muted)}
+  select,.tool{font:12px "Silkscreen",monospace;background:var(--panel);color:var(--text);border:1px solid var(--edge);border-radius:6px;padding:7px 10px;min-height:36px;cursor:pointer}
+  .tool:hover,.tool:focus-visible,select:focus-visible{border-color:var(--night);outline:none}
+  .frame{width:100%;max-width:980px;background:#000;border:1px solid var(--edge);border-radius:10px;padding:8px}
+  canvas{display:block;width:100%;aspect-ratio:16/9;image-rendering:pixelated;border-radius:4px;touch-action:none;user-select:none;-webkit-user-select:none}
+  body:fullscreen{padding:6px;justify-content:center;overflow:auto}
+  body:fullscreen header>div:first-child,body:fullscreen .about,body:fullscreen footer{display:none}
+  body:fullscreen .frame{max-width:calc((100dvh - 70px)*16/9);padding:0;border:0}
+  .pad{display:none;width:100%;max-width:980px;justify-content:space-between;align-items:center;gap:16px}
+  .dpad{display:grid;grid-template-columns:repeat(3,54px);grid-template-rows:repeat(3,54px);gap:4px}
+  .pad button{font:13px "Silkscreen",monospace;color:var(--text);background:var(--panel);border:1px solid var(--edge);border-radius:10px;touch-action:none;user-select:none;-webkit-user-select:none}
+  .pad button.on{filter:brightness(1.6)}
+  .dpad [data-dir="up"]{grid-column:2;grid-row:1}.dpad [data-dir="left"]{grid-column:1;grid-row:2}
+  .dpad [data-dir="right"]{grid-column:3;grid-row:2}.dpad [data-dir="down"]{grid-column:2;grid-row:3}
+  .pad [data-k="shift"]{width:120px;height:120px;border-radius:50%;font-size:18px;background:#2a1e08;border-color:var(--night);color:var(--night)}
+  @media (pointer:coarse){.pad{display:flex}.keys{display:none}}
+  .about{width:100%;max-width:980px;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+  .about section{background:var(--panel);border:1px solid var(--edge);border-radius:10px;padding:12px 14px}
+  .about h2{margin:0 0 6px;font:700 15px "Pixelify Sans",monospace;color:var(--night)}
+  .about p{margin:0;color:#c9c8cf;font-size:14px}
+  kbd{font:11px "Silkscreen",monospace;background:#1f2640;border:1px solid var(--edge);border-bottom-width:2px;border-radius:4px;padding:1px 5px;color:var(--text)}
+  footer{width:100%;max-width:980px;color:var(--muted);font-size:12px;display:flex;flex-wrap:wrap;gap:8px 16px}
+  footer a{color:var(--muted)} footer a:hover,footer a:focus-visible{color:var(--night)}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>SCHICHTWECHSEL</h1>
+    <p class="sub" data-de="Nachtschicht in einem Chipwerk bei Luino am Lago Maggiore. Ein Druck auf SHIFT, und du stehst in der anderen Schicht." data-en="Night shift in a chip fab near Luino on Lago Maggiore. One press of SHIFT and you stand in the other shift.">Nachtschicht in einem Chipwerk bei Luino am Lago Maggiore. Ein Druck auf SHIFT, und du stehst in der anderen Schicht.</p>
+  </div>
+  <div class="tools">
+    <label for="language"><span data-de="Sprache" data-en="Language">Sprache</span>
+      <select id="language"><option value="de" lang="de">DE</option><option value="en" lang="en">EN</option></select>
+    </label>
+    <button class="tool" id="btnSound" type="button">Ton: an</button>
+    <button class="tool" id="btnPause" type="button">Pause</button>
+    <button class="tool" id="btnFull" type="button">Vollbild</button>
+  </div>
+</header>
+
+<div class="frame"><canvas id="game" width="960" height="540" aria-label="Schichtwechsel"></canvas></div>
+
+<div class="pad" aria-hidden="true">
+  <div class="dpad">
+    <button type="button" data-dir="up">▲</button><button type="button" data-dir="left">◀</button>
+    <button type="button" data-dir="right">▶</button><button type="button" data-dir="down">▼</button>
+  </div>
+  <button type="button" data-k="shift">SHIFT</button>
+</div>
+
+<div class="about">
+  <section class="keys">
+    <h2 data-de="Steuerung" data-en="Controls">Steuerung</h2>
+    <p data-de="&lt;kbd&gt;WASD&lt;/kbd&gt; oder Pfeiltasten: gehen · &lt;kbd&gt;SHIFT&lt;/kbd&gt; oder &lt;kbd&gt;Leertaste&lt;/kbd&gt;: Schicht wechseln · &lt;kbd&gt;R&lt;/kbd&gt;: Stunde neu · &lt;kbd&gt;P&lt;/kbd&gt;: Pause · &lt;kbd&gt;M&lt;/kbd&gt;: Ton. Controller: Stick, A wechselt." data-en="&lt;kbd&gt;WASD&lt;/kbd&gt; or arrow keys: walk · &lt;kbd&gt;SHIFT&lt;/kbd&gt; or &lt;kbd&gt;Space&lt;/kbd&gt;: change shift · &lt;kbd&gt;R&lt;/kbd&gt;: restart hour · &lt;kbd&gt;P&lt;/kbd&gt;: pause · &lt;kbd&gt;M&lt;/kbd&gt;: sound. Controller: stick, A shifts."><kbd>WASD</kbd> oder Pfeiltasten: gehen · <kbd>SHIFT</kbd> oder <kbd>Leertaste</kbd>: Schicht wechseln · <kbd>R</kbd>: Stunde neu · <kbd>P</kbd>: Pause · <kbd>M</kbd>: Ton. Controller: Stick, A wechselt.</p>
+  </section>
+  <section>
+    <h2 data-de="Zwei Schichten" data-en="Two shifts">Zwei Schichten</h2>
+    <p data-de="In der Tagschicht ist das Werk hell und sicher. Du siehst nur die Schatten der Vorschicht, und sie sammeln sich unter dir. In der Nachtschicht kommst du durch, wo am Tag Wände stehen. Dort siehst du nur, was deine Lampe zeigt." data-en="In the day shift the fab is bright and safe. You only see the shadows of the previous shift, and they gather beneath you. In the night shift you get through where walls stand by day. There you only see what your lamp shows.">In der Tagschicht ist das Werk hell und sicher. Du siehst nur die Schatten der Vorschicht, und sie sammeln sich unter dir. In der Nachtschicht kommst du durch, wo am Tag Wände stehen. Dort siehst du nur, was deine Lampe zeigt.</p>
+  </section>
+  <section>
+    <h2 data-de="Echte Physik" data-en="Real physics">Echte Physik</h2>
+    <p data-de="Gelblicht, Lithografie, thermisches Oxid und ein Implanter, dessen Strahl die Lorentzkraft biegt: r = √(2mE)/(qB). Jede Stunde erklärt, was in einer echten Fab dahintersteckt." data-en="Yellow light, lithography, thermal oxide and an implanter whose beam is bent by the Lorentz force: r = √(2mE)/(qB). Every hour explains the physics behind a real fab.">Gelblicht, Lithografie, thermisches Oxid und ein Implanter, dessen Strahl die Lorentzkraft biegt: r = √(2mE)/(qB). Jede Stunde erklärt, was in einer echten Fab dahintersteckt.</p>
+  </section>
+</div>
+
+<footer>
+  <span data-de="Ein Spiel von Maurizio Odenwaeller für GitHub Game Off 2026, Thema SHIFT. Entwickelt mit Claude, einer KI von Anthropic." data-en="A game by Maurizio Odenwaeller for GitHub Game Off 2026, theme SHIFT. Made with Claude, an AI by Anthropic.">Ein Spiel von Maurizio Odenwaeller für GitHub Game Off 2026, Thema SHIFT. Entwickelt mit Claude, einer KI von Anthropic.</span>
+  <a href="https://odenwaeller.org/spiele/" target="_blank" rel="noopener" data-de="Weitere Spiele" data-en="More games">Weitere Spiele</a>
+</footer>
+
+<script src="src/core.js"></script>
+<script src="src/levels.js"></script>
+<script src="src/game.js"></script>
+</body>
+</html>

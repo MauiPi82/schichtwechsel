@@ -1,0 +1,10 @@
+{
+  "name": "schichtwechsel",
+  "private": true,
+  "description": "Schichtwechsel: a night shift in a chip fab on Lago Maggiore. GitHub Game Off 2026, theme SHIFT.",
+  "scripts": {
+    "test": "node --test test/core.test.cjs",
+    "levels": "node tools/levels-report.cjs",
+    "browser-check": "node test/browser-check.cjs"
+  }
+}
