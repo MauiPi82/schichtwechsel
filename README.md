@@ -71,6 +71,10 @@ Game by Maurizio Odenwaeller, [odenwaeller.org](https://odenwaeller.org/spiele/)
 
 **AI disclosure:** code, level design, texts, pixel art and the procedural sound were created with Claude (Anthropic) through Claude Code, directed by Maurizio Odenwaeller. All graphics and sounds are generated in code; there are no image or audio files.
 
-Fonts under the SIL Open Font License, see `assets/fonts/`: Pixelify Sans, Silkscreen, IBM Plex Sans.
+## License
+
+Code, levels and texts: MIT, see `LICENSE`.
+
+Fonts in `assets/fonts/` keep their own SIL Open Font License: Pixelify Sans, Silkscreen, IBM Plex Sans.
 
 The radio waltz is an original melody.
