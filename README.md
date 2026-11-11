@@ -30,7 +30,7 @@ Open `index.html` through any local web server, for example:
 python3 -m http.server 8770
 ```
 
-Then open <http://127.0.0.1:8770/>.
+Then open <http://127.0.0.1:8770/>. Add `?hour=3` (or `?stunde=3`) to start at the third hour.
 
 | Input | Action |
 | --- | --- |
@@ -71,10 +71,10 @@ Game by Maurizio Odenwaeller, [odenwaeller.org](https://odenwaeller.org/spiele/)
 
 **AI disclosure:** code, level design, texts, pixel art and the procedural sound were created with Claude (Anthropic) through Claude Code, directed by Maurizio Odenwaeller. All graphics and sounds are generated in code; there are no image or audio files.
 
+The radio waltz is an original melody.
+
 ## License
 
 Code, levels and texts: MIT, see `LICENSE`.
 
 Fonts in `assets/fonts/` keep their own SIL Open Font License: Pixelify Sans, Silkscreen, IBM Plex Sans.
-
-The radio waltz is an original melody.

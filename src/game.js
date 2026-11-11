@@ -278,6 +278,11 @@ function pollPad() {
 /* ---------- Game flow ---------- */
 let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0;
 let progress = clamp(+store.get('level') || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
+const deathsBy = levels.map(() => 0);
+const BUILD = '0.2 · 2026-11-11';
+// Testers can jump to an hour: ?stunde=3 or ?hour=3 opens the third hour.
+const jump = +(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || 0);
+if (jump >= 1 && jump <= levels.length) progress = jump - 1;
 function startCard(i) {
   levelIndex = i; mode = 'card'; cardT = 0;
   audio.setLayer(0); audio.bell(0.2);
@@ -318,7 +323,7 @@ function doStep(action) {
     }
   }
   if (state.layer !== before) { fx = reduced ? 6 : 12; fxLayer = state.layer; audio.setLayer(state.layer); }
-  if (state.status === 'lost') { mode = 'dead'; deadT = 0; deaths++; }
+  if (state.status === 'lost') { mode = 'dead'; deadT = 0; deaths++; deathsBy[levelIndex]++; }
   if (state.status === 'won') {
     mode = 'clear'; deadT = 0;
     progress = Math.max(progress, Math.min(levelIndex + 1, levels.length - 1)); store.set('level', progress);
@@ -671,6 +676,7 @@ function renderTitle() {
     if (!isTouch) txt(t().fresh, W / 2, 128, {align: 'center', color: '#6b7190'});
   }
   txt(t().credit, W / 2, H - 10, {align: 'center', color: '#4c5470', font: 'IBM Plex Sans', size: 6});
+  txt('v' + BUILD, W - 3, 3, {align: 'right', color: '#2c3248', font: 'IBM Plex Sans', size: 6, shadow: null});
 }
 
 function renderEnding() {
@@ -687,8 +693,11 @@ function renderEnding() {
     const part = line.slice(0, Math.max(0, shown - used)); used += line.length + 4;
     txt(part, W / 2, 56 + i * 11, {align: 'center', color: i >= 3 ? '#e0402a' : '#e9e4d6', font: 'IBM Plex Sans', size: 8});
   });
-  if (cardT > 260) txt(t().stats(deaths, totalShifts), W / 2, 132, {align: 'center', color: '#8c93a8'});
-  if (cardT > 300) txt(t().thanks, W / 2, 144, {align: 'center', color: '#c9c2ae'});
+  if (cardT > 260) {
+    txt(t().stats(deaths, totalShifts), W / 2, 126, {align: 'center', color: '#8c93a8'});
+    txt(LEVELS.map((d, i) => `${d.time} ${deathsBy[i]}`).join('  '), W / 2, 136, {align: 'center', color: '#6b7190', max: W - 20});
+  }
+  if (cardT > 300) txt(t().thanks, W / 2, 148, {align: 'center', color: '#c9c2ae'});
   txt(t().credit, W / 2, H - 10, {align: 'center', color: '#4c5470', font: 'IBM Plex Sans', size: 6});
 }
 
