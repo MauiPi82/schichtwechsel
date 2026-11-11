@@ -23,7 +23,7 @@
   select,.tool{font:12px "Silkscreen",monospace;background:var(--panel);color:var(--text);border:1px solid var(--edge);border-radius:6px;padding:7px 10px;min-height:36px;cursor:pointer}
   .tool:hover,.tool:focus-visible,select:focus-visible{border-color:var(--night);outline:none}
   .frame{width:100%;max-width:980px;background:#000;border:1px solid var(--edge);border-radius:10px;padding:8px}
-  canvas{display:block;width:100%;aspect-ratio:16/9;image-rendering:pixelated;border-radius:4px;touch-action:none;user-select:none;-webkit-user-select:none}
+  canvas{display:block;width:100%;aspect-ratio:16/9;image-rendering:auto;border-radius:4px;touch-action:none;user-select:none;-webkit-user-select:none}
   body:fullscreen{padding:6px;justify-content:center;overflow:auto}
   body:fullscreen header>div:first-child,body:fullscreen .about,body:fullscreen footer{display:none}
   body:fullscreen .frame{max-width:calc((100dvh - 70px)*16/9);padding:0;border:0}
@@ -64,7 +64,7 @@
   </div>
 </header>
 
-<div class="frame"><canvas id="game" width="960" height="540" aria-label="Schichtwechsel"></canvas></div>
+<div class="frame"><canvas id="game" width="1280" height="720" aria-label="Schichtwechsel"></canvas></div>
 
 <div class="pad" aria-hidden="true">
   <div class="dpad">
@@ -96,6 +96,7 @@
 
 <script src="src/core.js"></script>
 <script src="src/levels.js"></script>
+<script src="src/world.js"></script>
 <script src="src/game.js"></script>
 </body>
 </html>
