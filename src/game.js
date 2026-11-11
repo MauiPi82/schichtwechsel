@@ -13,7 +13,9 @@ const levels = LEVELS.map(d => C.parseLevel(d));
 const UI = {
   de: {
     day: 'TAGSCHICHT', night: 'NACHTSCHICHT', open: 'SCHLEUSE OFFEN', airlock: 'ZUR SCHLEUSE',
-    press: isTouch ? 'SHIFT TIPPEN' : 'SHIFT DRÜCKEN', cont: isTouch ? 'SHIFT: WEITER' : 'SHIFT ODER ENTER: WEITER',
+    press: isTouch ? 'SHIFT TIPPEN' : 'SHIFT DRÜCKEN', orSpace: 'oder Leertaste', cont: isTouch ? 'SHIFT: WEITER' : 'SHIFT ODER ENTER: WEITER',
+    tagline: 'Die Vorschicht ist nie gegangen. Sie ist eine Schicht geworden.', checkpoint: 'PROZESSSCHRITT GESICHERT',
+    sticky: 'Tipp: Die Leertaste wechselt auch die Schicht (Windows-Einrastfunktion).',
     resume: 'Weiter ab', fresh: 'N: neue Nacht ab 22:00', physics: 'PHYSIK DER SCHICHT',
     caught: 'ERWISCHT', crushed: 'EINGEMAUERT', robot: 'ÜBERFAHREN', beam: 'IM STRAHL',
     paused: 'PAUSE', pausedHint: 'P oder ESC: weiter', bell: 'GLOCKE', ion: 'IONEN', retry: 'R: neu versuchen',
@@ -23,7 +25,9 @@ const UI = {
   },
   en: {
     day: 'DAY SHIFT', night: 'NIGHT SHIFT', open: 'AIRLOCK OPEN', airlock: 'TO THE AIRLOCK',
-    press: isTouch ? 'TAP SHIFT' : 'PRESS SHIFT', cont: isTouch ? 'SHIFT: CONTINUE' : 'SHIFT OR ENTER: CONTINUE',
+    press: isTouch ? 'TAP SHIFT' : 'PRESS SHIFT', orSpace: 'or Space', cont: isTouch ? 'SHIFT: CONTINUE' : 'SHIFT OR ENTER: CONTINUE',
+    tagline: 'The previous shift never left. They became a layer.', checkpoint: 'PROCESS STEP SAVED',
+    sticky: 'Tip: Space changes the shift too (Windows Sticky Keys).',
     resume: 'Continue from', fresh: 'N: new night from 22:00', physics: 'PHYSICS OF THE SHIFT',
     caught: 'CAUGHT', crushed: 'WALLED IN', robot: 'RUN OVER', beam: 'IN THE BEAM',
     paused: 'PAUSED', pausedHint: 'P or ESC: resume', bell: 'BELL', ion: 'IONS', retry: 'R: try again',
@@ -65,14 +69,14 @@ function txt(s, x, y, o = {}) {
 
 /* ---------- Audio ---------- */
 const audio = {
-  ctx: null, on: store.get('sound') !== 'off', master: null, layer: 0, noise: null, radioNext: 0, radioPos: 0,
+  ctx: null, on: store.get('sound') !== 'off', vol: clamp(+(store.get('volume') ?? 80) / 100, 0, 1), master: null, layer: 0, noise: null, radioNext: 0, radioPos: 0,
   unlock() {
     if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
     const a = this.ctx = new AC();
     const comp = a.createDynamicsCompressor(); comp.connect(a.destination);
-    this.master = a.createGain(); this.master.gain.value = this.on ? 0.8 : 0; this.master.connect(comp);
+    this.master = a.createGain(); this.master.gain.value = this.on ? this.vol : 0; this.master.connect(comp);
     const buf = a.createBuffer(1, a.sampleRate * 2, a.sampleRate), d = buf.getChannelData(0);
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     this.noise = buf;
@@ -116,7 +120,7 @@ const audio = {
   },
   toggle() {
     this.on = !this.on; store.set('sound', this.on ? 'on' : 'off');
-    if (this.master) this.master.gain.value = this.on ? 0.8 : 0;
+    if (this.master) this.master.gain.value = this.on ? this.vol : 0;
     btnSound.textContent = t().sound(this.on);
   },
   env(node, t0, a, peak, dec) {
@@ -230,11 +234,16 @@ addEventListener('keydown', e => {
   audio.unlock();
   const d = KEYDIR[e.code];
   if (d) { e.preventDefault(); if (!e.repeat) { held.add(d); lastDir = d; queuedDir = d; } return; }
-  if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'Space') { e.preventDefault(); if (!e.repeat) press('shift'); return; }
+  if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'Space') {
+    e.preventDefault(); if (e.repeat) return;
+    press('shift');
+    if (e.code !== 'Space') stickyCheck();
+    return;
+  }
   if (e.code === 'Enter' || e.code === 'NumpadEnter') { e.preventDefault(); press('enter'); return; }
   if (e.code === 'KeyP' || e.code === 'Escape') { togglePause(); return; }
   if (e.code === 'KeyM') { audio.toggle(); return; }
-  if (e.code === 'KeyR' && (mode === 'play' || mode === 'paused')) { startLevel(levelIndex); return; }
+  if (e.code === 'KeyR' && (mode === 'play' || mode === 'paused')) { checkpoint = null; startLevel(levelIndex); return; }
   if (e.code === 'KeyN' && mode === 'title') { progress = 0; store.set('level', 0); press('shift'); }
 });
 addEventListener('keyup', e => { const d = KEYDIR[e.code]; if (d) held.delete(d); });
@@ -242,7 +251,7 @@ addEventListener('blur', () => held.clear());
 function press(what) {
   if (mode === 'play') { if (what === 'shift') queuedShift = true; return; }
   if (mode === 'title') { audio.unlock(); startCard(progress); return; }
-  if (mode === 'card' && cardT > 20) { startLevel(levelIndex); return; }
+  if (mode === 'card' && cardT > 20) { checkpoint = null; startLevel(levelIndex); return; }
   if (mode === 'ending' && cardT > 120) { mode = 'title'; audio.setLayer(0); }
 }
 // Touch pad: hold a direction, tap SHIFT.
@@ -279,7 +288,7 @@ function pollPad() {
 let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0;
 let progress = clamp(+store.get('level') || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
 const deathsBy = levels.map(() => 0);
-const BUILD = '0.2 · 2026-11-11';
+const BUILD = '0.3 · 2026-11-11';
 // Testers can jump to an hour: ?stunde=3 or ?hour=3 opens the third hour.
 const jump = +(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || 0);
 if (jump >= 1 && jump <= levels.length) progress = jump - 1;
@@ -287,8 +296,22 @@ function startCard(i) {
   levelIndex = i; mode = 'card'; cardT = 0;
   audio.setLayer(0); audio.bell(0.2);
 }
-function startLevel(i) {
-  levelIndex = i; state = C.newState(levels[i]); mode = 'play'; stepFrame = 0; fx = 0; deadT = 0; hintT = 0;
+let checkpoint = null, toastText = '', toastT = 0, shiftHintT = 0, stickyTimes = [], stickyWarned = store.get('sticky') === '1';
+function toast(text, frames = 150) { toastText = text; toastT = frames; }
+function stickyCheck() {
+  if (stickyWarned || !/Windows/.test(navigator.userAgent)) return;
+  const now = performance.now();
+  stickyTimes = stickyTimes.filter(x => now - x < 3000).concat(now);
+  if (stickyTimes.length >= 4) { stickyWarned = true; store.set('sticky', '1'); toast(t().sticky, 420); }
+}
+// After a death the hour resumes at the last process step; the previous shift returns to its posts.
+function startLevel(i, resume = false) {
+  levelIndex = i; mode = 'play'; stepFrame = 0; fx = 0; deadT = 0;
+  if (resume && checkpoint) {
+    state = C.clone(checkpoint);
+    state.enemies.forEach((e, n) => { const s0 = levels[i].enemyStarts[n]; Object.assign(e, {x: s0.x, y: s0.y, px: s0.x, py: s0.y, moved: -1, fx: undefined, fy: undefined}); });
+    state.px = state.x; state.py = state.y;
+  } else { state = C.newState(levels[i]); hintT = 0; toastT = 0; shiftHintT = 0; }
   queuedDir = null; queuedShift = false;
   audio.setLayer(state.layer);
 }
@@ -323,6 +346,12 @@ function doStep(action) {
     }
   }
   if (state.layer !== before) { fx = reduced ? 6 : 12; fxLayer = state.layer; audio.setLayer(state.layer); }
+  if (state.events.includes('station') && state.status === 'play') { checkpoint = C.clone(state); toast(t().checkpoint, 100); }
+  if (state.events.includes('bump')) {
+    const [dx, dy] = C.DIRS[state.face], o = 1 - state.layer;
+    if (C.walkable(state.level, o, state.x, state.y) && C.walkable(state.level, o, state.x + dx, state.y + dy)) shiftHintT = 120;
+  }
+  if (state.events.includes('shift')) shiftHintT = 0;
   if (state.status === 'lost') { mode = 'dead'; deadT = 0; deaths++; deathsBy[levelIndex]++; }
   if (state.status === 'won') {
     mode = 'clear'; deadT = 0;
@@ -344,8 +373,11 @@ function update() {
     }
   }
   if (fx > 0) fx--;
-  if (mode === 'dead' && ++deadT > 70) startLevel(levelIndex);
+  if (toastT > 0) toastT--;
+  if (shiftHintT > 0) shiftHintT--;
+  if (mode === 'dead' && ++deadT > 70) startLevel(levelIndex, true);
   if (mode === 'clear' && ++deadT > 60) {
+    checkpoint = null;
     if (levelIndex + 1 < levels.length) startCard(levelIndex + 1);
     else { mode = 'ending'; cardT = 0; audio.setLayer(0); audio.horn(); }
   }
@@ -441,9 +473,13 @@ function drawSigns(L, layer) {
 }
 
 /* ---------- Drawing: figures ---------- */
-function suit(px, py, face, layer, body, shade, visor, bob) {
-  const y = py + bob;
+function suit(px, py, face, layer, body, shade, visor, bob, outline) {
+  if (outline) for (const [ox, oy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) suitShape(px + ox, py + oy, face, outline, outline, outline, bob);
   R('rgba(0,0,0,.28)', px + 3, py + 13, 10, 2);
+  suitShape(px, py, face, body, shade, visor, bob);
+}
+function suitShape(px, py, face, body, shade, visor, bob) {
+  const y = py + bob;
   R(shade, px + 4, y + 9, 3, 5); R(shade, px + 9, y + 9, 3, 5);
   R(body, px + 4, y + 4, 8, 7);
   R(body, px + 5, y + 1, 6, 5);
@@ -457,7 +493,13 @@ function drawPlayer(k) {
   const moving = state.px !== state.x || state.py !== state.y;
   const bob = moving && k < 0.6 ? -1 : 0;
   const night = state.layer === 1;
-  suit(x * T, FY + y * T, state.face, state.layer, night ? '#d9b46a' : '#f4f6f9', night ? '#8a6a2a' : '#b9c2cf', night ? '#ffcf5a' : '#3a78c8', bob);
+  suit(x * T, FY + y * T, state.face, state.layer, night ? '#ffe2a0' : '#ffffff', night ? '#a07a32' : '#aeb8c6', night ? '#ffcf5a' : '#2f6fd0', bob, night ? '#000000' : '#1b2533');
+  if (shiftHintT > 0 && (frame >> 3) % 4) {
+    // The key itself, above the player: a wall here is open in the other shift.
+    const kx = Math.round(x * T) - 4, ky = Math.round(FY + y * T) - 13;
+    R('#000', kx - 1, ky - 1, 26, 11); R(night ? '#ffcf5a' : '#e9eef5', kx, ky, 24, 9); R(night ? '#a07a32' : '#9aa6b5', kx, ky + 7, 24, 2);
+    txt('SHIFT', kx + 12, ky + 1, {align: 'center', color: '#0d1420', shadow: null, max: 22});
+  }
 }
 // The previous shift creeps: each move is spread over its whole move interval.
 function enemyPos(e) {
@@ -590,6 +632,14 @@ function renderPlay() {
   drawWorld(state.layer, mode === 'play' ? k : 1);
   ctx.restore();
   drawHUD();
+  if (toastT > 0) {
+    ctx.globalAlpha = clamp(toastT / 20, 0, 1);
+    ctx.font = '400 8px "Silkscreen", monospace';
+    const w = Math.min(W - 16, ctx.measureText(toastText).width + 14);
+    R('rgba(5,6,10,.85)', W / 2 - w / 2, FY + 4, w, 13); R(state.layer ? '#ffb43a' : '#9fe0ff', W / 2 - w / 2, FY + 16, w, 1);
+    txt(toastText, W / 2, FY + 7, {align: 'center', color: '#e9e4d6', max: w - 10});
+    ctx.globalAlpha = 1;
+  }
   if (fx > 0) {
     // The shift: the picture tears into horizontal slices, washed in the colour of the new layer.
     const a = fx / 12;
@@ -669,11 +719,13 @@ function renderTitle() {
   txt('SCHICHTWECHSEL', W / 2 + (reduced ? 0 : (hash(frame >> 3) > 0.9 ? 2 : 0)), 34, {align: 'center', size: 32, font: 'Pixelify Sans', weight: 700, color: '#ffb43a', shadow: '#3a2200'});
   ctx.restore();
   R('#e9eef5', split, 30, 1, 40);
-  txt(t().sub, W / 2, 74, {align: 'center', color: '#8c93a8'});
-  if ((frame >> 5) % 2) txt(t().press, W / 2, 96, {align: 'center', size: 16, font: 'Pixelify Sans', weight: 700, color: '#ffcf5a', shadow: '#3a2200'});
+  txt(t().sub, W / 2, 72, {align: 'center', color: '#8c93a8'});
+  txt(t().tagline, W / 2, 84, {align: 'center', color: '#c9c2ae', font: 'IBM Plex Sans', size: 8});
+  if ((frame >> 5) % 2) txt(t().press, W / 2, 98, {align: 'center', size: 16, font: 'Pixelify Sans', weight: 700, color: '#ffcf5a', shadow: '#3a2200'});
+  if (!isTouch) txt(t().orSpace, W / 2, 112, {align: 'center', color: '#6b7190'});
   if (progress > 0) {
-    txt(`${t().resume} ${LEVELS[progress].time}`, W / 2, 116, {align: 'center', color: '#c9c2ae'});
-    if (!isTouch) txt(t().fresh, W / 2, 128, {align: 'center', color: '#6b7190'});
+    txt(`${t().resume} ${LEVELS[progress].time}`, W / 2, 124, {align: 'center', color: '#c9c2ae'});
+    if (!isTouch) txt(t().fresh, W / 2, 134, {align: 'center', color: '#6b7190'});
   }
   txt(t().credit, W / 2, H - 10, {align: 'center', color: '#4c5470', font: 'IBM Plex Sans', size: 6});
   txt('v' + BUILD, W - 3, 3, {align: 'right', color: '#2c3248', font: 'IBM Plex Sans', size: 6, shadow: null});
@@ -691,7 +743,7 @@ function renderEnding() {
   let used = 0;
   ENDING.log[lang].forEach((line, i) => {
     const part = line.slice(0, Math.max(0, shown - used)); used += line.length + 4;
-    txt(part, W / 2, 56 + i * 11, {align: 'center', color: i >= 3 ? '#e0402a' : '#e9e4d6', font: 'IBM Plex Sans', size: 8});
+    txt(part, W / 2, 56 + i * 11, {align: 'center', color: i >= 4 ? '#e0402a' : '#e9e4d6', font: 'IBM Plex Sans', size: 8});
   });
   if (cardT > 260) {
     txt(t().stats(deaths, totalShifts), W / 2, 126, {align: 'center', color: '#8c93a8'});
@@ -723,6 +775,12 @@ function render() {
 /* ---------- Page controls ---------- */
 const btnSound = document.getElementById('btnSound'), btnPause = document.getElementById('btnPause'), btnFull = document.getElementById('btnFull');
 btnSound.addEventListener('click', e => { audio.unlock(); audio.toggle(); e.currentTarget.blur(); });
+const volume = document.getElementById('volume');
+volume.value = Math.round(audio.vol * 100);
+volume.addEventListener('input', () => {
+  audio.vol = volume.value / 100; store.set('volume', volume.value);
+  if (audio.master && audio.on) audio.master.gain.value = audio.vol;
+});
 btnPause.addEventListener('click', e => { togglePause(); e.currentTarget.blur(); });
 btnFull.addEventListener('click', e => {
   e.currentTarget.blur();

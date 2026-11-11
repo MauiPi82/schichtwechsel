@@ -212,8 +212,8 @@
   const ENDING = {
     time: '06:00',
     log: {
-      de: ['Über dem See tutet das erste Schiff.', 'Die Frühschicht kommt.', '', 'Schichtbuch, 06:12:', 'Nachtschicht nicht erschienen.', 'Anlagen laufen.'],
-      en: ['Out on the lake, the first ferry sounds its horn.', 'The morning shift arrives.', '', 'Shift log, 06:12:', 'Night shift did not show up.', 'Tools are running.'],
+      de: ['Über dem See tutet das erste Schiff.', 'Die Frühschicht kommt.', '', 'Schichtbuch, 06:12:', 'Nachtschicht nicht erschienen.', 'Neue Schicht auf Los 4471: 12 nm.'],
+      en: ['Out on the lake, the first ferry sounds its horn.', 'The morning shift arrives.', '', 'Shift log, 06:12:', 'Night shift did not show up.', 'New layer on lot 4471: 12 nm.'],
     },
   };
 
