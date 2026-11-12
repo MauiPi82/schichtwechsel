@@ -272,3 +272,11 @@ test('the intro hands over lot 4471: the airlock opens only after the lot is pic
   s = core.step(s, 'right');
   assert.equal(s.status, 'won');
 });
+
+test('every script of the game parses (the node tests load only some of them)', () => {
+  const fs = require('fs'), path = require('path'), vm = require('vm');
+  const dir = path.join(__dirname, '..', 'src');
+  for (const f of fs.readdirSync(dir).filter(f => f.endsWith('.js'))) {
+    assert.doesNotThrow(() => new vm.Script(fs.readFileSync(path.join(dir, f), 'utf8'), {filename: f}), f);
+  }
+});

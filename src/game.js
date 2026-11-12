@@ -925,7 +925,6 @@ function update() {
     }
   }
 }
-}
 
 /* ---------- World ---------- */
 // The previous shift creeps: each move is spread over its whole move interval.
