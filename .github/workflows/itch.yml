@@ -1,0 +1,85 @@
+name: itch
+
+# Tests, builds and uploads Schichtwechsel to itch.io (page mauipi/schichtwechsel, channel html5).
+# Runs after every push to main that changes the game, and on demand (Actions -> itch -> Run workflow).
+# Without the secret BUTLER_API_KEY only the package is built and kept as an artifact; nothing is uploaded.
+# Setup: docs/STORE_PAGE.md, section "Upload".
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'src/**'
+      - 'assets/**'
+      - 'tools/build-itch.py'
+      - '.github/workflows/itch.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: itch
+  cancel-in-progress: false
+
+env:
+  ITCH_TARGET: mauipi/schichtwechsel:html5
+  BUTLER_VERSION: 15.32.0
+  BUTLER_SHA256: 2335971394ef6596f95ded0833e85ee28755e13761716ef4c91d6b11f69162f5
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Tests (rules, solver, minigames)
+        run: node --test test/core.test.cjs test/minigames.test.cjs
+
+      - name: Build the package
+        run: |
+          python3 tools/build-itch.py --output build/schichtwechsel-itch.zip
+          # butler compares folders with --if-changed, not ZIPs: upload the unpacked content.
+          unzip -q build/schichtwechsel-itch.zip -d build/schichtwechsel
+
+      - name: Keep the package as an artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: schichtwechsel-itch
+          path: build/schichtwechsel-itch.zip
+          retention-days: 30
+
+      - name: Check the upload key
+        id: key
+        env:
+          BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+        run: |
+          if [ -z "$BUTLER_API_KEY" ]; then
+            echo "::notice::Secret BUTLER_API_KEY is missing, upload skipped. Setup: docs/STORE_PAGE.md"
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install butler
+        if: steps.key.outputs.present == 'true'
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/butler.zip" \
+            "https://broth.itch.zone/butler/linux-amd64/${BUTLER_VERSION}/archive/default"
+          echo "${BUTLER_SHA256}  $RUNNER_TEMP/butler.zip" | sha256sum -c -
+          unzip -q "$RUNNER_TEMP/butler.zip" -d "$RUNNER_TEMP/butler"
+          chmod +x "$RUNNER_TEMP/butler/butler"
+          "$RUNNER_TEMP/butler/butler" version
+
+      - name: Upload to itch.io
+        if: steps.key.outputs.present == 'true'
+        env:
+          BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+        run: |
+          "$RUNNER_TEMP/butler/butler" push build/schichtwechsel "$ITCH_TARGET" \
+            --userversion "$(date -u +%Y.%m.%d)-${GITHUB_SHA::7}" --if-changed

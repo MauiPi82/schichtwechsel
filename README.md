@@ -48,7 +48,11 @@ Then open <http://127.0.0.1:8770/>. Add `?hour=3` (or `?stunde=3`) to start at t
 | Input | Action |
 | --- | --- |
 | WASD or arrow keys | walk |
-| SHIFT or Space | change shift |
+| SHIFT or Space | change shift; in a minigame press or hold |
+| walk into a tool | its light stops the previous shift; plasma chambers and the implanter stop |
+| Enter | skip a close-up or minigame |
+| B | shift log on the title: replay an hour, see reticles, notes and grades |
+| L | language on the title |
 | R | restart the hour |
 | P or Esc | pause |
 | M | sound on or off |
@@ -91,3 +95,7 @@ The radio waltz is an original melody.
 Code, levels and texts: MIT, see `LICENSE`.
 
 Fonts in `assets/fonts/` keep their own SIL Open Font License: Pixelify Sans, Silkscreen, IBM Plex Sans.
+
+## Release
+
+`python3 tools/build-itch.py` builds the itch.io package, `node tools/itch-images.cjs` the cover, screenshots and GIFs in `docs/itch/`. The workflow `.github/workflows/itch.yml` tests, builds and uploads after every push to main once the secret `BUTLER_API_KEY` is set. Page copy, settings and the schedule to the deadline: `docs/STORE_PAGE.md`.

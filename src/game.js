@@ -478,7 +478,7 @@ function pollPad() {
 let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0, shake = 0;
 let progress = clamp(+store.get('level') || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
 const deathsBy = levels.map(() => 0);
-const BUILD = '0.23 · 2026-11-12';
+const BUILD = '0.24 · 2026-11-12';
 // Testers can jump to an hour: ?stunde=3 or ?hour=3 opens the third hour.
 const jump = +(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || 0);
 if (jump >= 1 && jump <= levels.length) progress = jump - 1;
@@ -1355,6 +1355,7 @@ if (new URLSearchParams(location.search).has('test')) {
     pa: i => startPA(LEVELS[levelIndex].pa[i]), setMode: m => { mode = m; }, calm: () => { fx = 0; shake = 0; },
     dead: (cause, tt) => { state.cause = cause; mode = 'dead'; deadT = tt; },
     book: () => { mode = 'book'; }, set bookSel(v) { bookSel = v; },
+    quiet: () => { paNow = null; paQueue = []; paDone = new Set((LEVELS[levelIndex].pa || []).map((_, i) => i)); toastT = 0; hintT = 999; scare = null; scareDone = true; },
     mini: type => startMini(type), get miniGame() { return mini; }, get lot() { return lot; }, press: w => press(w), setShift: v => { shiftHeld = v; },
     get fadingOut() { return veilPhase === 'out'; }, get veil() { return veil; }, get cardT() { return cardT; }, set cinemaT(v) { cinemaT = v; }, scareNow: (type, extra = {}) => { scare = {type, t: 0, ...extra}; },
   };
