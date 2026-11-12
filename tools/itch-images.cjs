@@ -44,8 +44,8 @@ function serve() {
     __schicht.quiet(); __schicht.setMode('play');
   }, {i, x, y, layer, face, step});
 
-  // 1, 2: the same spot at midnight, in your shift and in the shift before.
-  await scene(2, 11, 5, 0, 'up', 44); await save('shot-1-your-shift.png');
+  // 1, 2: the same spot at one o'clock, in front of the etch cluster, in your shift and in the shift before.
+  await scene(3, 9, 6, 0, 'up', 44); await save('shot-1-your-shift.png');
   await page.evaluate(() => { __schicht.state.layer = 1; }); await save('shot-2-the-shift-before.png');
   // 3: 04:00, the plasma in the corridor, the wall in its middle.
   await scene(6, 3, 3, 0, 'right', 33); await save('shot-3-plasma.png');
@@ -61,7 +61,7 @@ function serve() {
   await save('shot-5-clean.png');
 
   // Cover: the same spot split into your shift and the shift before, the title across it.
-  await scene(2, 11, 6, 0, 'down', 44); const day = await grab();
+  await scene(3, 9, 6, 0, 'down', 44); const day = await grab();
   await page.evaluate(() => { __schicht.state.layer = 1; }); const night = await grab();
   const cover = await page.evaluate(async ({day, night}) => {
     const load = src => new Promise(r => { const im = new Image(); im.onload = () => r(im); im.src = src; });
@@ -69,7 +69,7 @@ function serve() {
     const c = document.createElement('canvas'); c.width = 1260; c.height = 1000;
     const x = c.getContext('2d');
     // A window of the fab without the bars above and below, in the cover's 1.26 : 1, scaled up.
-    const sh = 584, sw = Math.round(sh * 1.26), sy = 66, sx = 460 - sw / 2 + 20;
+    const sh = 584, sw = Math.round(sh * 1.26), sy = 66, sx = Math.max(0, Math.min(1280 - sw, 608 - sw / 2));
     x.drawImage(a, sx, sy, sw, sh, 0, 0, 1260, 1000);
     x.save(); x.beginPath(); x.moveTo(700, 0); x.lineTo(1260, 0); x.lineTo(1260, 1000); x.lineTo(560, 1000); x.closePath(); x.clip();
     x.drawImage(b, sx, sy, sw, sh, 0, 0, 1260, 1000); x.restore();

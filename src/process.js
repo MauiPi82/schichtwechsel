@@ -147,18 +147,56 @@ function inspect(t, x, y, w, h) {
 }
 
 // A vertical furnace from the side: heater coils, quartz tube, the boat of wafers rising in.
-function furnaceSide(t, x, y, h, temp, glowCol) {
-  const fx = x + 18, fw = 64, top = y + 6, bot = y + h - 6, rise = ease(t / 60);
-  R('#3a2a1a', fx, top, fw, bot - top - 16);
-  const heat = clamp((t - 50) / 60, 0, 1);
-  for (let yy = top + 4; yy < bot - 22; yy += 5) R(heat > 0 ? `rgba(255,${120 + 60 * (1 - heat)},40,${0.35 + 0.5 * heat})` : '#5a3a20', fx + 3, yy, fw - 6, 2);
-  R('rgba(200,230,255,.25)', fx + 12, top + 4, fw - 24, bot - top - 20);
-  const by = bot - 18 - rise * (bot - top - 30);
-  R('#c9ced6', fx + 18, by - 2, 1, (bot - top) * 0.55); R('#c9ced6', fx + fw - 19, by - 2, 1, (bot - top) * 0.55);
-  for (let k = 0; k < 14; k++) R(heat > 0.6 ? '#fff0c8' : '#c9ced6', fx + 19, by + k * 3, fw - 38, 1);
-  R('#5a6270', fx + 8, bot - 14, fw - 16, 10);
-  text(`${Math.round(400 + (parseInt(temp, 10) - 400) * heat)} °C`, fx + fw / 2, top + 2, {align: 'center', color: glowCol});
+// A vertical furnace cut open from the side: heater jacket with glowing coils, the quartz bell, and the quartz
+// boat with its wafers lying flat, stacked like coins, riding up on the heat shield. o.rise and o.heat run 0..1.
+function furnaceView(c, x, y, w, h, o) {
+  const main = ctx; ctx = c;
+  const fw = Math.min(w - 8, 72), fx = x + (w - fw) / 2, top = y + 2, jacketBot = y + h * 0.66, bot = y + h - 2;
+  const heat = clamp(o.heat, 0, 1), rise = clamp(o.rise, 0, 1);
+  // Jacket with a domed top; the cut shows the insulation and the heater windings on both inner walls.
+  ctx.fillStyle = '#2b2219'; ctx.beginPath(); ctx.moveTo(fx, jacketBot); ctx.lineTo(fx, top + 12);
+  ctx.quadraticCurveTo(fx, top, fx + 12, top); ctx.lineTo(fx + fw - 12, top); ctx.quadraticCurveTo(fx + fw, top, fx + fw, top + 12);
+  ctx.lineTo(fx + fw, jacketBot); ctx.closePath(); ctx.fill();
+  R('#3d3024', fx + 3, top + 8, 6, jacketBot - top - 8); R('#3d3024', fx + fw - 9, top + 8, 6, jacketBot - top - 8);
+  for (let yy = top + 12; yy < jacketBot - 2; yy += 4) {
+    const glow = heat > 0 ? `rgba(255,${Math.round(110 + 80 * (1 - heat))},40,${0.4 + 0.55 * heat})` : '#5a4430';
+    R(glow, fx + 4, yy, 4, 2); R(glow, fx + fw - 8, yy, 4, 2);
+  }
+  // The quartz bell: transparent, domed, a little glow inside when hot.
+  const bx0 = fx + 12, bx1 = fx + fw - 12, btop = top + 8;
+  ctx.fillStyle = heat > 0 ? `rgba(255,170,90,${0.08 + 0.12 * heat})` : 'rgba(180,220,255,.07)';
+  ctx.beginPath(); ctx.moveTo(bx0, jacketBot); ctx.lineTo(bx0, btop + 10); ctx.quadraticCurveTo(bx0, btop, (bx0 + bx1) / 2, btop);
+  ctx.quadraticCurveTo(bx1, btop, bx1, btop + 10); ctx.lineTo(bx1, jacketBot); ctx.fill();
+  ctx.strokeStyle = 'rgba(200,230,255,.55)'; ctx.lineWidth = 1; ctx.stroke();
+  // Gas inlet at the top.
+  R('#7c8693', (bx0 + bx1) / 2 - 1, top - 2, 2, 10);
+  if (o.gas && heat > 0.3) for (let k = 0; k < o.gas.length * 3; k++) {
+    const yy = btop + 4 + ((F * 0.5 + k * 11) % (jacketBot - btop - 10)), xx = bx0 + 3 + ((k * 13) % (bx1 - bx0 - 6));
+    circle(o.gas[k % o.gas.length], xx, yy, 1);
+  }
+  // The boat: heat shield plates, three quartz rods, wafers as flat discs seen slightly from above.
+  const n = 13, gap = 3.4, stack = n * gap, rx = (bx1 - bx0) / 2 - 3, cx = (bx0 + bx1) / 2;
+  const lowest = bot - 8 - stack, highest = btop + 8;
+  const by = lowest + (highest - lowest) * rise;
+  R('#5a6270', cx - 1, by + stack + 6, 2, bot - (by + stack + 6));
+  for (let k = 0; k < 3; k++) R(k % 2 ? '#7c8693' : '#9aa3ad', cx - rx + 2, by + stack + k * 2, rx * 2 - 4, 2);
+  R('rgba(220,235,255,.5)', cx - rx, by - 2, 1, stack + 2); R('rgba(220,235,255,.5)', cx + rx - 1, by - 2, 1, stack + 2);
+  for (let k = 0; k < n; k++) {
+    const wy = by + k * gap, hot = heat > 0.6;
+    ctx.fillStyle = hot ? '#b06a30' : '#7c8693'; ctx.beginPath(); ctx.ellipse(cx, wy + 1, rx - 1, 1.8, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = hot ? '#ffd9a0' : '#cfd5dd'; ctx.beginPath(); ctx.ellipse(cx, wy, rx - 1, 1.6, 0, 0, Math.PI * 2); ctx.fill();
+  }
+  R('rgba(220,235,255,.7)', cx - 0.5, by - 2, 1, stack + 2);
+  // Load lock below the jacket.
+  R('rgba(90,98,112,.35)', fx + 4, jacketBot, fw - 8, 1);
+  if (o.temp) text(o.temp, fx + fw / 2, top + 1, {align: 'center', color: o.tempColor || '#ffb070'});
+  ctx = main;
   return {fx, fw, top, bot, heat, rise};
+}
+function furnaceSide(t, x, y, h, temp, glowCol) {
+  const rise = ease(t / 60), heat = clamp((t - 50) / 60, 0, 1);
+  const f = furnaceView(ctx, x, y, 100, h, {rise, heat, temp: `${Math.round(400 + (parseInt(temp, 10) - 400) * heat)} °C`, tempColor: glowCol});
+  return f;
 }
 // Cross-section on the right: silicon, the original surface, films growing.
 function stackView(x, y, w, h, films, labels) {
@@ -173,8 +211,8 @@ function stackView(x, y, w, h, films, labels) {
   return {base, top};
 }
 function oxidize(t, x, y, w, h) {
-  const f = furnaceSide(t, x, y, h, '1000', '#ffb070');
-  for (let k = 0; k < 6; k++) circle('rgba(160,220,255,.8)', f.fx + 20 + ((k * 11) % 24), f.top + 6 + ((F * 1.2 + k * 13) % (f.bot - f.top - 30)), 1);
+  const rise = ease(t / 60), heat = clamp((t - 50) / 60, 0, 1);
+  const f = furnaceView(ctx, x, y, 100, h, {rise, heat, temp: `${Math.round(400 + 600 * heat)} °C`, gas: ['rgba(160,220,255,.9)']});
   text('O₂', f.fx + f.fw + 4, f.top + 4, {color: '#9fe0ff'});
   // Deal-Grove: linear at first, then parabolic. 44 % of the oxide lies below the old surface.
   const k = clamp((t - 70) / 150, 0, 1), d = (Math.sqrt(1 + 6 * k) - 1) / (Math.sqrt(7) - 1), px = x + 116, pw = w - 122;
@@ -189,8 +227,8 @@ function oxidize(t, x, y, w, h) {
   ctx.stroke();
 }
 function nitride(t, x, y, w, h) {
-  const f = furnaceSide(t, x, y, h, '780', '#ffcf9a');
-  for (let k = 0; k < 10; k++) circle(k % 2 ? 'rgba(120,200,255,.85)' : 'rgba(140,240,160,.85)', f.fx + 20 + ((k * 7) % 24), f.top + 6 + ((F * 0.8 + k * 9) % (f.bot - f.top - 30)), 1);
+  const rise = ease(t / 60), heat = clamp((t - 50) / 60, 0, 1);
+  const f = furnaceView(ctx, x, y, 100, h, {rise, heat, temp: `${Math.round(400 + 380 * heat)} °C`, tempColor: '#ffcf9a', gas: ['rgba(120,200,255,.9)', 'rgba(140,240,160,.9)']});
   text('0,3 mbar', f.fx + f.fw + 4, f.top + 4, {color: '#9aa6b5'});
   const k = clamp((t - 70) / 150, 0, 1), px = x + 116, pw = w - 122;
   const st = stackView(px, y + 22, pw, h - 26, [[6, '#cfe8ff'], [18 * k, '#9fc4a8']], []);
@@ -204,34 +242,55 @@ function nitride(t, x, y, w, h) {
 }
 // Ellipsometry: linear polarisation in, elliptical out; the fit finds both thicknesses.
 function ellipso(t, x, y, w, h) {
-  const st = stackView(x + 10, y + h - 30, w - 20, 28, [[4, '#cfe8ff'], [7, '#9fc4a8']], []);
-  const sx = x + 30, sy = y + 16, ex = x + w - 30, ey = y + 16, hx = x + w / 2, hy = st.top;
-  R('#5a6270', sx - 14, sy - 8, 20, 12); R('#5a6270', ex - 6, ey - 8, 20, 12);
-  text(lang === 'de' ? 'POLARISATOR' : 'POLARISER', sx - 14, sy + 6, {color: '#6b7190'});
-  text(lang === 'de' ? 'ANALYSATOR' : 'ANALYSER', ex + 14, ey + 6, {align: 'right', color: '#6b7190'});
-  const k = clamp(t / 40, 0, 1);
-  ctx.strokeStyle = '#ff6a5a'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx + (hx - sx) * k, sy + (hy - sy) * k); ctx.stroke();
-  if (k >= 1) { const k2 = clamp((t - 40) / 30, 0, 1); ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(hx + (ex - hx) * k2, hy + (ey - hy) * k2); ctx.stroke(); }
+  // The films, not to scale: nitride on oxide on silicon. The beam goes in, is bent at every interface
+  // (Snell: n₁ sin θ₁ = n₂ sin θ₂), part of it turns back at each one, and the partial beams leave in parallel.
+  const ys = y + h - 40, tn = 14, to = 10;
+  R('#9fc4a8', x + 4, ys, w - 8, tn); R('#cfe8ff', x + 4, ys + tn, w - 8, to); R('#4f5866', x + 4, ys + tn + to, w - 8, y + h - ys - tn - to);
+  for (let yy = ys + tn + to + 3; yy < y + h; yy += 5) for (let xx = x + 6 + (yy % 10 ? 2 : 0); xx < x + w - 4; xx += 5) R('#5d6775', xx, yy, 1, 1);
+  text('Si₃N₄ · n = 2,0', x + w - 8, ys + 3, {align: 'right', color: '#1f3a2a', font: 'IBM Plex Sans', size: 7});
+  text('SiO₂ · n = 1,46', x + w - 8, ys + tn + 1, {align: 'right', color: '#1f3050', font: 'IBM Plex Sans', size: 7});
+  text('Si · n = 3,9', x + w - 8, ys + tn + to + 3, {align: 'right', color: '#c9ced6', font: 'IBM Plex Sans', size: 7});
+  const th0 = Math.PI / 3, s0 = Math.sin(th0), t0 = Math.tan(th0);
+  const t1 = Math.tan(Math.asin(s0 / 2.0)), t2 = Math.tan(Math.asin(s0 / 1.46)), t3 = Math.tan(Math.asin(s0 / 3.88));
+  const P = [x + 96, ys], A = [P[0] + tn * t1, ys + tn], B = [A[0] + to * t2, ys + tn + to];
+  const A2 = [B[0] + to * t2, ys + tn], P1 = [A[0] + tn * t1, ys], P2 = [A2[0] + tn * t1, ys];
+  const topY = y + 12, S = [P[0] - (ys - topY) * t0, topY], up = p => [p[0] + (p[1] - topY) * t0, topY];
+  const seg = (p, q, k, col, wdt = 1.5) => { if (k <= 0) return; ctx.strokeStyle = col; ctx.lineWidth = wdt; ctx.beginPath(); ctx.moveTo(p[0], p[1]); ctx.lineTo(p[0] + (q[0] - p[0]) * k, p[1] + (q[1] - p[1]) * k); ctx.stroke(); };
+  const k1 = clamp(t / 30, 0, 1), k2 = clamp((t - 30) / 20, 0, 1), k3 = clamp((t - 50) / 20, 0, 1), k4 = clamp((t - 70) / 30, 0, 1);
+  // Polariser and analyser with their labels.
+  R('#5a6270', S[0] - 2, S[1] - 6, 16, 8); text(lang === 'de' ? 'POLARISATOR' : 'POLARISER', x + 4, y + 2, {color: '#6b7190', max: 80});
+  const E = up(P2); R('#5a6270', E[0] - 26, E[1] - 8, 34, 8); text(lang === 'de' ? 'ANALYSATOR' : 'ANALYSER', x + w - 4, y + 2, {align: 'right', color: '#6b7190', max: 80});
+  // Normal and angle of incidence.
+  ctx.setLineDash([2, 2]); ctx.strokeStyle = 'rgba(200,210,230,.5)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(P[0], ys - 22); ctx.lineTo(P[0], ys); ctx.stroke(); ctx.setLineDash([]);
+  ctx.beginPath(); ctx.arc(P[0], ys, 12, -Math.PI / 2 - th0, -Math.PI / 2); ctx.stroke();
+  text('60°', P[0] - 14, ys - 22, {color: '#9aa6b5', size: 8});
+  // In, through nitride and oxide, back from the silicon; a weak part runs on into the silicon and dies there.
+  seg(S, P, k1, '#ff5a4a', 2);
+  seg(P, A, k2, 'rgba(255,90,74,.85)'); seg(A, B, k2 > 0.5 ? (k2 - 0.5) * 2 : 0, 'rgba(255,90,74,.7)');
+  seg(B, [B[0] + 10 * t3, B[1] + 10], k3, 'rgba(255,90,74,.25)');
+  seg(A, P1, k3, 'rgba(255,90,74,.55)'); seg(B, A2, k3, 'rgba(255,90,74,.6)'); seg(A2, P2, k3, 'rgba(255,90,74,.6)');
+  seg(P, up(P), k3, '#ff7a5a', 2); seg(P1, up(P1), k4, 'rgba(255,150,90,.75)'); seg(P2, up(P2), k4, 'rgba(255,200,110,.6)');
   // The polarisation: a line on the way in, an ellipse on the way out.
-  const ph = F / 6;
-  ctx.strokeStyle = '#ffcf5a'; ctx.beginPath(); ctx.moveTo(sx + 26 - 6 * Math.cos(ph), sy + 14 - 6 * Math.cos(ph)); ctx.lineTo(sx + 26 + 6 * Math.cos(ph), sy + 14 + 6 * Math.cos(ph)); ctx.stroke();
-  if (t > 70) { ctx.beginPath(); ctx.ellipse(ex - 26, ey + 14, 8, 4, 0.6, 0, 7); ctx.stroke(); circle('#ffcf5a', ex - 26 + 8 * Math.cos(ph) * 0.8, ey + 14 + 4 * Math.sin(ph) * 0.8, 1.5); }
-  const fit = clamp((t - 90) / 100, 0, 1);
+  const ph = F / 6, M = [(S[0] + P[0]) / 2, (S[1] + P[1]) / 2];
+  ctx.strokeStyle = '#ffcf5a'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(M[0] - 5 * Math.cos(ph), M[1] - 5 * Math.cos(ph) * 0.4); ctx.lineTo(M[0] + 5 * Math.cos(ph), M[1] + 5 * Math.cos(ph) * 0.4); ctx.stroke();
+  if (k4 >= 1) { const N = [E[0] - 18, E[1] + 16]; ctx.beginPath(); ctx.ellipse(N[0], N[1], 7, 3.5, 0.6, 0, 7); ctx.stroke(); circle('#ffcf5a', N[0] + 7 * Math.cos(ph) * 0.8, N[1] + 3.5 * Math.sin(ph) * 0.8, 1.3); }
+  // The fit: Ψ and Δ settle, the thicknesses follow.
+  const fit = clamp((t - 100) / 90, 0, 1);
   const psi = (12 + 20 * fit + Math.sin(F / 5) * 2 * (1 - fit)).toFixed(1), del = (95 + 60 * fit + Math.cos(F / 4) * 4 * (1 - fit)).toFixed(1);
-  text(`Ψ ${psi}°  Δ ${del}°`, x + w / 2, y + 4, {align: 'center', color: '#9fe0ff'});
+  if (t > 70) text(`Ψ ${psi}°  Δ ${del}°`, x + 108, y + 13, {align: 'center', color: '#9fe0ff'});
   if (fit >= 1) {
     const ox = val('oxide', 50.1);
-    text(`SiO₂ ${fmt(ox)} nm · Si₃N₄ ${fmt(100.4)} nm`, x + w / 2, y + 15, {align: 'center', color: '#e9e4d6', font: 'IBM Plex Sans', size: 8});
-    verdict(sc('oxidize'), x + w / 2, y + 26);
+    text(`SiO₂ ${fmt(ox)} nm · Si₃N₄ ${fmt(100.4)} nm`, x + 108, y + 23, {align: 'center', color: '#e9e4d6', font: 'IBM Plex Sans', size: 8});
+    verdict(sc('oxidize'), x + 104, y + 33);
     // The SPC chart of this tool: the last seven lots all above the centre line. By the rules: out of control.
-    const cx0 = x + 10, cy0 = y + 40, cw = 70, ch = 22;
+    const cx0 = x + 170, cy0 = y + 42, cw = 54, ch = 20;
     R('#0b0f18', cx0, cy0, cw, ch); R('#3a4058', cx0, cy0 + ch / 2, cw, 1); R('#5a2a20', cx0, cy0 + 2, cw, 1); R('#5a2a20', cx0, cy0 + ch - 3, cw, 1);
-    for (let i = 0; i < 12; i++) {
-      const v = i < 5 ? Math.sin(i * 2.1) * 5 : -3 - (i % 3), px = cx0 + 4 + i * 5.5, py = cy0 + ch / 2 + v;
-      R(i >= 5 ? '#ff5a3a' : '#9fe0ff', px, py - 1, 2, 2);
+    for (let i = 0; i < 10; i++) {
+      const v = i < 3 ? Math.sin(i * 2.1) * 4 : -3 - (i % 3), px = cx0 + 3 + i * 5, py = cy0 + ch / 2 + v;
+      R(i >= 3 ? '#ff5a3a' : '#9fe0ff', px, py - 1, 2, 2);
     }
-    if ((F >> 4) % 2) text('OOC', cx0 + cw + 4, cy0 + 2, {color: '#ff5a3a'});
-    text(lang === 'de' ? '7 ÜBER MITTE' : '7 ABOVE MEAN', cx0 + cw + 4, cy0 + 12, {color: '#8a5a4a', max: 70});
+    text('SPC', cx0 + 2, cy0 + ch - 9, {color: '#4c5470', font: 'IBM Plex Sans', size: 6});
+    if ((F >> 4) % 2) text('OOC', cx0 + cw - 2, cy0 + ch - 9, {align: 'right', color: '#ff5a3a', font: 'IBM Plex Sans', size: 6});
   }
 }
 
@@ -485,5 +544,5 @@ function draw(c, type, t, language, info) {
   if (t > 40) text(language === 'de' ? 'SHIFT: WEITER' : 'SHIFT: CONTINUE', W / 2, y0 + PH + 6, {align: 'center', color: '#4c5470'});
 }
 
-window.SchichtProcess = {draw, duration, DURATION: BASE};
+window.SchichtProcess = {draw, duration, furnace: (c, x, y, w, h, o) => { F = o.t || F; return furnaceView(c, x, y, w, h, o); }, DURATION: BASE};
 })();

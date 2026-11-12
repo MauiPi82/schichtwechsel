@@ -903,6 +903,12 @@ function draw(c, s, o) {
     v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(10,20,40,.32)');
     ctx.fillStyle = v; ctx.fillRect(0, FY, WW, C.H * T);
   }
+  // Yellow light in the litho bay, in your shift: the filtered tubes turn white to lemon and blue to grey-green.
+  // Still bright and clean, unlike the dim amber of the shift before.
+  if (L.yellowLight && !night) {
+    ctx.globalCompositeOperation = 'multiply'; ctx.fillStyle = '#ffeaa6'; ctx.fillRect(0, FY, WW, C.H * T);
+    ctx.globalCompositeOperation = 'source-over'; ctx.fillStyle = 'rgba(255,236,150,.07)'; ctx.fillRect(0, FY, WW, C.H * T);
+  }
   // A tool flares its work light: a violet-white burst that reaches as far as the light sets the previous shift.
   if (o.flash && o.flash.layer === layer && o.flash.a > 0) {
     const fl = o.flash, cx = (fl.x0 + fl.x1 + 1) / 2 * T, cy = FY + (fl.y0 + fl.y1 + 1) / 2 * T, rr = (C.FLASH_RADIUS + 0.5) * T;

@@ -39,9 +39,9 @@ function frame(m, title, help) {
   ctx.fillStyle = `rgba(3,4,8,${0.6 * appear})`; ctx.fillRect(0, 0, W, 180);
   R('#0b0f18', PX - 2, y0 - 2, PW + 4, PH + 4); R('#ffb43a', PX - 2, y0 - 2, PW + 4, 1);
   R('#1c160c', PX, y0, PW, 12);
-  text(title, PX + 6, y0 + 2, {color: '#ffcf5a', max: PW - 104});
+  text(title, PX + 6, y0 + 2, {color: '#ffcf5a', max: PW - 116});
   const canSkip = m.phase === 'play' && m.t > 60;
-  text(canSkip ? L('ENTER: ÜBERSPRINGEN', 'ENTER: SKIP') : 'LOT 4471', PX + PW - 6, y0 + 2, {align: 'right', color: canSkip ? '#6b5a2a' : '#c9a15a', max: 96});
+  text(canSkip ? L('ENTER: ÜBERSPRINGEN', 'ENTER: SKIP') : 'LOT 4471', PX + PW - 6, y0 + 2, {align: 'right', color: canSkip ? '#6b5a2a' : '#c9a15a', max: 100});
   R('#0d111a', PX, y0 + 12, PW, PH - 28);
   R('#141a28', PX, y0 + PH - 16, PW, 16);
   const done = m.phase === 'result';
@@ -162,15 +162,11 @@ const oxidize = {
   },
   draw(m) {
     const a = frame(m, L('OXIDIEREN · 1000 °C, TROCKEN', 'OXIDISE · 1000 °C, DRY'), L('SHIFT: SAUERSTOFF AUS BEI 50 NM', 'SHIFT: OXYGEN OFF AT 50 NM'));
-    // Furnace from the side, the boat rising in.
-    const fx = a.x + 14, fw = 60, top = a.y + 6, bot = a.y + a.h - 6, rise = smooth(m.t / 100), heat = clamp((m.t - 60) / 50, 0, 1);
-    R('#3a2a1a', fx, top, fw, bot - top - 14);
-    for (let yy = top + 4; yy < bot - 20; yy += 5) R(`rgba(255,${120 + 60 * (1 - heat)},40,${0.3 + 0.5 * heat})`, fx + 3, yy, fw - 6, 2);
-    R('rgba(200,230,255,.25)', fx + 12, top + 4, fw - 24, bot - top - 18);
-    const by = bot - 16 - rise * (bot - top - 28);
-    for (let k = 0; k < 13; k++) R(heat > 0.6 ? '#fff0c8' : '#c9ced6', fx + 18, by + k * 3, fw - 36, 1);
-    if (m.st === 'grow') for (let k = 0; k < 6; k++) circle('rgba(160,220,255,.8)', fx + 18 + ((k * 11) % 24), top + 6 + ((F * 0.6 + k * 13) % (bot - top - 26)), 1);
-    text(m.st === 'grow' ? `t = ${Math.round(m.g / 6)} min` : L('BOOT FÄHRT EIN', 'BOAT LOADING'), fx + fw / 2, bot - 10, {align: 'center', color: '#9aa6b5', max: fw + 20});
+    // The vertical furnace cut open from the side; the boat with its wafers rides up into the quartz bell.
+    const rise = smooth(m.t / 100), heat = clamp((m.t - 60) / 50, 0, 1);
+    window.SchichtProcess.furnace(ctx, a.x + 2, a.y + 2, 86, a.h - 14, {rise, heat, t: m.t, gas: m.st === 'grow' ? ['rgba(160,220,255,.9)'] : null,
+      temp: `${Math.round(400 + 600 * heat)} °C`});
+    text(m.st === 'grow' ? `t = ${Math.round(m.g / 6)} min` : L('BOOT FÄHRT EIN', 'BOAT LOADING'), a.x + 45, a.y + a.h - 10, {align: 'center', color: '#9aa6b5', max: 90});
     // Thickness, big, and the growth curve with the target line.
     const d = oxide(m.g), px = a.x + 92, pw = a.w - 98;
     text(`${num(d)} nm`, px + pw / 2, a.y + 6, {align: 'center', size: 16, font: 'Pixelify Sans', weight: 700, color: Math.abs(d + RAMP - 50) < 1 ? '#3fe06a' : '#cfe8ff'});
@@ -234,54 +230,98 @@ const coat = {
   },
 };
 
-/* ---------- 4 Expose: focus every field with the arrows, then SHIFT. The wafer is not flat ---------- */
-const FIELDS = 4;
+/* ---------- 4 Expose: load the reticle, align it (SHIFT stops the mark, X then Y), then the scanner steps
+ * across the whole wafer by itself, field after field. Overlay is what you contribute. ---------- */
+const ALIGN_A = 14, ALIGN_T = 200, NM_PER_PX = 2.5;
+const sign = v => { const r = Math.round(v * 10) / 10; return `${r < 0 ? '−' : '+'}${num(Math.abs(r))}`; };
+// Exposure fields on a 300 mm wafer: a full grid inside the round edge, walked in a meander.
+const FIELD_GRID = (() => {
+  const out = [], n = 10, s = 8;
+  for (let j = 0; j < n; j++) {
+    const row = [];
+    for (let i = 0; i < n; i++) { const fx = (i - n / 2) * s, fy = (j - n / 2) * s; if (Math.hypot(fx + s / 2, fy + s / 2) < 38) row.push({fx, fy}); }
+    out.push(...(j % 2 ? row.reverse() : row));
+  }
+  return out;
+})();
 const expose = {
-  // Focus in nm. The fields stand at different heights (±100 nm); within ±15 nm it is perfetto.
-  init(m) { m.field = 0; m.z = 0; m.target = Math.round((Math.random() - 0.5) * 200); m.res = []; m.flash = 0; m.offs = []; m.hold = 0; },
+  init(m) { m.st = 'load'; m.bt = 0; m.ph = Math.random() * 6; m.dx = 0; m.dy = 0; m.field = 0; },
+  mark(m) { return ALIGN_A * Math.sin(m.ph + m.bt * Math.PI * 2 / ALIGN_T); },
   update(m, inp) {
-    if (m.flash > 0) { m.flash--; if (!m.flash && m.field >= FIELDS) this.end(m); return; }
-    const dir = (inp.right || inp.up ? 1 : 0) - (inp.left || inp.down ? 1 : 0);
-    m.hold = dir ? m.hold + 1 : 0;
-    m.z = clamp(m.z + dir * (m.hold > 30 ? 4 : 1), -300, 300);
-    if (inp.pressed && m.field < FIELDS) {
-      const off = Math.abs(m.z - m.target);
-      m.res.push(clamp(1 - off / 150, 0, 1)); m.offs.push(off);
-      m.field++; m.flash = 26; m.sfx('zap');
-      m.target = Math.round(clamp(m.target + (Math.random() - 0.5) * 160, -100, 100));
+    m.bt++;
+    if (m.st === 'load' && m.bt > 100) { m.st = 'alignX'; m.bt = 0; }
+    else if (m.st === 'alignX' || m.st === 'alignY') {
+      if (inp.pressed || m.bt > 900) {
+        const off = this.mark(m);
+        if (m.st === 'alignX') { m.dx = off; m.st = 'alignY'; m.ph = Math.random() * 6; } else { m.dy = off; m.st = 'expose'; }
+        m.bt = 0; m.sfx('click');
+      }
+    } else if (m.st === 'expose') {
+      m.field = Math.min(FIELD_GRID.length, Math.floor(m.bt / 3));
+      if (m.bt % 3 === 0 && m.field < FIELD_GRID.length) m.sfx('zap');
+      if (m.bt > FIELD_GRID.length * 3 + 30) {
+        const ox = m.dx * NM_PER_PX, oy = m.dy * NM_PER_PX, ov = Math.hypot(ox, oy);
+        const sx = clamp(1 - Math.abs(m.dx) / 8, 0, 1), sy = clamp(1 - Math.abs(m.dy) / 8, 0, 1);
+        finish(m, (sx + sy) / 2, {overlay: ov}, [
+          `Overlay X ${sign(ox)} nm · Y ${sign(oy)} nm`,
+          L(`${FIELD_GRID.length} Felder belichtet. Verschobene Ebenen treffen die Kontakte schlechter.`, `${FIELD_GRID.length} fields exposed. Shifted layers hit the contacts less well.`)]);
+      }
     }
-  },
-  end(m) {
-    const s = m.res.reduce((x, y) => x + y, 0) / FIELDS, off = m.offs.reduce((x, y) => x + y, 0) / FIELDS;
-    finish(m, s, {defocus: off}, [
-      L(`Mittlere Fokusabweichung ${Math.round(off)} nm`, `Mean focus error ${Math.round(off)} nm`),
-      L('Unscharf belichtet heißt breitere Linien. Das CD-SEM sieht es.', 'Blurred exposure means wider lines. The CD-SEM will see it.')]);
   },
   draw(m) {
-    const a = frame(m, L(`BELICHTEN · FELD ${Math.min(m.field + 1, FIELDS)}/${FIELDS}`, `EXPOSE · FIELD ${Math.min(m.field + 1, FIELDS)}/${FIELDS}`), L('← → FOKUS · SHIFT: BELICHTEN', '← → FOCUS · SHIFT: EXPOSE'));
-    // The aerial image: five lines, blurred by the focus error.
-    const ix = a.x + 8, iy = a.y + 8, iw = 120, ih = a.h - 30, off = Math.abs(m.z - m.target), b = clamp(off / 200, 0, 1);
-    R('#2a2f38', ix, iy, iw, ih);
-    for (let k = 0; k < 5; k++) {
-      const lx = ix + 12 + k * 22, sp = 1 + b * 9;
-      for (let j = 3; j >= 1; j--) { ctx.globalAlpha = (0.18 + 0.1 * (1 - b)) / j; R('#d8dde5', lx - sp * j / 3, iy + 6, 8 + 2 * sp * j / 3, ih - 12); }
-      ctx.globalAlpha = 1 - 0.75 * b; R('#e9eef5', lx, iy + 6, 8, ih - 12); ctx.globalAlpha = 1;
+    const help = {load: L('DAS RETIKEL WIRD GELADEN', 'LOADING THE RETICLE'), alignX: L('SHIFT: STOPPEN, WENN DIE MARKEN DECKEN · X', 'SHIFT: STOP WHEN THE MARKS MEET · X'),
+      alignY: L('SHIFT: STOPPEN, WENN DIE MARKEN DECKEN · Y', 'SHIFT: STOP WHEN THE MARKS MEET · Y'), expose: L('BELICHTUNG LÄUFT, FELD FÜR FELD', 'EXPOSING, FIELD BY FIELD')}[m.st];
+    const a = frame(m, L('BELICHTEN · ARF 193 NM, IMMERSION', 'EXPOSE · ARF 193 NM, IMMERSION'), help);
+    // Side view of the scanner: laser, reticle stage, projection lens, water film, wafer stage.
+    const cx = a.x + 58, exp = m.st === 'expose' && m.field < FIELD_GRID.length, pulse = exp && (m.bt % 3) < 2;
+    R('#2a1e4a', cx - 26, a.y + 3, 52, 9); text('ARF 193 NM', cx, a.y + 4, {align: 'center', color: '#d6c8ff', max: 48});
+    R('#5a6270', cx - 50, a.y + 26, 100, 2);
+    const load = m.st === 'load' ? smooth(m.bt / 90) : 1, rx = cx - 30 + (1 - load) * -60, scan = exp ? Math.sin(m.bt / 2) * 6 : 0;
+    R('#cfe8ff', rx + scan, a.y + 19, 60, 6); R('#9fb8d0', rx + scan, a.y + 24, 60, 1);
+    for (let k = 0; k < 9; k++) if (k % 3 !== 1) R('#1a1e24', rx + scan + 10 + k * 4.5, a.y + 20, 3, 4);
+    R('#1a1e24', rx + scan + 2, a.y + 20, 3, 1); R('#1a1e24', rx + scan + 3, a.y + 19, 1, 3); R('#1a1e24', rx + scan + 55, a.y + 20, 3, 1); R('#1a1e24', rx + scan + 56, a.y + 19, 1, 3);
+    text(L('RETIKEL', 'RETICLE'), a.x + 1, a.y + 12, {color: '#8c93a8', font: 'IBM Plex Sans', size: 6, max: 30});
+    // Projection lens: a column of elements in its housing, 4 : 1 reduction.
+    R('#3a4058', cx - 30, a.y + 32, 4, 44); R('#3a4058', cx + 26, a.y + 32, 4, 44);
+    [26, 22, 24, 18, 14, 10].forEach((wd, k) => { ctx.fillStyle = 'rgba(200,225,255,.75)'; ctx.beginPath(); ctx.ellipse(cx, a.y + 36 + k * 7, wd, 2.2, 0, 0, 7); ctx.fill(); });
+    text(L('OBJEKTIV', 'LENS'), a.x + 1, a.y + 40, {color: '#8c93a8', font: 'IBM Plex Sans', size: 6, max: 26});
+    // Exposure light: through the pattern, gathered by the lens onto one field.
+    if (pulse) {
+      ctx.strokeStyle = 'rgba(190,140,255,.85)'; ctx.lineWidth = 1;
+      for (let k = 0; k < 6; k++) { const lx = cx - 20 + k * 8; ctx.beginPath(); ctx.moveTo(lx, a.y + 12); ctx.lineTo(lx, a.y + 19); ctx.moveTo(lx, a.y + 25); ctx.lineTo(cx + (lx - cx) * 0.5, a.y + 50); ctx.lineTo(cx + (lx - cx) * 0.12, a.y + 80); ctx.stroke(); }
     }
-    if (m.flash) { ctx.fillStyle = `rgba(200,160,255,${m.flash / 26 * 0.6})`; ctx.fillRect(ix, iy, iw, ih); }
-    text(L('LUFTBILD', 'AERIAL IMAGE'), ix + 2, iy + ih + 2, {color: '#6b7190'});
-    // Sharpness meter and focus position.
-    const sx = ix + iw + 10, sw = 12, sh = ih;
-    R('#1a2030', sx, iy, sw, sh); R(b < 0.12 ? '#3fe06a' : b < 0.4 ? '#ffcf5a' : '#e0402a', sx + 2, iy + sh * b, sw - 4, sh * (1 - b));
-    text(L('SCHÄRFE', 'SHARP'), sx + sw / 2, iy + sh + 2, {align: 'center', color: '#6b7190'});
-    text(`z ${m.z >= 0 ? '+' : ''}${Math.round(m.z)} nm`, sx + sw + 8, iy, {color: '#e9e4d6'});
-    // The wafer with its fields.
-    const cx = a.x + a.w - 44, cy = a.y + a.h / 2 + 6, r = 32;
-    circle('#5a6270', cx, cy, r + 1); circle('#d99a32', cx, cy, r);
-    for (let k = 0; k < FIELDS; k++) {
-      const fx = cx - 24 + (k % 3) * 16 + (k >= 3 ? 8 : 0), fy = cy - 14 + Math.floor(k / 3) * 16;
-      if (k < m.res.length) R(grade(m.res[k]).color, fx, fy, 14, 14);
-      else R('rgba(0,0,0,.25)', fx, fy, 14, 14);
-      if (k === m.field && m.phase === 'play' && (F >> 4) % 2) { ctx.strokeStyle = '#ffffff'; ctx.strokeRect(fx + 0.5, fy + 0.5, 13, 13); }
+    // Water film and wafer on the stage; during alignment a red alignment beam comes in from the side.
+    const wx = cx + (exp ? Math.cos(m.bt / 7) * 8 : 0);
+    R('rgba(90,170,255,.6)', cx - 12, a.y + 79, 24, 2);
+    R('#5a6270', wx - 40, a.y + 86, 80, 5); R('#d99a32', wx - 34, a.y + 82, 68, 3); R('#8e98a3', wx - 34, a.y + 85, 68, 1);
+    if (m.st === 'alignX' || m.st === 'alignY') { ctx.strokeStyle = 'rgba(255,90,74,.8)'; ctx.beginPath(); ctx.moveTo(a.x + 4, a.y + 64); ctx.lineTo(cx - 14, a.y + 82); ctx.stroke(); }
+    text(L('WAFERTISCH', 'WAFER STAGE'), cx, a.y + 94, {align: 'center', color: '#6b7190', max: 100});
+    // Right: reticle library, alignment microscope or the wafer map.
+    const px = a.x + 122, pw = a.w - 126, pc = px + pw / 2, pcy = a.y + a.h / 2 + 2;
+    if (m.st === 'load') {
+      text(L('RETIKEL-BIBLIOTHEK', 'RETICLE LIBRARY'), pc, a.y + 6, {align: 'center', color: '#9aa6b5', max: pw});
+      for (let k = 0; k < 6; k++) { R('#3a4058', px + 10, a.y + 22 + k * 12, pw - 20, 8); if (k !== 2 || m.bt < 10) R('#cfe8ff', px + 14, a.y + 24 + k * 12, pw - 28, 4); }
+      text(L('MASKE 1 · AKTIVGEBIET', 'MASK 1 · ACTIVE AREA'), pc, a.y + a.h - 14, {align: 'center', color: '#ffcf5a', max: pw});
+    } else if (m.st === 'alignX' || m.st === 'alignY') {
+      const r = 34, off = this.mark(m), ox = m.st === 'alignX' ? off : 0, oy = m.st === 'alignY' ? off : 0;
+      const fx = m.st === 'alignY' ? m.dx : 0;
+      circle('#2a3040', pc, pcy, r + 2); circle('#c8862a', pc, pcy, r);
+      R('#5a3a10', pc - r, pcy, r * 2, 1); R('#5a3a10', pc, pcy - r, 1, r * 2);
+      // The wafer mark: a cross etched into the layer below. The reticle mark: a bright frame.
+      R('#3a2a10', pc - 2, pcy - 12, 4, 24); R('#3a2a10', pc - 12, pcy - 2, 24, 4);
+      ctx.strokeStyle = '#9fe0ff'; ctx.lineWidth = 2; ctx.strokeRect(pc - 9 + ox + fx, pcy - 9 + oy, 18, 18);
+      const nm = Math.round(off * NM_PER_PX);
+      text(`${m.st === 'alignX' ? 'X' : 'Y'} ${nm >= 0 ? '+' : ''}${nm} nm`, pc, a.y + 2, {align: 'center', color: Math.abs(off) < 1 ? '#3fe06a' : '#e9e4d6', max: pw});
+      text(L('JUSTAGE', 'ALIGNMENT'), pc, a.y + a.h - 10, {align: 'center', color: '#6b7190', max: pw});
+    } else {
+      const r = 40;
+      circle('#5a6270', pc, pcy, r + 1); circle('#d99a32', pc, pcy, r);
+      FIELD_GRID.forEach((f, k) => {
+        if (k < m.field) R('rgba(110,60,190,.6)', pc + f.fx + 0.5, pcy + f.fy + 0.5, 7, 7);
+        if (k === m.field && pulse) R('rgba(230,210,255,.95)', pc + f.fx + 0.5, pcy + f.fy + 0.5, 7, 7);
+      });
+      R('#0b0f18', pc - 2, pcy + r - 2, 4, 3);
+      text(L(`FELD ${Math.min(m.field + 1, FIELD_GRID.length)}/${FIELD_GRID.length}`, `FIELD ${Math.min(m.field + 1, FIELD_GRID.length)}/${FIELD_GRID.length}`), pc, a.y + 2, {align: 'center', color: '#c9c2ae', max: pw});
     }
     ctx.restore(); result(m, a);
   },
@@ -407,7 +447,7 @@ const implant = {
 
 const GAMES = {clean, oxidize, coat, expose, etch, implant};
 // Skipped with Enter: the tool runs its standard recipe, which is never quite tuned for this lot.
-const SKIP = {clean: {particles: 12}, oxidize: {oxide: 52.4}, coat: {resist: 104, rpm: 1850}, expose: {defocus: 60}, etch: {overEtch: 8}, implant: {dose: 0.8, purity: 1}};
+const SKIP = {clean: {particles: 12}, oxidize: {oxide: 52.4}, coat: {resist: 104, rpm: 1850}, expose: {overlay: 8}, etch: {overEtch: 8}, implant: {dose: 0.8, purity: 1}};
 function skip(m) {
   if (m.phase !== 'play') return;
   finish(m, 0.6, SKIP[m.type], [L('Übersprungen: Die Anlage fährt ihr Standardrezept.', 'Skipped: the tool runs its standard recipe.')]);

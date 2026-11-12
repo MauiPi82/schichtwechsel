@@ -153,6 +153,8 @@
         en: ['Yellow light on. There are shadows on the floor.', 'Nobody is here but us.', 'We count them: one, two, three.', 'Four.'],
       }},
       scare: {type: 'blackout', at: 14, layer: 'night'},
+      // The litho bay works under yellow light, also in your shift: no short waves to expose the resist.
+      yellowLight: true,
       route: [{de: 'Belacken', en: 'Coat', proc: 'coat'}, {de: 'Belichten', en: 'Expose', proc: 'expose'}, {de: 'Entwickeln', en: 'Develop', proc: 'develop'}, {de: 'Linien messen', en: 'Measure lines', proc: 'measure'}],
       enemyEvery: 6,
       tools: [
