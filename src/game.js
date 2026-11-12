@@ -450,7 +450,7 @@ function pollPad() {
 let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0, shake = 0;
 let progress = clamp(+store.get('level') || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
 const deathsBy = levels.map(() => 0);
-const BUILD = '0.14 · 2026-11-12';
+const BUILD = '0.15 · 2026-11-12';
 // Testers can jump to an hour: ?stunde=3 or ?hour=3 opens the third hour.
 const jump = +(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || 0);
 if (jump >= 1 && jump <= levels.length) progress = jump - 1;
@@ -733,9 +733,10 @@ function drawStack(x0, y0, w, h, n) {
   if (n === 4 || n === 5) glow(n, si, 10);
   let top = si;
   if (n >= 1) {
-    top = si - 4; R('#cfe8ff', x0, top, w, 4);
-    if (n >= 3) for (const hx of holes) R('#4f5866', hx, top, 10, 4);
-    glow(1, top, 4);
+    // Pad oxide and nitride from the second hour.
+    top = si - 6; R('#cfe8ff', x0, si - 3, w, 3); R('#9fc4a8', x0, top, w, 3);
+    if (n >= 3) for (const hx of holes) R('#4f5866', hx, top, 10, 6);
+    glow(1, top, 6);
   }
   if (n === 2 || n === 3) {
     R('#d9a032', x0, top - 7, w, 7);
@@ -1025,7 +1026,7 @@ function renderCard() {
     txt(part, 16, 72 + i * 10, {color: '#e9e4d6', font: 'IBM Plex Sans', size: 8, max: 176});
   });
   drawStack(204, 22, 100, 72, levelIndex);
-  txt(`${t().reticles} ${found.size}/${LEVELS.length}`, 254, 8, {align: 'center', color: found.size ? '#9fe0ff' : '#3a4058'});
+  txt(`${t().reticles} ${found.size}/${LEVELS.length}`, W - 10, H - 9, {align: 'right', color: found.size ? '#9fe0ff' : '#3a4058'});
   txt(def.stack[lang], 254, 100, {align: 'center', color: '#c9c2ae', font: 'IBM Plex Sans', size: 7});
   const y0 = 116;
   R('#0f1422', 10, y0 - 4, W - 20, 46); R('#2f6db3', 10, y0 - 4, 2, 46);

@@ -311,7 +311,7 @@ const TOOLS = {
       R(p.white3, wx + ww / 2 - 1, wy + 1, 2, 14);
       const dx = bx0 + 24;
       R(p.darker, dx, fy + 6, cw - 34, 9);
-      if (!night || (F >> 3) % 7) text(night ? '----' : t.temp || '1000°C', dx + (cw - 34) / 2, fy + 7, {align: 'center', size: 8, color: night ? '#5a3a10' : '#ff6a3a', max: cw - 36});
+      if (!night || (F >> 3) % 7) text(night ? '----' : (t.temps && t.temps[k]) || t.temp || '1000°C', dx + (cw - 34) / 2, fy + 7, {align: 'center', size: 8, color: night ? '#5a3a10' : '#ff6a3a', max: cw - 36});
       if (k === 0) brand(t.name || 'FORNO V-3', dx, fy + 17, cw - 30);
       emo(bx0 + cw - 7, fy + 10);
       signalTower(bx0 + cw - 5, y + 4, hot > 0.3 ? 'y' : 'g');
