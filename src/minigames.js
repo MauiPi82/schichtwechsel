@@ -1,4 +1,4 @@
-/* Schichtwechsel - six process steps you play yourself. Nothing can be lost here: how well you hit a step
+/* Schichtwechsel - seven process steps you play yourself. Nothing can be lost here: how well you hit a step
  * only changes the quality of lot 4471, which the measuring stations judge later and which ends up as the yield.
  * Controls are those of the game: SHIFT (press or hold) and the arrow keys. Drawn in interface coordinates (320 x 180). */
 (() => {
@@ -26,7 +26,7 @@ function grade(s) {
   return {word: 'SCARTO', color: '#e0402a'};
 }
 // Yield of lot 4471: every played step keeps 80 to 100 % of the chips, the rest of the flow costs 3 %.
-const STEPS = ['clean', 'oxidize', 'coat', 'expose', 'etch', 'implant'];
+const STEPS = ['clean', 'oxidize', 'coat', 'expose', 'develop', 'etch', 'implant'];
 function yieldOf(lot) {
   let y = 0.97;
   for (const k of STEPS) if (lot && lot.s && lot.s[k] !== undefined) y *= 0.8 + 0.2 * lot.s[k];
@@ -445,16 +445,150 @@ const implant = {
   },
 };
 
-const GAMES = {clean, oxidize, coat, expose, etch, implant};
+/* ---------- 5 Develop: a puddle of TMAH on the wafer. The exposed trenches open, then the lines slim down.
+ * SHIFT starts the DI rinse; it needs two seconds to stop the developer. Target: 40 nm lines. ---------- */
+// Game model of a puddle develop: after a wetting delay the exposed resist clears in DEV_CLEAR s (for 100 nm),
+// then the partly exposed edges keep dissolving and the line narrows by DEV_RATE nm/s. Below 30 nm the lines are
+// more than three times as tall as wide and topple when the rinse water dries between them (pattern collapse).
+const DEV_FPS = 8, DEV_CLEAR = 15, DEV_CD0 = 50, DEV_RATE = 0.4, DEV_LAG = 2, DEV_MAX = 90, DEV_COLLAPSE = 30, DEV_PITCH = 80;
+const clearTime = resist => DEV_CLEAR * resist / 100;
+function cdAfter(sec, resist = 100) { const tc = clearTime(resist); return sec < tc ? null : DEV_CD0 - DEV_RATE * (sec - tc); }
+const develop = {
+  init(m, o) { m.st = 'dispense'; m.bt = 0; m.g = 0; m.resist = (o.lot && o.lot.v && o.lot.v.resist) || 100; m.fin = 0; m.cd = null; m.spin = 0; },
+  sec(m) { return m.g / DEV_FPS; },
+  update(m, inp) {
+    m.bt++;
+    if (m.st === 'dispense') { if (m.bt > 110) { m.st = 'puddle'; m.bt = 0; } return; }
+    if (m.st === 'puddle') {
+      m.g++;
+      if (inp.pressed || this.sec(m) >= DEV_MAX) { m.st = 'rinse'; m.bt = 0; m.fin = this.sec(m) + DEV_LAG; m.cd = cdAfter(m.fin, m.resist); m.sfx('click'); }
+      return;
+    }
+    // Rinse: the developer works on for DEV_LAG seconds, then the wafer spins dry.
+    if (m.bt <= DEV_LAG * DEV_FPS) m.g++;
+    m.spin += Math.min(1, m.bt / 40) * 0.5;
+    if (m.bt === 40) m.sfx('click');
+    if (m.bt > 130) {
+      const tc = clearTime(m.resist), cd = m.cd, sec = Math.round(m.fin);
+      if (cd === null) {
+        finish(m, 0.05, {cd: 72, dev: m.fin}, [L(`Pfütze ${sec} s: Lackreste in den Gräben (Scumming).`, `Puddle ${sec} s: resist scum in the trenches.`),
+          L(`Bei ${num(m.resist, 0)} nm Lack ist der Graben erst nach ${num(tc, 0)} s frei.`, `With ${num(m.resist, 0)} nm of resist the trench clears after ${num(tc, 0)} s.`)]);
+      } else if (cd < DEV_COLLAPSE) {
+        finish(m, 0, {cd, dev: m.fin}, [L(`Pfütze ${sec} s → Linie ${num(cd)} nm`, `Puddle ${sec} s → line ${num(cd)} nm`),
+          L('Zu schmal: Beim Trocknen sind die Linien umgekippt.', 'Too thin: the lines toppled while drying.')]);
+      } else {
+        finish(m, 1 - Math.abs(cd - 40) / 8, {cd, dev: m.fin}, [L(`Pfütze ${sec} s → Linie ${num(cd)} nm`, `Puddle ${sec} s → line ${num(cd)} nm`),
+          L('Das CD-SEM misst sie gleich nach.', 'The CD-SEM measures it next.')]);
+      }
+    }
+  },
+  draw(m) {
+    const help = {dispense: L('DER ENTWICKLER WIRD AUFGETRAGEN', 'DISPENSING THE DEVELOPER'), puddle: L('SHIFT: SPÜLEN, WENN DIE LINIE 40 NM HAT', 'SHIFT: RINSE WHEN THE LINE IS 40 NM'),
+      rinse: L('SPÜLEN MIT DI-WASSER, TROCKENSCHLEUDERN', 'DI WATER RINSE, SPIN DRY')}[m.st];
+    const a = frame(m, L('ENTWICKELN · TMAH 2,38 %, PFÜTZE', 'DEVELOP · TMAH 2.38 %, PUDDLE'), help);
+    const sec = this.sec(m), tc = clearTime(m.resist);
+    // Left: the track's develop cup from the side, the wafer on its chuck, the puddle on top.
+    const cx = a.x + 56, wy = a.y + 70, ww = 84;
+    R('#1a2030', cx - 52, wy - 18, 3, 40); R('#1a2030', cx + 49, wy - 18, 3, 40); R('#1a2030', cx - 52, wy + 20, 104, 3);
+    R('#3a4058', cx - 3, wy + 2, 6, 18); R('#5a6270', cx - 10, wy + 1, 20, 2);
+    R('#8e98a3', cx - ww / 2, wy - 1, ww, 2); R('#d99a32', cx - ww / 2, wy - 2, ww, 1);
+    // Spinning: streaks on the wafer edge and droplets thrown off sideways.
+    if (m.st === 'rinse' && m.bt > 20) {
+      for (let k = 0; k < 6; k++) { const ph = (m.spin * 3 + k / 6) % 1; R('rgba(255,255,255,.5)', cx - ww / 2 + ph * ww, wy, 3, 1); }
+      for (let k = 0; k < 10; k++) {
+        const ph = ((m.bt * 2 + k * 23) % 40) / 40, side = k % 2 ? 1 : -1;
+        if (m.bt < 110) circle('rgba(160,210,255,.8)', cx + side * (ww / 2 + ph * 10), wy - 3 - Math.sin(ph * 3) * 6 + ph * 14, 1);
+      }
+    }
+    // The puddle: laid down by the slit nozzle from left to right, held by surface tension, thrown off in the rinse.
+    const lay = m.st === 'dispense' ? clamp((m.bt - 20) / 70, 0, 1) : 1;
+    const left = m.st === 'rinse' ? clamp(1 - (m.bt - 20) / 60, 0, 1) : 1;
+    if (lay > 0 && left > 0) {
+      const x0 = cx - ww / 2, x1 = x0 + ww * lay, ph = 5 * left;
+      ctx.fillStyle = m.st === 'rinse' ? 'rgba(170,215,255,.6)' : 'rgba(120,190,255,.6)';
+      ctx.beginPath(); ctx.moveTo(x0, wy - 2);
+      ctx.quadraticCurveTo(x0, wy - 2 - ph, x0 + 6, wy - 2 - ph); ctx.lineTo(x1 - 6, wy - 2 - ph); ctx.quadraticCurveTo(x1, wy - 2 - ph, x1, wy - 2);
+      ctx.closePath(); ctx.fill();
+      R('rgba(220,240,255,.7)', x0 + 6, wy - 2 - ph, Math.max(0, x1 - x0 - 12), 1);
+      if (x1 - x0 > 30) R('rgba(255,255,255,.85)', x0 + 8 + (m.t * 0.25) % (x1 - x0 - 22), wy - 1 - ph, 6, 1);
+    }
+    if (m.st === 'dispense' && m.bt < 100) {
+      const nx = cx - ww / 2 + ww * clamp((m.bt - 20) / 70, 0, 1);
+      R('#5a6270', nx - 4, wy - 34, 8, 6); R('#3a4058', nx - 1, wy - 48, 2, 14);
+      if (m.bt > 18 && m.bt < 92) for (let k = 0; k < 3; k++) R('rgba(120,190,255,.8)', nx - 3 + k * 3, wy - 28 + ((m.bt + k * 3) % 4), 1, 20);
+    }
+    if (m.st === 'rinse' && m.bt < 90) { R('#5a6270', cx - 3, wy - 40, 6, 6); for (let k = 0; k < 2; k++) R('rgba(220,240,255,.85)', cx - 1 + k * 2, wy - 34, 1, 30); }
+    text('23 °C', cx - 50, a.y + 3, {color: '#6b7190'});
+    text(m.st === 'puddle' || m.st === 'rinse' ? `t = ${Math.floor(Math.min(sec, m.fin || sec))} s` : '', cx + 50, a.y + 3, {align: 'right', color: '#9aa6b5'});
+    text(L(`LACK ${num(m.resist, 0)} NM`, `RESIST ${num(m.resist, 0)} NM`), cx, wy + 26, {align: 'center', color: '#6b7190', max: 100});
+    // Right: the cross-section, 40 nm lines and spaces, resist on nitride, 0.5 px per nm.
+    const zx = a.x + 118, zy = a.y + 4, zw = a.w - 122, zh = a.h - 8, S = 0.5;
+    ctx.save(); ctx.beginPath(); ctx.rect(zx, zy, zw, zh); ctx.clip();
+    R('#0b0f18', zx, zy, zw, zh);
+    const base = zy + zh - 22, H = Math.round(m.resist * S * (1 - 0.0012 * sec)), top = base - H;
+    R('#cfe8ff', zx, base + 4, zw, 12); R('#9fc4a8', zx, base, zw, 4);
+    const now = Math.min(sec, m.fin || Infinity), cd = cdAfter(now, m.resist);
+    const fall = m.st === 'rinse' && m.cd !== null && m.cd < DEV_COLLAPSE ? smooth((m.bt - 70) / 50) : 0;
+    // Developer above the resist and in the trenches (gone once the wafer spins dry).
+    const wet = m.st === 'dispense' ? lay : m.st === 'rinse' ? left : 1, wa = 0.28 * wet;
+    const wetCol = `rgb(${Math.round(11 + 79 * wa)},${Math.round(15 + 145 * wa)},${Math.round(24 + 216 * wa)})`;
+    R(wetCol, zx, zy, zw, top - zy);
+    const P = DEV_PITCH * S, f = clamp(now / tc, 0, 1), lines = [];
+    for (let lc = zx + 10; lc < zx + zw + P; lc += P) lines.push(lc);
+    if (!fall) {
+      R('#d99a32', zx, top, zw, H); R('#f0b850', zx, top, zw, 1);
+      for (const lc of lines) {
+        const sc = lc + P / 2;
+        // The latent image: where the light fell, the resist has turned soluble.
+        if (cd === null) R('rgba(150,100,215,.42)', sc - 20 * S, top, 40 * S, H);
+        // The trench: before clearing narrow and shallow, then full depth and widening as the line slims.
+        const tw = (cd === null ? (DEV_PITCH - DEV_CD0) * (0.55 + 0.45 * f) : DEV_PITCH - cd) * S, depth = cd === null ? H * f : H;
+        if (depth > 0) {
+          R(wetCol, sc - tw / 2, top, tw, depth);
+          R('#a8701e', sc - tw / 2 - 1, top, 1, depth); R('#f0b850', sc + tw / 2, top, 1, depth);
+          // Dissolved resist rises out of the trench while the developer works.
+          if (m.st === 'puddle' && sec < tc + 12) for (let k = 0; k < 2; k++) {
+            const h = (m.t * 0.6 + k * 17 + lc) % 40, al = 1 - h / 40;
+            R(`rgba(200,160,255,${0.6 * al})`, sc - 1 + (k ? 2 : -2), top + depth - 2 - h, 1, 1);
+          }
+        }
+      }
+    } else {
+      // Pattern collapse: the drying water pulls neighbouring lines together; they fall onto each other in pairs.
+      const lw = cd * S;
+      lines.forEach((lc, i) => {
+        ctx.save(); ctx.translate(lc, base); ctx.rotate(fall * 0.36 * (i % 2 ? -1 : 1));
+        ctx.fillStyle = '#d99a32'; ctx.fillRect(-lw / 2, -H, lw, H); R('#f0b850', -lw / 2, -H, lw, 1); R('#a8701e', lw / 2 - 1, -H, 1, H);
+        ctx.restore();
+      });
+    }
+    // The 40 nm target on one line: two dashed marks at its edges.
+    const mc = lines[1];
+    if (m.st !== 'dispense' && !fall) {
+      ctx.strokeStyle = '#ffcf5a'; ctx.setLineDash([2, 2]); ctx.lineWidth = 1;
+      for (const e of [-20, 20]) { const ex = Math.round(mc + e * S) + (e > 0 ? 0.5 : -0.5); ctx.beginPath(); ctx.moveTo(ex, top - 6); ctx.lineTo(ex, base); ctx.stroke(); }
+      ctx.setLineDash([]);
+      text('40', mc, top - 15, {align: 'center', color: '#ffcf5a'});
+    }
+    ctx.restore();
+    const read = cd === null ? L(`GRABEN ${Math.round(f * 100)} % FREI`, `TRENCH ${Math.round(f * 100)} % CLEAR`) : `${L('LINIE', 'LINE')} ${num(Math.max(0, cd))} NM`;
+    const ok = cd !== null && Math.abs(cd - 40) < 1.5;
+    R('rgba(8,10,16,.85)', zx, zy + zh - 12, zw, 12);
+    text(m.st === 'dispense' ? L('LATENTES BILD', 'LATENT IMAGE') : read, zx + zw / 2, zy + zh - 10, {align: 'center', color: ok ? '#3fe06a' : cd !== null && cd < 36 ? '#ff8a5a' : '#cfe8ff', max: zw - 4});
+    ctx.restore(); result(m, a);
+  },
+};
+
+const GAMES = {clean, oxidize, coat, expose, develop, etch, implant};
 // Skipped with Enter: the tool runs its standard recipe, which is never quite tuned for this lot.
-const SKIP = {clean: {particles: 12}, oxidize: {oxide: 52.4}, coat: {resist: 104, rpm: 1850}, expose: {overlay: 8}, etch: {overEtch: 8}, implant: {dose: 0.8, purity: 1}};
+const SKIP = {clean: {particles: 12}, oxidize: {oxide: 52.4}, coat: {resist: 104, rpm: 1850}, expose: {overlay: 8}, develop: {cd: 43.2, dev: 60}, etch: {overEtch: 8}, implant: {dose: 0.8, purity: 1}};
 function skip(m) {
   if (m.phase !== 'play') return;
   finish(m, 0.6, SKIP[m.type], [L('Übersprungen: Die Anlage fährt ihr Standardrezept.', 'Skipped: the tool runs its standard recipe.')]);
 }
 function create(type, o = {}) {
   const m = {type, t: 0, phase: 'play', score: 0, values: {}, closed: false, resultT: 0, sfx: o.sfx || (() => {})};
-  GAMES[type].init(m);
+  GAMES[type].init(m, o);
   return m;
 }
 function update(m, inp) {
@@ -467,5 +601,5 @@ function draw(c, m, language) {
   GAMES[m.type].draw(m);
 }
 
-window.SchichtMini = {has: type => !!GAMES[type], create, update, draw, skip, grade, yieldOf, STEPS, radius, fieldFor};
+window.SchichtMini = {has: type => !!GAMES[type], create, update, draw, skip, grade, yieldOf, STEPS, radius, fieldFor, cdAfter, DEV: {FPS: DEV_FPS, LAG: DEV_LAG}};
 })();

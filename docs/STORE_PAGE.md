@@ -47,7 +47,7 @@ Findings from 15 Steam pages of short atmospheric horror and puzzle games (Iron 
 > The fab exists twice. Your shift is bright and safe, but walls stand in your way. The shift before is the same hall in yellow light, decayed, and the previous shift still walks its rounds there. Press Shift to change between them.
 >
 > - Take lot 4471 through a real front-end process, one layer per hour: clean, oxidise, coat, expose, etch, implant, anneal, contact, metal.
-> - Play the steps yourself: lift the wafers out of the baths in time, stop the oxygen at 50 nm, keep the analysing magnet on arsenic.
+> - Play the steps yourself: lift the wafers out of the baths in time, stop the oxygen at 50 nm, rinse the developer when the lines are 40 nm wide, keep the analysing magnet on arsenic.
 > - Real physics decides: an ion beam bent by the Lorentz force, heat spreading from furnace doors, plasma firing in rhythm.
 > - Watch their shadows in your shift, slip past them in theirs. Light stops them.
 > - Measuring stations judge your work. Your yield is the score of the night.
@@ -66,7 +66,7 @@ Findings from 15 Steam pages of short atmospheric horror and puzzle games (Iron 
 > Das Werk gibt es zweimal. Deine Schicht ist hell und sicher, aber Wände stehen im Weg. Die Vorschicht ist dieselbe Halle im Gelblicht, verfallen, und die Schicht von vorhin geht dort noch ihre Runden. Mit Shift wechselst du zwischen beiden.
 >
 > - Bring Los 4471 durch einen echten Front-End-Prozess, eine Schicht pro Stunde: reinigen, oxidieren, belacken, belichten, ätzen, implantieren, ausheilen, kontaktieren, metallisieren.
-> - Spiel die Schritte selbst: die Wafer rechtzeitig aus dem Bad heben, den Sauerstoff bei 50 nm abstellen, den Analysiermagneten auf Arsen halten.
+> - Spiel die Schritte selbst: die Wafer rechtzeitig aus dem Bad heben, den Sauerstoff bei 50 nm abstellen, den Entwickler bei 40 nm Linienbreite abspülen, den Analysiermagneten auf Arsen halten.
 > - Echte Physik entscheidet: ein Ionenstrahl, den die Lorentzkraft biegt, Hitze aus Ofentüren, Plasma im Takt.
 > - In deiner Schicht ihre Schatten beobachten, in ihrer an ihnen vorbei. Licht hält sie auf.
 > - Messstationen bewerten deine Arbeit. Deine Ausbeute ist der Punktestand der Nacht.

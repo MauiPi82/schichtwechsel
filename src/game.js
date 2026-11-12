@@ -478,7 +478,7 @@ function pollPad() {
 let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0, shake = 0;
 let progress = clamp(+store.get('level') || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
 const deathsBy = levels.map(() => 0);
-const BUILD = '0.28 · 2026-11-12';
+const BUILD = '0.29 · 2026-11-12';
 // Testers can jump to an hour: ?stunde=3 or ?hour=3 opens the third hour.
 const jump = +(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || 0);
 if (jump >= 1 && jump <= levels.length) progress = jump - 1;
@@ -519,7 +519,7 @@ function introDoors(L) { const d = []; for (let i = 0; i < L.layers[0].length; i
 // Scores (0..1) of the played steps and their measured values; the measuring stations and the yield read them.
 let lot = {s: {}, v: {}}, mini = null, notesRead = new Set(), bookSel = 0;
 try { notesRead = new Set(JSON.parse(store.get('notes') || '[]')); } catch (_) { notesRead = new Set(); }
-const STEP_NAME = {clean: ['Reinigen', 'Clean'], oxidize: ['Oxidieren', 'Oxidise'], coat: ['Belacken', 'Coat'], expose: ['Belichten', 'Expose'], etch: ['Ätzen', 'Etch'], implant: ['Implantieren', 'Implant']};
+const STEP_NAME = {clean: ['Reinigen', 'Clean'], oxidize: ['Oxidieren', 'Oxidise'], coat: ['Belacken', 'Coat'], expose: ['Belichten', 'Expose'], develop: ['Entwickeln', 'Develop'], etch: ['Ätzen', 'Etch'], implant: ['Implantieren', 'Implant']};
 const lossOf = s => Math.round((1 - (0.8 + 0.2 * s)) * 100);
 let history = [], rewT = 0, rewFrom = 0;
 try { const l = JSON.parse(store.get('lot') || 'null'); if (l && l.s && l.v) lot = l; } catch (_) { /* fresh lot */ }
@@ -527,7 +527,7 @@ function saveLot() { store.set('lot', JSON.stringify(lot)); }
 function newLot() { lot = {s: {}, v: {}}; saveLot(); }
 const lotYield = () => window.SchichtMini ? window.SchichtMini.yieldOf(lot) : 97;
 function startMini(type) {
-  mini = window.SchichtMini.create(type, {sfx: n => audio.sfx(n === 'good' ? 'station' : n === 'meh' ? 'tool-wait' : n)});
+  mini = window.SchichtMini.create(type, {lot, sfx: n => audio.sfx(n === 'good' ? 'station' : n === 'meh' ? 'tool-wait' : n)});
   mode = 'mini'; miniPressed = false;
 }
 function endMini() {

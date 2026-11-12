@@ -1,4 +1,4 @@
-// The six playable process steps: physics, scoring and a full play of each. Run: node --test test/
+// The seven playable process steps: physics, scoring and a full play of each. Run: node --test test/
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
@@ -24,7 +24,7 @@ test('grades and yield', () => {
   assert.equal(M.yieldOf({s: {}}), 97);
   const perfect = Object.fromEntries(M.STEPS.map(k => [k, 1])), worst = Object.fromEntries(M.STEPS.map(k => [k, 0]));
   assert.equal(M.yieldOf({s: perfect}), 97);
-  assert.equal(M.yieldOf({s: worst}), Math.round(0.97 * 0.8 ** 6 * 100));
+  assert.equal(M.yieldOf({s: worst}), Math.round(0.97 * 0.8 ** M.STEPS.length * 100));
 });
 
 test('oxidise: stopping at 50 nm is perfetto, waiting too long is not', () => {
@@ -72,4 +72,24 @@ test('implant: only arsenic through the slit gives the full dose', () => {
   wrong.B = P; press(wrong);
   for (let i = 0; i < 420; i++) { wrong.B += (P - wrong.B) * 0.3; M.update(wrong, idle); }
   assert.ok(wrong.score < 0.05, `phosphorus instead of arsenic: ${wrong.score}`);
+});
+
+test('develop: rinse so the line ends at 40 nm; too early leaves scum, too late topples the lines', () => {
+  const {FPS, LAG} = M.DEV;
+  // Press when the line, two seconds of rinse later, is 40 nm: 15 s to clear 100 nm, then 0.4 nm/s.
+  const at = 15 + (50 - 40) / 0.4 - LAG;
+  const m = M.create('develop', {lot: {v: {resist: 100}}});
+  run(m, 111);
+  while (m.phase === 'play' && m.g < at * FPS) M.update(m, idle);
+  press(m); run(m, 140);
+  assert.equal(m.phase, 'result'); assert.ok(Math.abs(m.values.cd - 40) < 0.3, `${m.values.cd}`); assert.ok(m.score > 0.95);
+  // Thicker resist from the coater clears later: the same moment leaves wider lines.
+  const thick = M.create('develop', {lot: {v: {resist: 120}}});
+  run(thick, 111); while (thick.g < at * FPS) M.update(thick, idle); press(thick); run(thick, 140);
+  assert.ok(thick.values.cd > 41, `${thick.values.cd}`);
+  const early = M.create('develop'); run(early, 111 + 5 * FPS); press(early); run(early, 140);
+  assert.ok(early.score < 0.1, 'scum');
+  const late = M.create('develop'); run(late, 2000);
+  assert.equal(late.phase, 'result'); assert.equal(late.score, 0, 'pattern collapse');
+  assert.ok(M.cdAfter(10) === null && Math.abs(M.cdAfter(40) - 40) < 1e-9);
 });

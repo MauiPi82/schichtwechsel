@@ -75,6 +75,9 @@ function verdict(s, x, y) {
   text(lang === 'de' ? `AUSBEUTE −${loss} %` : `YIELD −${loss} %`, x, y + 9, {align: 'center', color: loss ? '#c9a15a' : '#3fe06a', size: 8});
 }
 function cdOf() {
+  // The line the developer left, if that step was played; otherwise estimated from the steps before.
+  const d = val('cd', null);
+  if (d) return d;
   const e = sc('expose'), c = sc('coat'), t = sc('etch');
   return 40.2 + 9 * (1 - (e === null ? 1 : e)) + 4 * (1 - (c === null ? 1 : c)) + 5 * (1 - (t === null ? 1 : t));
 }
@@ -494,7 +497,7 @@ function measure(t, x, y, w, h) {
     R('rgba(10,14,20,.85)', lx + 16, zy + zh / 2 - 8, 74, 14);
     const cd = cdOf();
     text(`CD = ${fmt(cd)} nm`, lx + 20, zy + zh / 2 - 5, {color: '#ffcf5a'});
-    if (sc('expose') !== null || sc('etch') !== null) verdict(1 - Math.abs(cd - 40) / 12, lx + 57, zy + zh / 2 + 10);
+    if (sc('expose') !== null || sc('develop') !== null || sc('etch') !== null) verdict(1 - Math.abs(cd - 40) / 12, lx + 57, zy + zh / 2 + 10);
   }
 }
 
