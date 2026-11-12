@@ -247,7 +247,7 @@ const oxidize = {
     const rise = smooth(m.t / 100), heat = clamp((m.t - 60) / 50, 0, 1);
     window.SchichtProcess.furnace(ctx, a.x + 2, a.y + 2, 86, a.h - 14, {rise, heat, t: m.t, gas: m.st === 'grow' ? ['rgba(160,220,255,.9)'] : null,
       temp: `${Math.round(400 + 600 * heat)} °C`});
-    text(m.st === 'grow' ? `t = ${Math.round(m.g / 6)} min` : L('BOOT FÄHRT EIN', 'BOAT LOADING'), a.x + 45, a.y + a.h - 10, {align: 'center', color: '#9aa6b5', max: 90});
+    text(m.st === 'grow' ? `t = ${Math.round(m.g / 10)} min` : L('BOOT FÄHRT EIN', 'BOAT LOADING'), a.x + 45, a.y + a.h - 10, {align: 'center', color: '#9aa6b5', max: 90});
     // Thickness, big, and the growth curve with the target line.
     const d = oxide(m.g), px = a.x + 92, pw = a.w - 98;
     text(`${num(d)} nm`, px + pw / 2, a.y + 6, {align: 'center', size: 16, font: 'Pixelify Sans', weight: 700, color: Math.abs(d + RAMP - 50) < 1 ? '#3fe06a' : '#cfe8ff'});
@@ -306,7 +306,7 @@ const nitride = {
     const rise = smooth(m.t / 100), heat = clamp((m.t - 40) / 60, 0, 1);
     const f = window.SchichtProcess.furnace(ctx, a.x + 2, a.y + 2, 86, a.h - 14, {rise, heat, t: m.t, gas: m.st === 'run' ? ['rgba(120,200,255,.9)', 'rgba(140,240,160,.9)'] : null,
       temp: m.st === 'load' ? `${Math.round(400 + 380 * heat)} °C` : 'SiH₂Cl₂ + NH₃'});
-    text(L('GAS VON OBEN', 'GAS FROM THE TOP'), a.x + 45, a.y + a.h - 10, {align: 'center', color: '#9aa6b5', max: 90});
+    text(L('GAS VERARMT ZUM ENDE', 'GAS DEPLETES ALONG'), a.x + 45, a.y + a.h - 10, {align: 'center', color: '#9aa6b5', max: 90});
     if (m.st === 'load') { ctx.restore(); result(m, a); return; }
     // The three heater zones: set point and actual temperature; the selected one is framed.
     const px = a.x + 92, names = L(['OBEN', 'MITTE', 'UNTEN'], ['TOP', 'MIDDLE', 'BOTTOM']);
@@ -459,7 +459,7 @@ const expose = {
     if (m.st === 'load') {
       text(L('RETIKEL-BIBLIOTHEK', 'RETICLE LIBRARY'), pc, a.y + 6, {align: 'center', color: '#9aa6b5', max: pw});
       for (let k = 0; k < 6; k++) { R('#3a4058', px + 10, a.y + 22 + k * 12, pw - 20, 8); if (k !== 2 || m.bt < 10) R('#cfe8ff', px + 14, a.y + 24 + k * 12, pw - 28, 4); }
-      text(L('MASKE 1 · AKTIVGEBIET', 'MASK 1 · ACTIVE AREA'), pc, a.y + a.h - 14, {align: 'center', color: '#ffcf5a', max: pw});
+      text(m.variant === 'contacts' ? L('MASKE 2 · KONTAKTE', 'MASK 2 · CONTACTS') : L('MASKE 1 · AKTIVGEBIET', 'MASK 1 · ACTIVE AREA'), pc, a.y + a.h - 14, {align: 'center', color: '#ffcf5a', max: pw});
     } else if (m.st === 'alignX' || m.st === 'alignY') {
       const r = 34, off = this.mark(m), ox = m.st === 'alignX' ? off : 0, oy = m.st === 'alignY' ? off : 0;
       const fx = m.st === 'alignY' ? m.dx : 0;
@@ -488,7 +488,8 @@ const expose = {
 /* ---------- 5 Etch: first the nitride clears (CN line drops), then the oxide (CO line drops). ----------
  * Then a little more: 20 to 30 % over-etch makes sure every trench is open. */
 const etch = {
-  init(m) { m.tn = 140 + Math.random() * 60; m.te = m.tn + 180 + Math.random() * 140; m.g = 0; m.cn = []; m.co = []; },
+  // 100 nm nitride first, then 50 nm oxide, which CF₄/CHF₃ etches at least as fast: the oxide phase is the shorter.
+  init(m) { m.tn = 220 + Math.random() * 80; m.te = m.tn + 80 + Math.random() * 60; m.g = 0; m.cn = []; m.co = []; },
   lines(m, g) {
     const drop = (t0, len) => g < t0 ? 1 : g < t0 + len ? 1 - (g - t0) / len : 0;
     const n1 = Math.sin(g * 0.7) * 0.03 + Math.sin(g * 2.3 + 1) * 0.02, n2 = Math.sin(g * 0.9 + 2) * 0.03 + Math.sin(g * 1.7) * 0.02;
@@ -522,13 +523,15 @@ const etch = {
     // Right top: optical emission over time; CN while the nitride etches, CO while the oxide etches.
     const gx = a.x + 104, gy = a.y + 4, gw = a.w - 108, gh = 50;
     R('#0b0f18', gx, gy, gw, gh); text('OES', gx + gw - 3, gy + 2, {align: 'right', color: '#4c5470'});
-    [[m.cn, '#7fe0ff', 'CN 387 nm', 2], [m.co, '#d6a8ff', 'CO 483 nm', 12]].forEach(([tr, colr, name, ly]) => {
-      text(name, gx + 3, gy + ly, {color: colr, max: 60});
+    const lines = [[m.cn, '#7fe0ff', 'CN 387 nm', 2], [m.co, '#d6a8ff', 'CO 483 nm', 12]];
+    lines.forEach(([tr, colr]) => {
       const shown = tr.slice(-(gw - 2));
       ctx.strokeStyle = colr; ctx.lineWidth = 1; ctx.beginPath();
       shown.forEach((v, i) => ctx[i ? 'lineTo' : 'moveTo'](gx + gw - 1 - shown.length + i, gy + gh - 3 - v * (gh - 8)));
       ctx.stroke();
     });
+    // The names over the traces, on their own dark ground.
+    lines.forEach(([, colr, name, ly]) => { R('rgba(11,15,24,.85)', gx + 2, gy + ly - 1, 58, 10); text(name, gx + 3, gy + ly, {color: colr, max: 56}); });
     // When the CO line has dropped, the tool calls the endpoint and counts the over-etch from there.
     if (past) {
       const ex = gx + gw - 1 - (m.g - T);
@@ -538,7 +541,7 @@ const etch = {
       text(`${L('ÜBERÄTZEN', 'OVER-ETCH')} ${Math.max(0, Math.round(p))} %`, gx + gw - 3, gy + gh - 12, {align: 'right', color: good ? '#3fe06a' : p < 20 ? '#ffcf5a' : '#ff8a5a', max: gw - 4});
     }
     // Right bottom: cross-section. Resist, nitride, oxide; the holes go down, polymer on their walls, then the silicon.
-    const sx = gx, sw = gw, si = a.y + a.h - 8, nit = 5, ox = 13, holes = [0.18, 0.5, 0.82].map(f => sx + f * sw - 6);
+    const sx = gx, sw = gw, si = a.y + a.h - 8, nit = 12, ox = 6, holes = [0.18, 0.5, 0.82].map(f => sx + f * sw - 6);
     R('#4f5866', sx, si, sw, 8); R('#cfe8ff', sx, si - ox, sw, ox); R('#9fc4a8', sx, si - ox - nit, sw, nit); R('#d99a32', sx, si - ox - nit - 8, sw, 8);
     const dn = clamp(m.g / (m.tn + 30), 0, 1) * nit, dox = clamp((m.g - m.tn - 30) / (m.te + 40 - m.tn - 30), 0, 1) * ox, over = Math.max(0, m.g - m.te - 40);
     holes.forEach(hx => {
@@ -657,7 +660,7 @@ const develop = {
           L('Zu schmal: Beim Trocknen sind die Linien umgekippt.', 'Too thin: the lines toppled while drying.')]);
       } else {
         finish(m, 1 - Math.abs(cd - 40) / 8, {cd, dev: m.fin}, [L(`Pfütze ${sec} s → Linie ${num(cd)} nm`, `Puddle ${sec} s → line ${num(cd)} nm`),
-          L('Das CD-SEM misst sie gleich nach.', 'The CD-SEM measures it next.')]);
+          L('Das CD-SEM misst gleich nach. In echt legt vor allem die Dosis die Breite fest.', 'The CD-SEM measures next. In a real fab the dose sets the width above all.')]);
       }
     }
   },
@@ -705,7 +708,7 @@ const develop = {
     ctx.save(); ctx.beginPath(); ctx.rect(zx, zy, zw, zh); ctx.clip();
     R('#0b0f18', zx, zy, zw, zh);
     const base = zy + zh - 22, H = Math.round(m.resist * S * (1 - 0.0012 * sec)), top = base - H;
-    R('#cfe8ff', zx, base + 4, zw, 12); R('#9fc4a8', zx, base, zw, 4);
+    R('#cfe8ff', zx, base + 10, zw, 6); R('#9fc4a8', zx, base, zw, 10);
     const now = Math.min(sec, m.fin || Infinity), cd = cdAfter(now, m.resist);
     const fall = m.st === 'rinse' && m.cd !== null && m.cd < DEV_COLLAPSE ? smooth((m.bt - 70) / 50) : 0;
     // Developer above the resist and in the trenches (gone once the wafer spins dry).
@@ -844,8 +847,8 @@ const BRIEF = {
     de: ['Der Lack wird aufgeschleudert: je schneller, desto dünner.', 'Ziel: 100 nm Lack, das sind 2000 Umdrehungen pro Minute.', 'SHIFT halten: schneller · ↑↓ fein · loslassen: Lack trocknet.'],
     en: ['The resist is spun on: the faster, the thinner.', 'Target: 100 nm of resist, that is 2000 revolutions per minute.', 'Hold SHIFT: faster · ↑↓ fine · let go: the resist dries.']},
   expose: {title: ['BELICHTEN · SCANNER', 'EXPOSE · SCANNER'],
-    de: ['Das Retikel muss genau auf den Nullmarken des Wafers sitzen: Alle späteren Ebenen richten sich danach.', 'Die Justagemarken laufen hin und her. Stopp sie, wenn sie decken.', 'SHIFT stoppt X, dann Y. Danach belichtet der Scanner allein.'],
-    en: ['The reticle must sit exactly on the wafer\'s zero marks: every later layer aligns to this one.', 'The alignment marks sweep back and forth. Stop them when they meet.', 'SHIFT stops X, then Y. Then the scanner exposes by itself.']},
+    de: ['Die erste Maske richtet sich nach der Kerbe; ihre Marken tragen alle späteren Ebenen.', 'Die Justagemarken laufen hin und her. Stopp sie, wenn sie decken.', 'SHIFT stoppt X, dann Y. Danach belichtet der Scanner allein.'],
+    en: ['The first mask aligns to the notch; its marks carry every later layer.', 'The alignment marks sweep back and forth. Stop them when they meet.', 'SHIFT stops X, then Y. Then the scanner exposes by itself.']},
   // The same scanner at 04:00: the contact holes must land on the doped areas of the first layer.
   'expose:contacts': {title: ['KONTAKTE BELICHTEN · SCANNER', 'EXPOSE CONTACTS · SCANNER'],
     de: ['Die Kontaktlöcher müssen genau auf den dotierten Gebieten landen,', 'also justiert der Scanner auf die Marken der ersten Ebene. Stopp die Marken, wenn sie decken.', 'SHIFT stoppt X, dann Y. Danach belichtet der Scanner allein.'],

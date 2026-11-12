@@ -38,22 +38,22 @@ const CAP = {
     en: ['DEVELOP', 'Exposed resist dissolves in the developer. What remains: 40 nm lines.']},
   etch: {de: ['ÄTZEN · PLASMA', 'Ionen fallen senkrecht durch die Lackmaske und tragen Nitrid und Oxid ab.'],
     en: ['ETCH · PLASMA', 'Ions fall straight through the resist mask and remove nitride and oxide.']},
-  strip: {de: ['LACK ENTFERNEN · SAUERSTOFFPLASMA', 'Der Lack verascht zu CO₂ und Wasser. Das Muster bleibt in Nitrid und Oxid.'],
-    en: ['STRIP RESIST · OXYGEN PLASMA', 'The resist burns off as CO₂ and water. The pattern stays in nitride and oxide.']},
-  implant: {de: ['IMPLANTIEREN · ARSEN, 40 KEV', 'Ionen schlagen unter 7° ins Silizium, nur dort, wo das Oxid offen ist.'],
-    en: ['IMPLANT · ARSENIC, 40 KEV', 'Ions strike the silicon at 7°, only where the oxide is open.']},
-  anneal: {de: ['AUSHEILEN · 1000 °C, N₂', 'Das Gitter heilt aus. Für 40 nm kurz halten (RTP, Sekunden), sonst läuft das Arsen zu weit.'],
-    en: ['ANNEAL · 1000 °C, N₂', 'The lattice heals. For 40 nm keep it short (RTP, seconds), or the arsenic runs too far.']},
-  deposit: {de: ['OXID ABSCHEIDEN · PE-TEOS', 'TEOS-Oxid wächst aus dem Plasma fast gleichmäßig über die Stufen und füllt die Fenster.'],
-    en: ['DEPOSIT OXIDE · PE-TEOS', 'TEOS oxide grows from the plasma almost evenly over the steps and fills the windows.']},
-  contacts: {de: ['KONTAKTE ÄTZEN', 'Durch die Kontaktmaske: senkrechte Löcher bis auf die Dotierung.'],
-    en: ['ETCH CONTACTS', 'Through the contact mask: straight holes down to the doped silicon.']},
+  strip: {de: ['LACK ENTFERNEN · SAUERSTOFFPLASMA', 'O-Radikale aus einem entfernten Plasma veraschen den Lack bei 250 °C zu CO₂ und Wasser.'],
+    en: ['STRIP RESIST · OXYGEN PLASMA', 'O radicals from a remote plasma burn the resist off at 250 °C as CO₂ and water.']},
+  implant: {de: ['IMPLANTIEREN · ARSEN, 40 KEV', 'Ionen schlagen unter 7° ins Silizium, nur dort, wo Nitrid und Oxid offen sind.'],
+    en: ['IMPLANT · ARSENIC, 40 KEV', 'Ions strike the silicon at 7°, only where nitride and oxide are open.']},
+  anneal: {de: ['AUSHEILEN · 1000 °C, N₂', 'Das Gitter heilt, das Arsen wird elektrisch aktiv und wandert einige 10 nm. Feinste Chips: RTP, Sekunden.'],
+    en: ['ANNEAL · 1000 °C, N₂', 'The lattice heals, the arsenic turns active and moves some tens of nm. The finest chips: RTP, seconds.']},
+  deposit: {de: ['OXID ABSCHEIDEN · O₃-TEOS (SACVD)', 'TEOS mit Ozon fließt in die engen Fenster und füllt sie ohne Hohlräume.'],
+    en: ['DEPOSIT OXIDE · O₃-TEOS (SACVD)', 'TEOS with ozone flows into the narrow windows and fills them without voids.']},
+  contacts: {de: ['KONTAKTE ÄTZEN', 'Senkrechte Löcher bis auf die Dotierung. Danach: Lack weg, Ti/TiN und Wolfram hinein, plan polieren.'],
+    en: ['ETCH CONTACTS', 'Straight holes down to the doping. Then: resist off, Ti/TiN and tungsten in, polish flat.']},
   sputter: {de: ['SPUTTERN · ALUMINIUM', 'Argon schlägt Aluminium aus dem Target. In den Kontakten liegen vorher Ti/TiN und Wolfram.'],
     en: ['SPUTTER · ALUMINIUM', 'Argon knocks aluminium out of the target. The contacts get Ti/TiN and tungsten first.']},
   cexpose: {de: ['KONTAKTE BELICHTEN · KONTAKTMASKE', 'Die zweite Maske: Löcher im Lack genau über der Dotierung.'],
     en: ['EXPOSE CONTACTS · CONTACT MASK', 'The second mask: holes in the resist right above the doping.']},
-  rs: {de: ['SCHICHTWIDERSTAND · VIERSPITZE', 'Rs = 4,53 · V/I = 54 mΩ/□. Das sind 500 nm Aluminium.'],
-    en: ['SHEET RESISTANCE · FOUR-POINT PROBE', 'Rs = 4.53 · V/I = 54 mΩ/□. That is 500 nm of aluminium.']},
+  rs: {de: ['SCHICHTWIDERSTAND · VIERSPITZE', 'Rs = 4,53 · V/I: 54 mΩ/□ sind 500 nm Aluminium. Danach ätzt Chlorplasma die Leiterbahnen.'],
+    en: ['SHEET RESISTANCE · FOUR-POINT PROBE', 'Rs = 4.53 · V/I: 54 mΩ/□ is 500 nm of aluminium. Then chlorine plasma etches the lines.']},
   measure: {de: ['MESSEN · CD-SEM', 'Der Elektronenstrahl rastert die Linien ab. Ziel: 40 nm Breite.'],
     en: ['MEASURE · CD-SEM', 'The electron beam scans the lines. Target: 40 nm wide.']},
 };
@@ -61,7 +61,8 @@ const CAP = {
 function wafer(cx, cy, r, film, rot) {
   circle('#5a6270', cx, cy, r + 1);
   circle('#c9ced6', cx, cy, r);
-  if (film) film();
+  // Whatever lies on the wafer ends at its edge: the partial fields too.
+  if (film) { ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.clip(); film(); ctx.restore(); }
   ctx.save(); ctx.translate(cx, cy); ctx.rotate(rot || 0);
   R('#0b0f18', -2, r - 2, 4, 3);
   ctx.restore();
@@ -338,7 +339,7 @@ function intake(t, x, y, w, h) {
 function ellipso(t, x, y, w, h) {
   // The films, not to scale: nitride on oxide on silicon. The beam goes in, is bent at every interface
   // (Snell: n₁ sin θ₁ = n₂ sin θ₂), part of it turns back at each one, and the partial beams leave in parallel.
-  const ys = y + h - 40, tn = 14, to = 10;
+  const ys = y + h - 40, tn = 16, to = 8;
   R('#9fc4a8', x + 4, ys, w - 8, tn); R('#cfe8ff', x + 4, ys + tn, w - 8, to); R('#4f5866', x + 4, ys + tn + to, w - 8, y + h - ys - tn - to);
   for (let yy = ys + tn + to + 3; yy < y + h; yy += 5) for (let xx = x + 6 + (yy % 10 ? 2 : 0); xx < x + w - 4; xx += 5) R('#5d6775', xx, yy, 1, 1);
   text('Si₃N₄ · n = 2,0', x + w - 8, ys + 3, {align: 'right', color: '#1f3a2a', font: 'IBM Plex Sans', size: 7});
@@ -357,7 +358,7 @@ function ellipso(t, x, y, w, h) {
   // Normal and angle of incidence.
   ctx.setLineDash([2, 2]); ctx.strokeStyle = 'rgba(200,210,230,.5)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(P[0], ys - 22); ctx.lineTo(P[0], ys); ctx.stroke(); ctx.setLineDash([]);
   ctx.beginPath(); ctx.arc(P[0], ys, 12, -Math.PI / 2 - th0, -Math.PI / 2); ctx.stroke();
-  text('60°', P[0] - 14, ys - 22, {color: '#9aa6b5', size: 8});
+  text('70°', P[0] - 14, ys - 22, {color: '#9aa6b5', size: 8});
   // In, through nitride and oxide, back from the silicon; a weak part runs on into the silicon and dies there.
   seg(S, P, k1, '#ff5a4a', 2);
   seg(P, A, k2, 'rgba(255,90,74,.85)'); seg(A, B, k2 > 0.5 ? (k2 - 0.5) * 2 : 0, 'rgba(255,90,74,.7)');
@@ -393,7 +394,7 @@ function ellipso(t, x, y, w, h) {
 
 // Four-point probe: current through the outer needles, voltage across the inner two. Rs = π/ln2 · V/I.
 function rs(t, x, y, w, h) {
-  const st = stackView(x + 10, y + h - 36, w - 20, 34, [[4, '#cfe8ff'], [3, '#9fc4a8'], [8, '#a9cbe6'], [7, '#c9ced6']], []);
+  const st = stackView(x + 10, y + h - 36, w - 20, 34, [[2, '#cfe8ff'], [5, '#9fc4a8'], [8, '#a9cbe6'], [7, '#c9ced6']], []);
   const cx = x + w / 2 - 30, down = ease(t / 50), top = y + 22, tip = st.top - 1;
   // Rs = ρ / t with ρ(AlCu) ≈ 2.7 µΩ·cm; a porous film from the sputter step conducts worse.
   const al = val('al', 500), rsm = 27000 / Math.max(50, al) * (1 + 0.3 * (1 - val('alQ', 1)));
@@ -446,11 +447,12 @@ function coat(t, x, y, w, h) {
   text('100 nm', x + w - 62, y + 22, {color: t > 150 ? '#ffcf5a' : '#4a5470'});
 }
 
+// About 26 x 33 mm per field on 300 mm: some 90 fields, the partial ones at the edge included.
 function fieldsGrid(cx, cy, r) {
-  const out = [], n = 7, s = (2 * r) / n;
+  const out = [], n = 11, s = (2 * r) / n;
   for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
     const fx = cx - r + i * s, fy = cy - r + j * s;
-    if (Math.hypot(fx + s / 2 - cx, fy + s / 2 - cy) < r - s * 0.45) out.push({fx, fy, s, j, i: j % 2 ? n - 1 - i : i});
+    if (Math.hypot(fx + s / 2 - cx, fy + s / 2 - cy) < r + s * 0.2) out.push({fx, fy, s, j, i: j % 2 ? n - 1 - i : i});
   }
   return out.sort((a, b) => a.j - b.j || a.i - b.i);
 }
@@ -501,6 +503,19 @@ function chamberView(c, x, y, w, h, o) {
   R('#7c8693', x + 8, y + 8, w - 16, 5); for (let i = 0; i < Math.floor((w - 20) / 7); i++) R('#3a4058', x + 11 + i * 7, y + 12, 2, 1);
   text(o.gas, x + w / 2, y - 2, {align: 'center', color: '#9aa6b5', font: 'IBM Plex Sans', size: 6, max: w});
   const top = y + 14, bot = y + Math.round(h * 0.62);
+  if (o.remote) {
+    // Downstream asher: the plasma burns in the source above a grid; only neutral O radicals drift down to the
+    // heated chuck. No ions, no sheath: the resist burns off chemically.
+    const src = top + Math.round((bot - top) * 0.38);
+    ctx.fillStyle = `rgba(${r},${g0},${b},${0.55 * glow})`; ctx.fillRect(x + 6, top, w - 12, src - top);
+    R('#7c8693', x + 6, src, w - 12, 2); for (let i = 0; i < Math.floor((w - 16) / 5); i++) R('#141a28', x + 9 + i * 5, src, 2, 2);
+    text('2,45 GHz', x + w - 9, top + 2, {align: 'right', color: '#ffcf5a', font: 'IBM Plex Sans', size: 6, max: 40});
+    if (on) for (let i = 0; i < 12; i++) circle('rgba(200,225,255,.75)', x + 10 + (i * 29 + Math.sin(F / 20 + i) * 4) % (w - 20), src + 4 + ((F * 0.35 + i * 13) % (bot - src + 2)), 0.9);
+    text(de ? 'O-RADIKALE' : 'O RADICALS', x + w / 2, bot - 6, {align: 'center', color: '#6b7a90', font: 'IBM Plex Sans', size: 6, max: w});
+    R('#d99a32', x + 18, bot + 8, w - 36, 2); R('#c9ced6', x + 18, bot + 10, w - 36, 2); R('#7a5a3a', x + 14, bot + 12, w - 28, 8);
+    R('#5a6270', x + w / 2 - 1, bot + 20, 2, y + h - bot - 24); text('250 °C', x + w / 2 + 4, y + h - 12, {color: '#ffb070', font: 'IBM Plex Sans', size: 6, max: 50});
+    ctx = main; return;
+  }
   const g = ctx.createLinearGradient(0, top, 0, bot);
   g.addColorStop(0, `rgba(${r},${g0},${b},${0.25 * glow})`); g.addColorStop(0.5, `rgba(${r},${g0},${b},${0.6 * glow})`); g.addColorStop(1, `rgba(${r},${g0},${b},${0.3 * glow})`);
   ctx.fillStyle = g; ctx.fillRect(x + 6, top, w - 12, bot - top);
@@ -526,10 +541,10 @@ function sputterView(x, y, w, h) {
   for (let i = 0; i < 6; i++) { const iy = (F * 2 + i * 9) % 10; R('#ffd0f0', x + 16 + i * ((w - 32) / 5), y + 28 - iy, 1, 2); }
   for (let i = 0; i < 14; i++) R('#e6e9ee', x + 12 + (i * 23) % (w - 24), y + 30 + ((F * 1.6 + i * 13) % (h - 58)), 1, 2);
   R('#c9ced6', x + 16, y + h - 26, w - 32, 2); R('#5a6270', x + 12, y + h - 24, w - 24, 8);
-  text('Ar · 10⁻³ mbar', x + w / 2, y + h - 13, {align: 'center', color: '#9aa6b5', font: 'IBM Plex Sans', size: 6, max: w});
+  text('Ar · 4 µbar', x + w / 2, y + h - 13, {align: 'center', color: '#9aa6b5', font: 'IBM Plex Sans', size: 6, max: w});
 }
 const twoPanel = (left, type) => (t, x, y, w, h) => { left(t, x, y, w, h); section(t, x + 104, y, w - 104, h, type); };
-const stripView = twoPanel((t, x, y, w, h) => chamberView(ctx, x + 4, y + 6, 96, h - 10, {gas: 'O₂', rgb: [170, 200, 255], glow: t > 20 && t < 200 ? 1 : 0.3}), 'strip');
+const stripView = twoPanel((t, x, y, w, h) => chamberView(ctx, x + 4, y + 6, 96, h - 10, {gas: 'O₂', rgb: [170, 200, 255], glow: t > 20 && t < 200 ? 1 : 0.3, remote: true}), 'strip');
 // Horizontal tube furnace, as the FORNO H-12 stands in the bay: the paddle pushes the boat into the hot zone.
 function tubeView(x, y, w, h, push, heat, temp) {
   const ty = y + Math.round(h * 0.3), th = 34, jx = x + 26, jw = w - 28, n = 12, gap = 4, stack = n * gap;
@@ -553,13 +568,13 @@ function tubeView(x, y, w, h, push, heat, temp) {
   R('#9aa3ad', bx - 2, ty + th - 6, stack + 4, 3);
   for (let k = 0; k < n; k++) R(heat > 0.6 ? '#ffd9a0' : '#cfd5dd', bx + k * gap, ty + 6, 2, th - 12);
   text(temp, x + w / 2 + 12, y + 2, {align: 'center', color: '#ffb070', max: w - 4});
-  text(lang === 'de' ? 'HORIZONTALOFEN' : 'HORIZONTAL FURNACE', x + w / 2, ty + th + 14, {align: 'center', color: '#8a95a5', font: 'IBM Plex Sans', size: 6, max: w});
+  text(lang === 'de' ? 'DIFFUSIONSOFEN' : 'DIFFUSION FURNACE', x + w / 2, ty + th + 14, {align: 'center', color: '#8a95a5', font: 'IBM Plex Sans', size: 6, max: w});
 }
 const annealView = twoPanel((t, x, y, w, h) => {
   const push = ease(t / 50), heat = clamp((t - 30) / 50, 0, 1);
   tubeView(x + 2, y + 2, 96, h - 6, push, heat, `${Math.round(400 + 600 * heat)} °C · N₂`);
 }, 'anneal');
-const depositView = twoPanel((t, x, y, w, h) => chamberView(ctx, x + 4, y + 6, 96, h - 10, {gas: 'TEOS · O₂', rgb: [150, 190, 255], glow: 1}), 'deposit');
+const depositView = twoPanel((t, x, y, w, h) => chamberView(ctx, x + 4, y + 6, 96, h - 10, {gas: 'TEOS · O₃', rgb: [150, 190, 255], glow: 1}), 'deposit');
 const sputterPanel = twoPanel((t, x, y, w, h) => sputterView(x + 4, y + 4, 96, h - 8), 'sputter');
 // Contact etch: the plasma chamber on the left, the holes going down through the mask on the right.
 function contacts(t, x, y, w, h) {
@@ -569,7 +584,7 @@ function contacts(t, x, y, w, h) {
   // Cross-section: the resist mask, the deposited oxide, the holes etching down, polymer on their walls.
   const sx = x + cw + 10, sw = w - cw - 14, si = y + h - 22, top = si - 10 - 22, mask = top - 8, holes = [0.2, 0.5, 0.8].map(f => sx + f * sw - 4);
   R('#4f5866', sx, si, sw, 18); for (const hx of holes) { ctx.fillStyle = 'rgba(150,100,230,.85)'; ctx.beginPath(); ctx.ellipse(hx + 4, si, 10, 7, 0, 0, Math.PI); ctx.fill(); }
-  R('#cfe8ff', sx, si - 6, sw, 6); R('#9fc4a8', sx, si - 10, sw, 4); R('#a9cbe6', sx, top, sw, si - 10 - top);
+  R('#cfe8ff', sx, si - 3, sw, 3); R('#9fc4a8', sx, si - 10, sw, 7); R('#a9cbe6', sx, top, sw, si - 10 - top);
   // The windows opened in the nitride and pad oxide at 03:00 are filled with the new oxide: the contacts land there.
   for (const hx of holes) R('#a9cbe6', hx - 5, si - 10, 18, 10);
   const erode = 2 * k;
@@ -642,7 +657,8 @@ function section(t, x, y, w, h, type) {
   const ox = 10, oxTop = si - ox;
   const doped = (depth, wide) => holes.forEach(hx => { ctx.fillStyle = 'rgba(150,100,230,.85)'; ctx.beginPath(); ctx.ellipse(hx + 9, si, 9 + wide, depth, 0, 0, Math.PI); ctx.fill(); });
   // Pad oxide with the nitride on top, both from the second hour.
-  const film = () => { R('#cfe8ff', bx, oxTop + 4, bw, ox - 4); R('#9fc4a8', bx, oxTop, bw, 4); };
+  // 50 nm oxide under 100 nm nitride.
+  const film = () => { R('#cfe8ff', bx, oxTop + 7, bw, ox - 7); R('#9fc4a8', bx, oxTop, bw, 7); };
   const oxide = (open) => { film(); if (open) holes.forEach(hx => R('#0b0f18', hx, oxTop, 18, ox * open)); };
   const resist = (amount, gaps) => { R('#d99a32', bx, oxTop - 12 * amount, bw, 12 * amount); if (amount > 0.02) R('#f0b850', bx, oxTop - 12 * amount, bw, 1); if (gaps) holes.forEach(hx => R('#0b0f18', hx, oxTop - 12 * amount, 18, 12 * amount)); };
   const rain = (col, n, slant = 0, until = oxTop) => {
@@ -745,7 +761,7 @@ function drawReticleFound(t, info) {
   ctx.fillStyle = `rgba(3,4,8,${0.55 * appear})`; ctx.fillRect(0, 0, W, 180);
   R('#0b0f18', PX - 2, y0 - 2, PW + 4, PH + 4); R('#7fd0ff', PX - 2, y0 - 2, PW + 4, 1);
   R('#141a28', PX, y0, PW, 12);
-  text(lang === 'de' ? `RETIKEL · MASKE FÜR SCHICHT ${info.n}` : `RETICLE · MASK FOR LAYER ${info.n}`, PX + 6, y0 + 2, {color: '#9fe0ff'});
+  text(lang === 'de' ? `RETIKEL ${info.n}/8 GEFUNDEN` : `RETICLE ${info.n}/8 FOUND`, PX + 6, y0 + 2, {color: '#9fe0ff'});
   text(`${info.found}/${info.total}`, PX + PW - 6, y0 + 2, {align: 'right', color: '#ffcf5a'});
   R('#0d111a', PX, y0 + 12, PW, PH - 28);
   const s = 64 + Math.sin(t / 20) * 2, cx = PX + PW / 2, cy = y0 + 12 + (PH - 28) / 2;

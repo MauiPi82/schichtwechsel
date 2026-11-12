@@ -473,7 +473,7 @@ const TOOLS = {
       if (!night) text('TW 812', mx + mw / 2, my + 1, {align: 'center', size: 8, color: '#e9eef5', max: mw - 2});
     } else {
       for (let i = 0; i < 4; i++) R(ink, mx + 4 + i * ((mw - 8) / 4), my + 3, 1, 6);
-      if (!night) text(t.value || '52Ω/□', mx + mw / 2, my + mh - 9, {align: 'center', size: 8, color: hi, max: mw - 2});
+      if (!night) text(t.value || '54mΩ/□', mx + mw / 2, my + mh - 9, {align: 'center', size: 8, color: hi, max: mw - 2});
     }
     loadPort(x + w - 20, fy + 3, true);
     brand(t.name || 'ORSA CD-9', x + 6, fy + 5, w - 30);

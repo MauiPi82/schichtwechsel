@@ -43,7 +43,7 @@
       scare: {type: 'phone', at: 12, x: 4, y: 0},
       tools: [
         {x0: 6, y0: 1, type: 'stocker'},
-        {x0: 3, y0: 5, type: 'wetbench', name: 'PURA W-6', baths: ['SC-1', 'QDR', 'SC-2', 'QDR', 'HF', 'DRY']},
+        {x0: 3, y0: 5, type: 'wetbench', name: 'PURA W-6', baths: ['SC-1', 'QDR', 'SC-2', 'QDR', 'HF', 'QDR']},
         {x0: 13, y0: 2, type: 'metrology', name: 'ORSA SP-3', screen: 'particles'},
         {x0: 12, y0: 7, type: 'stocker'},
       ],
@@ -99,7 +99,7 @@
       enemyEvery: 6,
       tools: [
         {x0: 3, y0: 1, type: 'furnace', n: 3, name: 'FORNO V-3', temps: ['1000°C', '1000°C', '780°C']},
-        {x0: 11, y0: 1, type: 'wetbench', name: 'PURA W-6', baths: ['SPM', 'SC-1', 'SC-2', 'HF', 'DRY']},
+        {x0: 11, y0: 1, type: 'wetbench', name: 'PURA W-6', baths: ['SC-1', 'QDR', 'HF', 'QDR', 'DRY']},
         {x0: 16, y0: 4, type: 'metrology', name: 'ORSA EL-4', screen: 'thickness'},
         {x0: 1, y0: 5, type: 'gascab', gas: 'DCS'},
         {x0: 10, y0: 6, type: 'metrology', name: 'ORSA SP-3', screen: 'particles'},
@@ -455,8 +455,8 @@
         en: ['Last step. The bell strikes more often.', 'They are waiting at the airlock.'],
       },
       fact: {
-        de: ['Sputtern: Die Kammer wird auf 10⁻⁸ mbar gepumpt, dann mit Argon', 'auf 10⁻³ mbar gefüllt. Freie Weglänge λ = kT / (√2·π·d²·p) ≈ 7 cm,', 'etwa der Abstand Target–Wafer: Das Aluminium fliegt fast geradeaus.'],
-        en: ['Sputtering: the chamber is pumped to 10⁻⁸ mbar, then filled with', 'argon to 10⁻³ mbar. Mean free path λ = kT / (√2·π·d²·p) ≈ 7 cm,', 'about the target-to-wafer gap: the aluminium flies nearly straight.'],
+        de: ['Sputtern: Die Kammer wird auf 10⁻⁸ mbar gepumpt, dann mit Argon auf', 'wenige µbar gefüllt. Freie Weglänge λ = kT / (√2·π·d²·p): bei 4 µbar ≈ 2 cm,', 'kürzer als der Weg zum Wafer. Mehr Argon, und das Aluminium stößt zu oft.'],
+        en: ['Sputtering: the chamber is pumped to 10⁻⁸ mbar, then filled with argon', 'to a few µbar. Mean free path λ = kT / (√2·π·d²·p): at 4 µbar ≈ 2 cm,', 'shorter than the way to the wafer. More argon and the aluminium collides too often.'],
       },
       hint: {de: 'Alles zugleich. Die Glocke schlägt öfter', en: 'Everything at once. The bell strikes more often'},
       // Announcements over the PA (step, Italian, translation), a note from shift B, one scare.
@@ -484,6 +484,8 @@
         {x0: 8, y0: 1, type: 'cluster', kind: 'pvd', name: 'VALENTA S-4', chambers: 3},
         {x0: 2, y0: 3, type: 'stocker'},
         {x0: 2, y0: 6, type: 'chamber', kind: 'pvd', name: 'VALENTA S-4'},
+        {x0: 15, y0: 3, type: 'metrology', name: 'ORSA XR-2', screen: 'xrf'},
+        {x0: 15, y0: 6, type: 'metrology', name: 'ORSA RS-1', screen: 'rs', value: '54 mΩ/□'},
       ],
       lamps: [[3, 5], [9, 5], [16, 5]],
       day: [
