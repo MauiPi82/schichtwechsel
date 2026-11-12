@@ -80,6 +80,69 @@ function holeTile(L, layer, x, y, px, py) {
   if (tileAt(L, layer, x, y - 1) !== 'o') R(night ? '#120c04' : '#596270', px, py, T, 4);
 }
 
+/* ---------- Gowning room and air shower ---------- */
+function lockers(x, y, px, py) {
+  R('rgba(0,0,0,.25)', px, py + T, T, 3);
+  R('#8d97a4', px, py - 10, T, T + 10); R('#a7b0bc', px, py - 10, T, 3);
+  for (const dx of [1, 16]) {
+    R('#b8c0cb', px + dx, py - 6, 15, T + 4); R('#97a1ae', px + dx, py - 6, 1, T + 4);
+    for (let i = 0; i < 3; i++) R('#7c8693', px + dx + 4, py - 3 + i * 2, 7, 1);
+    R('#4a525e', px + dx + 11, py + 10, 2, 4);
+    text(String(10 + x * 2 + (dx > 1 ? 1 : 0)), px + dx + 3, py + 20, {size: 8, color: '#4a525e'});
+  }
+}
+function bench(x, y, px, py) {
+  floorTile(x, y, px, py);
+  R('rgba(0,0,0,.25)', px + 2, py + 22, T - 2, 4);
+  R('#c9cfd8', px, py + 10, T, 10); R('#e6eaf0', px, py + 10, T, 2); R('#8d97a4', px + 3, py + 20, 3, 6); R('#8d97a4', px + T - 6, py + 20, 3, 6);
+  if (x % 2) { R('#f7f9fc', px + 6, py + 8, 14, 5); R('#d3dae4', px + 6, py + 12, 14, 1); }
+  else { R('#e2e8f0', px + 8, py + 9, 6, 4); R('#e2e8f0', px + 16, py + 9, 6, 4); }
+}
+function showerFloor(L, x, y, px, py) {
+  R('#9aa3ae', px, py, T, T);
+  for (let i = 3; i < T; i += 5) R('#6c7581', px + 2, py + i, T - 4, 2);
+  if (L.showerT > 0) R(`rgba(200,230,255,${0.1 + 0.05 * Math.sin(F / 2)})`, px, py, T, T);
+}
+function showerNozzles(L, layer, x, y, px, py) {
+  const below = tileAt(L, layer, x, y + 1) === 'A', above = tileAt(L, layer, x, y - 1) === 'A';
+  if (!below && !above) return;
+  const ny = below ? py + T - 9 : py + 2;
+  for (let i = 0; i < 3; i++) { circle('#4a525e', px + 6 + i * 10, ny + 3, 3); circle(L.showerT > 0 ? '#dff2ff' : '#2a3038', px + 6 + i * 10, ny + 3, 1.5); }
+}
+function door(L, x, y, px, py) {
+  const open = L.open && L.open.has(y * C.W + x);
+  R('#4a525e', px, py - 8, T, T + 8);
+  if (open) { R('#1a1f26', px + 4, py - 4, T - 8, T + 2); R('#b8c0cb', px + T - 6, py - 4, 4, T + 2); }
+  else {
+    R('#b8c0cb', px + 4, py - 4, T - 8, T + 2); R('rgba(160,205,240,.6)', px + 9, py, T - 18, 10);
+    R('#4a525e', px + T - 10, py + 12, 2, 5);
+  }
+  R(open ? '#3fe06a' : '#ff3a2a', px + 14, py - 7, 4, 3);
+}
+// Filtered air from the nozzles; particles leave the suit and are sucked to the floor grates.
+function showerAir(L) {
+  const cells = [];
+  for (let i = 0; i < L.layers[0].length; i++) if (L.layers[0][i] === 'A') cells.push(i);
+  if (!cells.length) return;
+  const x0 = (cells[0] % C.W) * T, x1 = (cells[cells.length - 1] % C.W + 1) * T, y0 = FY + ((cells[0] / C.W) | 0) * T;
+  for (let i = 0; i < 70; i++) {
+    const ph = (F * 3 + i * 37) % 40, fromTop = i % 2 === 0;
+    const x = x0 + 4 + (i * 53 % (x1 - x0 - 8)), yy = fromTop ? y0 - 6 + ph * 0.9 : y0 + T + 6 - ph * 0.9;
+    R(i % 5 ? 'rgba(230,245,255,.7)' : '#ffffff', x + Math.sin(F / 3 + i) * 2, yy, 1, i % 3 ? 2 : 3);
+  }
+  for (let i = 0; i < 18; i++) R('rgba(255,255,255,.9)', x0 + (i * 29 + F * 2) % (x1 - x0), y0 + 8 + (i * 17 + F) % 16, 1, 1);
+}
+// Plain wall signs from the level: position is the wall tile, the sign hangs on its front.
+function wallSigns(L, layer, lang) {
+  for (const sg of L.signs || []) {
+    const label = typeof sg.text === 'string' ? sg.text : sg.text[lang];
+    ctx.font = '400 8px "Silkscreen", monospace';
+    const w = ctx.measureText(label).width + 10, px = sg.x * T + 16 - w / 2, py = FY + sg.y * T + 12;
+    R(sg.bg || (night ? '#3a2a08' : '#f2c21a'), px, py, w, 12); R('rgba(0,0,0,.25)', px, py + 12, w, 2);
+    text(label, px + w / 2, py + 2, {align: 'center', color: sg.color || (night ? '#8a6420' : '#1a1004')});
+  }
+}
+
 /* ---------- Equipment ---------- */
 // Signal tower: the red-amber-green stack light every tool carries.
 function signalTower(x, y, state) {
@@ -316,6 +379,7 @@ function airlock(L, layer, s) {
 
 // Overhead hoist transport: a rail above the widest aisle, carriers gliding with their shadows below.
 function rail(L, layer) {
+  if (L.intro) return;
   if (L.railRow === undefined) {
     let best = -1, len = 0;
     for (let y = 1; y < C.H - 1; y++) { let run = 0; for (let x = 1; x < C.W - 1; x++) { run = L.layers[0][y * C.W + x] !== '#' ? run + 1 : 0; if (run > len) { len = run; best = y; } } }
@@ -335,37 +399,83 @@ function rail(L, layer) {
 }
 
 /* ---------- People ---------- */
-// Cleanroom suit: hood, mask, visor, purple nitrile gloves, boots. 4-frame walk.
-function operator(px, py, face, walk, nightSuit) {
-  const suit = nightSuit ? '#d8c08a' : '#fbfcfd', shade = nightSuit ? '#9c8250' : '#c3cbd6', glove = nightSuit ? '#7a5a8a' : '#8a5cd6';
-  const step = walk ? [0, 1, 0, -1][walk] : 0;
-  ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.beginPath(); ctx.ellipse(px + 16, py + 29, 9, 3, 0, 0, 7); ctx.fill();
-  R(shade, px + 11, py + 21 + Math.max(0, step), 4, 7 - Math.max(0, step)); R(shade, px + 17, py + 21 + Math.max(0, -step), 4, 7 - Math.max(0, -step));
-  R('#e6e9ee', px + 10, py + 27, 6, 2); R('#e6e9ee', px + 16, py + 27, 6, 2);
-  R(suit, px + 9, py + 11, 14, 12); R(shade, px + 9, py + 20, 14, 2); R(shade, px + 15, py + 12, 1, 9);
-  R(suit, px + 10, py + 2, 12, 11); R(shade, px + 10, py + 11, 12, 2);
-  const side = face === 'left' ? -1 : face === 'right' ? 1 : 0;
-  if (face !== 'up') {
-    R(nightSuit ? '#ffcf5a' : '#2f6fd0', px + 12 + side * 2, py + 5, 8, 4);
-    R('rgba(255,255,255,.7)', px + 13 + side * 2, py + 5, 3, 1);
-    R(shade, px + 12 + side * 2, py + 9, 8, 2);
-  } else R(shade, px + 12, py + 4, 8, 6);
-  R(glove, px + 7 + (side < 0 ? 1 : 0), py + 17 + step, 3, 4); R(glove, px + 22 - (side > 0 ? 1 : 0), py + 17 - step, 3, 4);
-  if (face === 'down') { R('#d9dde3', px + 11, py + 15, 10, 7); R('#e8732a', px + 12, py + 17, 8, 2); }
+// Cleanroom bunny suit: hood with only goggles and face mask showing, zipper, badge, nitrile gloves,
+// knee-high boot covers. walk: 0-3. pal swaps the colours for the shift before and for the previous shift.
+const SUIT = {
+  day: {suit: '#f7f9fc', shade: '#d3dae4', dark: '#aab4c2', frame: '#2a3240', lens: '#4a8fd8', hi: '#bfe3ff', mask: '#e6edf6', pleat: '#c3ccd8',
+    zip: '#b8c2d0', badge: '#2c6fb5', glove: '#8a5cd6', gloveLo: '#6a40b0', boot: '#e2e8f0', sole: '#7c8693', skin: '#e2b896'},
+  night: {suit: '#e3cf9a', shade: '#b39c62', dark: '#8a7444', frame: '#2a1e0a', lens: '#ffcf5a', hi: '#fff0c0', mask: '#d8c290', pleat: '#a88e58',
+    zip: '#9c8452', badge: '#7a5414', glove: '#7a5a8a', gloveLo: '#5a3a6a', boot: '#cdb888', sole: '#4a3a1c', skin: '#c89a6a'},
+  them: {suit: '#8f8466', shade: '#6d6448', dark: '#4e4632', frame: '#050402', lens: '#050402', hi: '#050402', mask: '#7a7258', pleat: '#5e5640',
+    zip: '#5e5640', badge: '#3a2a10', glove: '#4a3a4a', gloveLo: '#2a1a2a', boot: '#6a6248', sole: '#2a2418', skin: '#5a4a34'},
+};
+function bunny(px, py, face, walk, c, o = {}) {
+  const sw = walk ? [0, 1, 0, -1][walk] : 0, tall = o.tall || 0, arm = o.longArms ? 4 : 0;
+  ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(px + 16, py + 30, 9, 3, 0, 0, 7); ctx.fill();
+  const y = py - tall;
+  const side = face === 'left' || face === 'right', dir = face === 'left' ? -1 : 1;
+  // legs and boot covers
+  const lA = Math.max(0, sw), lB = Math.max(0, -sw);
+  if (side) {
+    R(c.suit, px + 13, y + 22 + tall, 6, 4); R(c.boot, px + 13 + sw, y + 26 + tall - lA, 5, 4); R(c.boot, px + 14 - sw, y + 26 + tall - lB, 5, 4);
+    R(c.sole, px + 13 + sw, y + 29 + tall, 5, 1); R(c.sole, px + 14 - sw, y + 29 + tall, 5, 1);
+  } else {
+    R(c.suit, px + 11, y + 22, 4, 4 + tall); R(c.suit, px + 17, y + 22, 4, 4 + tall);
+    R(c.boot, px + 11, y + 25 + tall - lA, 4, 5); R(c.boot, px + 17, y + 25 + tall - lB, 4, 5);
+    R(c.shade, px + 11, y + 25 + tall - lA, 4, 1); R(c.shade, px + 17, y + 25 + tall - lB, 4, 1);
+    R(c.sole, px + 11, y + 29 + tall, 4, 1); R(c.sole, px + 17, y + 29 + tall, 4, 1);
+  }
+  // body
+  const bx = side ? 11 : 9, bw = side ? 10 : 14;
+  R(c.suit, px + bx, y + 11, bw, 12); R(c.shade, px + bx, y + 21, bw, 2);
+  R(c.shade, px + bx, y + 11, 1, 11); R(c.dark, px + bx + bw - 1, y + 12, 1, 10);
+  if (!side && face === 'down') {
+    R(c.zip, px + 16, y + 11, 1, 11); R(c.badge, px + 18, y + 13, 3, 2); R('#ffffff', px + 18, y + 13, 3, 1);
+    R(c.shade, px + 12, y + 15, 1, 5); R(c.shade, px + 20, y + 16, 1, 5);
+  } else if (face === 'up') { R(c.shade, px + 16, y + 12, 1, 10); R(c.dark, px + 11, y + 13, 10, 1); }
+  // arms with gloves
+  if (side) {
+    R(c.suit, px + 15 - dir, y + 12, 3, 9 + arm); R(c.shade, px + 15 - dir, y + 12, 1, 9 + arm);
+    R(c.glove, px + 15 - dir + sw, y + 20 + arm, 3, 3); R(c.gloveLo, px + 15 - dir + sw, y + 22 + arm, 3, 1);
+  } else {
+    R(c.suit, px + 6, y + 12 + sw, 3, 9 + arm); R(c.suit, px + 23, y + 12 - sw, 3, 9 + arm);
+    R(c.shade, px + 6, y + 12 + sw, 1, 9 + arm); R(c.dark, px + 25, y + 12 - sw, 1, 9 + arm);
+    R(c.glove, px + 6, y + 20 + sw + arm, 3, 3); R(c.glove, px + 23, y + 20 - sw + arm, 3, 3);
+    R(c.gloveLo, px + 6, y + 22 + sw + arm, 3, 1); R(c.gloveLo, px + 23, y + 22 - sw + arm, 3, 1);
+  }
+  // hood
+  const hx = side ? 11 : 10, hw = side ? 11 : 12;
+  R(c.suit, px + hx + 1, y, hw - 2, 1); R(c.suit, px + hx, y + 1, hw, 10); R(c.shade, px + hx, y + 9, hw, 2);
+  R(c.shade, px + hx, y + 2, 1, 7); R(c.dark, px + hx + hw - 1, y + 2, 1, 8);
+  if (face === 'down') {
+    R(c.skin, px + 12, y + 3, 8, 3);
+    R(c.frame, px + 12, y + 3, 8, 3); R(c.lens, px + 13, y + 4, 2, 1); R(c.lens, px + 17, y + 4, 2, 1);
+    R(c.hi, px + 13, y + 4, 1, 1); R(c.hi, px + 17, y + 4, 1, 1);
+    R(c.mask, px + 12, y + 6, 8, 4); R(c.pleat, px + 13, y + 7, 6, 1); R(c.pleat, px + 13, y + 9, 6, 1);
+    R(c.shade, px + 16, y, 1, 2);
+  } else if (side) {
+    const fx = dir > 0 ? px + 16 : px + 11;
+    R(c.skin, fx, y + 3, 5, 3); R(c.frame, fx, y + 3, 5, 3); R(c.lens, fx + (dir > 0 ? 2 : 1), y + 4, 2, 1); R(c.hi, fx + (dir > 0 ? 3 : 1), y + 4, 1, 1);
+    R(c.mask, fx + (dir > 0 ? 1 : -1), y + 6, 5, 4); R(c.pleat, fx + (dir > 0 ? 2 : 0), y + 8, 3, 1);
+  } else { R(c.shade, px + 16, y + 1, 1, 9); R(c.dark, px + 12, y + 8, 8, 1); }
+  if (o.eyes) { R('#ffb43a', px + (side ? (dir > 0 ? 18 : 13) : 13), y + 4, 2, 1); if (!side) R('#ffb43a', px + 17, y + 4, 2, 1); }
+  // the lot in the player's hands when facing you
+  if (o.carry && face === 'down') { R(c.dark, px + 11, y + 16, 10, 7); R(o.night ? '#6a5a3a' : '#d9dde3', px + 11, y + 15, 10, 6); R(o.night ? '#9a6c1e' : '#e8732a', px + 12, y + 17, 8, 2); }
 }
 
-function vorschicht(px, py, i, F) {
-  const jit = !reduced && hash(F + i * 9) > 0.97 ? 2 : 0, tilt = Math.round(Math.sin(F / 37 + i) * 1.5);
-  const x = px + jit, y = py - 8;
-  ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.beginPath(); ctx.ellipse(px + 16, py + 29, 10, 3, 0, 0, 7); ctx.fill();
-  R('#3d3625', x + 11, y + 26, 4, 11); R('#3d3625', x + 17, y + 26, 4, 11);
-  R('#7d7458', x + 8, y + 12, 16, 16); R('#5e5640', x + 8, y + 24, 16, 3);
-  R('#6d6448', x + 5, y + 13, 3, 20); R('#6d6448', x + 24, y + 13, 3, 20);
-  R('#2a2418', x + 5, y + 32, 3, 3); R('#2a2418', x + 24, y + 32, 3, 3);
-  R('#8f8466', x + 9 + tilt, y + 1, 14, 12); R('#5e5640', x + 9 + tilt, y + 11, 14, 2);
-  R('#050402', x + 11 + tilt, y + 4, 10, 6);
-  R('#ffb43a', x + 13 + tilt, y + 6, 2, 2); R('#ffb43a', x + 18 + tilt, y + 6, 2, 2);
-  R('#4a3a1a', x + 12, y + 16, 5, 3); R('#4a3a1a', x + 18, y + 22, 3, 2); R('#2a1a0a', x + 10, y + 19, 2, 5);
+// Street clothes before gowning: dark jacket, jeans, a bag over the shoulder.
+function civilian(px, py, face, walk) {
+  const sw = walk ? [0, 1, 0, -1][walk] : 0;
+  ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(px + 16, py + 30, 8, 3, 0, 0, 7); ctx.fill();
+  R('#3a5a8a', px + 11, py + 21, 4, 8 - Math.max(0, sw)); R('#3a5a8a', px + 17, py + 21, 4, 8 - Math.max(0, -sw));
+  R('#1a1e24', px + 11, py + 28, 4, 2); R('#1a1e24', px + 17, py + 28, 4, 2);
+  R('#24324e', px + 9, py + 10, 14, 12); R('#1a2438', px + 15, py + 10, 1, 12); R('#2e4064', px + 9, py + 10, 14, 1);
+  R('#24324e', px + 6, py + 11 + sw, 3, 9); R('#24324e', px + 23, py + 11 - sw, 3, 9);
+  R('#e2b896', px + 6, py + 20 + sw, 3, 2); R('#e2b896', px + 23, py + 20 - sw, 3, 2);
+  R('#5a3a1a', px + 21, py + 11, 2, 10); R('#6a4a2a', px + 20, py + 18, 6, 5);
+  R('#e2b896', px + 11, py + 2, 10, 9); R('#5a3a1a', px + 11, py + 1, 10, 3); R('#5a3a1a', px + 10, py + 2, 2, 5); R('#5a3a1a', px + 20, py + 2, 2, 4);
+  if (face === 'down') { R('#2a1a0a', px + 13, py + 5, 1, 1); R('#2a1a0a', px + 18, py + 5, 1, 1); R('#c0907a', px + 15, py + 8, 2, 1); }
+  if (face === 'up') R('#5a3a1a', px + 11, py + 2, 10, 8);
 }
 
 /* ---------- Hazards ---------- */
@@ -422,6 +532,7 @@ function draw(c, s, o) {
   for (let y = 0; y < C.H; y++) for (let x = 0; x < C.W; x++) {
     const c2 = tileAt(L, layer, x, y), px = x * T, py = FY + y * T;
     if (c2 === 'o') holeTile(L, layer, x, y, px, py);
+    else if (c2 === 'A') showerFloor(L, x, y, px, py);
     else if (c2 !== '#' && c2 !== '=') floorTile(x, y, px, py);
   }
   airlock(L, layer, s);
@@ -433,13 +544,23 @@ function draw(c, s, o) {
   const k = o.k;
   const ppx = lerp(s.px, s.x, k) * T, ppy = FY + lerp(s.py, s.y, k) * T;
   const figures = [];
-  if (o.playerVisible) figures.push({y: lerp(s.py, s.y, k), draw: () => operator(ppx, ppy - 4, s.face, (s.px !== s.x || s.py !== s.y) ? (Math.floor(k * 4) % 4) : 0, night)});
-  if (night) o.enemies.forEach(([ex, ey], i) => figures.push({y: ey, draw: () => vorschicht(ex * T, FY + ey * T, i, F)}));
+  const walkF = (s.px !== s.x || s.py !== s.y) ? (Math.floor(k * 4) % 4) : 0;
+  if (o.playerVisible) figures.push({y: lerp(s.py, s.y, k), draw: () => o.civilian ? civilian(ppx, ppy - 4, s.face, walkF)
+    : bunny(ppx, ppy - 4, s.face, walkF, night ? SUIT.night : SUIT.day, {carry: !L.intro, night})});
+  if (night) o.enemies.forEach(([ex, ey], i) => figures.push({y: ey, draw: () => {
+    const jit = !reduced && hash(F + i * 9) > 0.97 ? 2 : 0;
+    const face = Math.abs(ex - s.x) > Math.abs(ey - s.y) ? (ex > s.x ? 'left' : 'right') : (ey > s.y ? 'up' : 'down');
+    bunny(ex * T + jit, FY + ey * T - 4, face === 'up' ? 'down' : face, 0, SUIT.them, {tall: 5, longArms: true, eyes: true});
+    R('#3a2a10', ex * T + 12 + jit, FY + ey * T + 10, 4, 3); R('#2a1a08', ex * T + 18 + jit, FY + ey * T + 16, 3, 2);
+  }}));
   for (let y = 0; y < C.H; y++) {
     for (let x = 0; x < C.W; x++) {
       const c2 = tileAt(L, layer, x, y), px = x * T, py = FY + y * T;
-      if (c2 === '#') wallTile(L, layer, x, y, px, py);
+      if (c2 === '#') { wallTile(L, layer, x, y, px, py); showerNozzles(L, layer, x, y, px, py); }
       else if (c2 === '=') lakeWindow(x, y, px, py);
+      else if (c2 === 'K') lockers(x, y, px, py);
+      else if (c2 === 'B') bench(x, y, px, py);
+      else if (c2 === 'D') door(L, x, y, px, py);
     }
     for (const b of blocks) {
       if (b.y1 !== y) continue;
@@ -452,6 +573,8 @@ function draw(c, s, o) {
     for (const f of figures) if (Math.floor(f.y + 0.5) === y) f.draw();
   }
   stations(L, layer, s, o.lang);
+  wallSigns(L, layer, o.lang);
+  if (L.showerT > 0) showerAir(L);
   // Shadows of the previous shift on your floor, a little stretched, as if cast from the other shift.
   if (!night) o.enemies.forEach(([ex, ey], i) => {
     const px = ex * T, py = FY + ey * T, a = 0.26 + 0.07 * Math.sin(F / 9 + i);

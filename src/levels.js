@@ -105,7 +105,7 @@
         en: ['Photoresist reacts to short wavelengths. A photon of', 'yellow light (580 nm) carries only E = hc/λ ≈ 2.1 eV.', 'Too little to expose it. That is why the shift before is yellow.'],
       },
       hint: {de: 'Die Schritte in Reihenfolge, dann zur Schleuse', en: 'The steps in order, then to the airlock'},
-      route: [{de: 'Belacken', en: 'Coat'}, {de: 'Belichten', en: 'Expose'}, {de: 'Entwickeln', en: 'Develop'}],
+      route: [{de: 'Belacken', en: 'Coat', proc: 'coat'}, {de: 'Belichten', en: 'Expose', proc: 'expose'}, {de: 'Entwickeln', en: 'Develop', proc: 'develop'}],
       enemyEvery: 4,
       tools: [
         {x0: 2, y0: 2, type: 'track', name: 'KENSEI CT-7'},
@@ -151,7 +151,7 @@
         en: ['The scanner exposes at 193 nm, through water (n ≈ 1.44).', 'Smallest feature ≈ k₁ · λ / NA = 0.28 · 193 nm / 1.35 ≈ 40 nm.', 'Etching then transfers the pattern into the oxide.'],
       },
       hint: {de: 'Die Glocke wechselt für dich. Steh auf festem Boden', en: 'The bell shifts for you. Stand on solid ground'},
-      route: [{de: 'Ätzen', en: 'Etch'}, {de: 'Lack entfernen', en: 'Strip resist'}],
+      route: [{de: 'Ätzen', en: 'Etch', proc: 'etch'}, {de: 'Lack entfernen', en: 'Strip resist', proc: 'strip'}],
       enemyEvery: 4,
       bell: 40,
       day: [
@@ -192,7 +192,7 @@
         en: ['In the magnet every ion flies on a circle: r = √(2mE) / (qB).', 'At 40 keV and 0.25 T: boron 0.38 m, phosphorus 0.64 m, arsenic 1.00 m.', 'That is how the tool separates them. The beam is deadly.'],
       },
       hint: {de: 'Lies den Strahl. Schwere Ionen fliegen weiter', en: 'Read the beam. Heavy ions fly wider'},
-      route: [{de: 'Implantieren', en: 'Implant'}],
+      route: [{de: 'Implantieren', en: 'Implant', proc: 'implant'}],
       enemyEvery: 4,
       beams: [{x: 1, y: 8, dir: 'right', keV: 40, metersPerTile: 0.15, field: {x0: 3, y0: 1, x1: 12, y1: 8, B: 0.25}, species: ['B', 'P', 'As'], every: 24}],
       day: [
@@ -233,7 +233,7 @@
         en: ['Heat spreads as ∂T/∂t = α·∇²T. Dopant atoms wander', 'the same way: diffusion length ≈ 2·√(D·t). That is why rapid', 'thermal anneals go past 1000 °C for seconds, then cool at once.'],
       },
       hint: {de: 'Warte, bis die Hitze zurückweicht', en: 'Wait for the heat to fall back'},
-      route: [{de: 'Ausheilen', en: 'Anneal'}],
+      route: [{de: 'Ausheilen', en: 'Anneal', proc: 'anneal'}],
       enemyEvery: 4,
       heat: {
         ambient: 22, source: 1000, threshold: 60, alpha: 0.2, cooling: 0.3, substeps: 2, period: 48, open: [0, 14],
@@ -277,7 +277,7 @@
         en: ['The etcher strikes a plasma at 13.56 MHz. Ions fall straight', 'down through the sheath onto the wafer. That is how straight,', 'deep contact holes form instead of round dents.'],
       },
       hint: {de: 'Das Plasma zündet im Takt', en: 'The plasma fires in rhythm'},
-      route: [{de: 'Oxid abscheiden', en: 'Deposit oxide'}, {de: 'Kontakte ätzen', en: 'Etch contacts'}],
+      route: [{de: 'Oxid abscheiden', en: 'Deposit oxide', proc: 'deposit'}, {de: 'Kontakte ätzen', en: 'Etch contacts', proc: 'contacts'}],
       enemyEvery: 4,
       pulses: [
         {x0: 1, y0: 3, x1: 6, y1: 4, period: 30, on: [0, 10]},
@@ -322,7 +322,7 @@
         en: ['Sputtering in vacuum: mean free path λ = kT / (√2·π·d²·p).', 'At 10⁻⁶ mbar an argon atom flies about 70 m on average.', 'So the aluminium atoms reach the wafer in straight lines.'],
       },
       hint: {de: 'Alles zugleich. Die Glocke schlägt öfter', en: 'Everything at once. The bell strikes more often'},
-      route: [{de: 'Sputtern', en: 'Sputter'}, {de: 'Messen', en: 'Measure'}],
+      route: [{de: 'Sputtern', en: 'Sputter', proc: 'sputter'}, {de: 'Messen', en: 'Measure', proc: 'measure'}],
       enemyEvery: 4,
       bell: 36,
       pulses: [{x0: 8, y0: 2, x1: 11, y1: 7, period: 30, on: [0, 12]}],
@@ -353,6 +353,39 @@
     },
   ];
 
+  // Before the first hour: from the corridor along the lake, through the gowning room and the air shower into Bay 7.
+  // K lockers, B bench, D doors of the air shower, A air shower floor. No shifting here.
+  const INTRO = {
+    id: 'intro', time: '21:56', intro: true,
+    layer: {de: 'Einschleusen', en: 'Gowning'}, stack: {de: '', en: ''},
+    title: {de: 'Einschleusen', en: 'Gowning'}, log: {de: [], en: []}, fact: {de: [], en: []}, hint: {de: '', en: ''},
+    triggers: [
+      {x: 1, y: 7, text: {de: 'Vogt Microelettronica, Luino. 21:56. Du übernimmst die Nachtschicht in Bay 7.', en: 'Vogt Microelettronica, Luino. 21:56. You take over the night shift in Bay 7.'}},
+      {x: 2, y: 5, text: {de: 'Umkleide: Overall, Haube, Mundschutz, Brille, Handschuhe, Überschuhe. Ein Mensch verliert Millionen Partikel pro Minute.', en: 'Gowning room: coverall, hood, face mask, goggles, gloves, boot covers. A person sheds millions of particles a minute.'}},
+      {x: 6, y: 3, text: {de: 'Luftdusche: Düsen blasen gefilterte Luft mit etwa 25 m/s und lösen die letzten Partikel vom Anzug.', en: 'Air shower: nozzles blow filtered air at about 25 m/s and loosen the last particles from the suit.'}},
+      {x: 13, y: 3, text: {de: 'Bay 7. Die Anlagen laufen. Niemand ist hier.', en: 'Bay 7. The tools are running. Nobody is here.'}},
+    ],
+    suitAt: 6,
+    lamps: [],
+    signs: [
+      {x: 3, y: 5, text: 'VESTIZIONE'}, {x: 9, y: 2, text: {de: "DOCCIA D'ARIA", en: "DOCCIA D'ARIA"}, bg: '#2c6fb5', color: '#ffffff'},
+      {x: 12, y: 5, text: 'BAY 7', bg: '#2c6fb5', color: '#ffffff'}, {x: 15, y: 5, text: 'ZONA ISO 3'},
+    ],
+    day: [
+      '####################',
+      '#KKKKKK#####......X#',
+      '#......#####.......#',
+      '#.BBBB.DAAAAD......#',
+      '#......#####.......#',
+      '##.#################',
+      '#..................#',
+      '#P.................#',
+      '#==================#',
+      '####################',
+    ],
+  };
+  INTRO.night = INTRO.day.map(r => r.replace('P', '.').replace('X', '.'));
+
   const ENDING = {
     time: '06:00',
     layer: {de: 'Passivierung', en: 'Passivation'}, stack: {de: '12 nm', en: '12 nm'},
@@ -362,5 +395,5 @@
     },
   };
 
-  return {LEVELS, ENDING};
+  return {LEVELS, ENDING, INTRO};
 });

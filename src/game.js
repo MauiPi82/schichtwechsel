@@ -1,7 +1,7 @@
 /* Schichtwechsel - rendering, audio, input and screens. Rules live in core.js, levels in levels.js. */
 (() => {
 'use strict';
-const C = window.SchichtCore, {LEVELS, ENDING} = window.SchichtLevels;
+const C = window.SchichtCore, {LEVELS, ENDING, INTRO} = window.SchichtLevels;
 const cv = document.getElementById('game'), ctx = cv.getContext('2d');
 const W = 320, H = 180, Z = 4, T = 16, FY = 16;
 const STEP_FRAMES = 7;
@@ -187,6 +187,9 @@ const audio = {
         this.tone('sawtooth', 160, t0, 0.8, 0.25, null, 30);
         break;
       case 'won': this.burst(t0, 1.2, 0.16, 'highpass', 1200); this.tone('square', 70, t0 + 1.1, 0.12, 0.12); break;
+      case 'shower': this.burst(t0, 2.8, 0.14, 'highpass', 700); this.burst(t0, 2.8, 0.08, 'lowpass', 300); break;
+      case 'rustle': for (let i = 0; i < 4; i++) this.burst(t0 + i * 0.12, 0.1, 0.06, 'bandpass', 2500, 1.5); break;
+      case 'door': this.burst(t0, 0.35, 0.1, 'lowpass', 600); this.tone('square', 55, t0 + 0.3, 0.1, 0.08); break;
       case 'pulse': this.tone('sawtooth', 110, t0, 0.35, 0.07, null, 220); this.burst(t0, 0.3, 0.05, 'bandpass', 1800, 4); break;
       case 'pulse-warning': this.tone('sine', 330, t0, 0.15, 0.03); break;
       case 'furnace-open': this.burst(t0, 0.9, 0.08, 'lowpass', 300); this.tone('sine', 40, t0, 0.8, 0.12); break;
@@ -247,13 +250,15 @@ addEventListener('keydown', e => {
   if (e.code === 'KeyP' || e.code === 'Escape') { togglePause(); return; }
   if (e.code === 'KeyM') { audio.toggle(); return; }
   if (e.code === 'KeyR' && (mode === 'play' || mode === 'paused')) { checkpoint = null; startLevel(levelIndex); return; }
-  if (e.code === 'KeyN' && mode === 'title') { progress = 0; store.set('level', 0); press('shift'); }
+  if (e.code === 'KeyN' && mode === 'title') { progress = 0; store.set('level', 0); audio.unlock(); startIntro(); }
 });
 addEventListener('keyup', e => { const d = KEYDIR[e.code]; if (d) held.delete(d); });
 addEventListener('blur', () => held.clear());
 function press(what) {
+  if (introMode && (mode === 'play' || mode === 'shower')) { if (what === 'enter') endIntro(); return; }
+  if (mode === 'process') { if (procT > 40) mode = 'play'; return; }
   if (mode === 'play') { if (what === 'shift') queuedShift = true; return; }
-  if (mode === 'title') { audio.unlock(); startCard(progress); return; }
+  if (mode === 'title') { audio.unlock(); if (progress === 0) startIntro(); else startCard(progress); return; }
   if (mode === 'card' && cardT > 20) { checkpoint = null; startLevel(levelIndex); return; }
   if (mode === 'ending' && cardT > 120) { mode = 'title'; audio.setLayer(0); }
 }
@@ -291,7 +296,7 @@ function pollPad() {
 let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0, shake = 0;
 let progress = clamp(+store.get('level') || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
 const deathsBy = levels.map(() => 0);
-const BUILD = '0.5 · 2026-11-11';
+const BUILD = '0.6 · 2026-11-12';
 // Testers can jump to an hour: ?stunde=3 or ?hour=3 opens the third hour.
 const jump = +(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || 0);
 if (jump >= 1 && jump <= levels.length) progress = jump - 1;
@@ -307,8 +312,47 @@ function stickyCheck() {
   stickyTimes = stickyTimes.filter(x => now - x < 3000).concat(now);
   if (stickyTimes.length >= 4) { stickyWarned = true; store.set('sticky', '1'); toast(t().sticky, 420); }
 }
+/* ---------- Intro: corridor, gowning room, air shower ---------- */
+let introMode = false, suited = false, showerT = 0, showerDone = false, introSeen = new Set(), procT = 0, procType = '';
+const idx = (x, y) => y * C.W + x;
+function introDoors(L) { const d = []; for (let i = 0; i < L.layers[0].length; i++) if (L.layers[0][i] === 'D') d.push(i); return d.sort((a, b) => a - b); }
+function startIntro() {
+  const L = C.parseLevel(INTRO);
+  const [entry] = introDoors(L);
+  L.open = new Set([entry]); L.walk[0][entry] = 1; L.showerT = 0;
+  introMode = true; suited = false; showerT = 0; showerDone = false; introSeen = new Set();
+  state = C.newState(L); mode = 'play'; stepFrame = 0; fx = 0; hintT = 999; toastT = 0; checkpoint = null;
+  audio.setLayer(0);
+}
+function endIntro() {
+  introMode = false; store.set('intro', '1');
+  startCard(0);
+}
+function introStep() {
+  const L = state.level;
+  INTRO.triggers.forEach((tr, n) => {
+    if (!introSeen.has(n) && Math.abs(tr.x - state.x) + Math.abs(tr.y - state.y) <= 1) { introSeen.add(n); toast(tr.text[lang], 420); }
+  });
+  if (!suited && state.y <= 4 && state.x >= INTRO.suitAt) { suited = true; audio.sfx('rustle'); fx = 6; fxLayer = 0; }
+  if (!showerDone && L.layers[0][idx(state.x, state.y)] === 'A' && suited) {
+    const [entry] = introDoors(L);
+    L.open.delete(entry); L.walk[0][entry] = 0;
+    mode = 'shower'; showerT = 0; audio.sfx('door'); audio.sfx('shower');
+  }
+}
+function updateShower() {
+  const L = state.level;
+  L.showerT = ++showerT;
+  if (showerT === 90) audio.sfx('shower');
+  if (showerT > 180) {
+    const [, exit] = introDoors(L);
+    L.open.add(exit); L.walk[0][exit] = 1; L.showerT = 0; showerDone = true; mode = 'play'; audio.sfx('door');
+  }
+}
+
 // After a death the hour resumes at the last process step; the previous shift returns to its posts.
 function startLevel(i, resume = false) {
+  introMode = false;
   levelIndex = i; mode = 'play'; stepFrame = 0; fx = 0; deadT = 0;
   if (resume && checkpoint) {
     state = C.clone(checkpoint);
@@ -326,6 +370,7 @@ function togglePause() {
 document.addEventListener('visibilitychange', () => { if (document.hidden && mode === 'play') mode = 'paused'; });
 
 function nextAction() {
+  if (introMode) queuedShift = false;
   if (queuedShift) { queuedShift = false; return 'shift'; }
   if (queuedDir) { const d = queuedDir; queuedDir = null; return d; }
   if (lastDir && held.has(lastDir)) return lastDir;
@@ -351,13 +396,19 @@ function doStep(action) {
     }
   }
   if (state.layer !== before) { fx = reduced ? 6 : 12; fxLayer = state.layer; audio.setLayer(state.layer); }
-  if (state.events.includes('station') && state.status === 'play') { checkpoint = C.clone(state); toast(t().checkpoint, 100); }
+  if (state.events.includes('station') && state.status === 'play') {
+    checkpoint = C.clone(state); toast(t().checkpoint, 100);
+    const step = LEVELS[levelIndex].route && LEVELS[levelIndex].route[state.got - 1];
+    if (step && step.proc && window.SchichtProcess) { procType = step.proc; procT = 0; mode = 'process'; }
+  }
   if (state.events.includes('bump')) {
     const [dx, dy] = C.DIRS[state.face], o = 1 - state.layer;
     if (C.walkable(state.level, o, state.x, state.y) && C.walkable(state.level, o, state.x + dx, state.y + dy)) shiftHintT = 120;
   }
   if (state.events.includes('shift')) shiftHintT = 0;
+  if (introMode) introStep();
   if (state.status === 'lost') { mode = 'dead'; deadT = 0; deaths++; deathsBy[levelIndex]++; }
+  if (state.status === 'won' && introMode) { audio.sfx('door'); endIntro(); return; }
   if (state.status === 'won') {
     mode = 'clear'; deadT = 0;
     progress = Math.max(progress, Math.min(levelIndex + 1, levels.length - 1)); store.set('level', progress);
@@ -381,6 +432,8 @@ function update() {
   if (shake > 0) shake--;
   if (toastT > 0) toastT--;
   if (shiftHintT > 0) shiftHintT--;
+  if (mode === 'process' && ++procT > window.SchichtProcess.DURATION) mode = 'play';
+  if (mode === 'shower') updateShower();
   if (mode === 'dead' && ++deadT > 70) startLevel(levelIndex, true);
   if (mode === 'clear' && ++deadT > 60) {
     checkpoint = null;
@@ -439,6 +492,12 @@ function drawStack(x0, y0, w, h, n) {
 
 /* ---------- Drawing: HUD ---------- */
 function drawHUD() {
+  if (introMode) {
+    R('#0d1420', 0, 0, W, FY); R('#2f6db3', 0, FY - 1, W, 1);
+    txt(`${INTRO.time} · ${INTRO.layer[lang].toUpperCase()}`, 4, 4, {color: '#9fe0ff'});
+    txt(lang === 'de' ? 'ENTER: ÜBERSPRINGEN' : 'ENTER: SKIP', W - 4, 4, {align: 'right', color: '#6b7190'});
+    return;
+  }
   const L = state.level, def = LEVELS[levelIndex], night = state.layer === 1;
   R(night ? '#0c0803' : '#0d1420', 0, 0, W, FY);
   R(night ? '#5a4214' : '#2f6db3', 0, FY - 1, W, 1);
@@ -478,7 +537,7 @@ function renderPlay() {
   if (fx > 0 && !reduced) ctx.translate(Math.round((hash(frame) - 0.5) * 6), 0);
   if (shake > 0) ctx.translate(Math.round((hash(frame * 3) - 0.5) * shake * 0.8), Math.round((hash(frame * 5) - 0.5) * shake * 0.6));
   window.SchichtWorld.draw(ctx, state, {k: mode === 'play' ? k : 1, frame, reduced, lang, enemies: state.enemies.map(enemyPos),
-    playerVisible: !(state.step < state.safeUntil && (frame >> 2) % 2), shiftHint: shiftHintT > 0});
+    playerVisible: !(state.step < state.safeUntil && (frame >> 2) % 2), shiftHint: shiftHintT > 0 && !introMode, civilian: introMode && !suited});
   ctx.restore();
   ctx.setTransform(Z, 0, 0, Z, 0, 0);
   drawHUD();
@@ -615,6 +674,7 @@ function render() {
   if (mode === 'ending') return renderEnding();
   if (mode === 'dead') return renderDead();
   renderPlay();
+  if (mode === 'process') window.SchichtProcess.draw(ctx, procType, procT, lang);
   if (mode === 'clear') {
     ctx.fillStyle = `rgba(0,0,0,${clamp(deadT / 60, 0, 1)})`; ctx.fillRect(0, 0, W, H);
   }
@@ -658,7 +718,8 @@ if (new URLSearchParams(location.search).has('test')) {
   // Test hook: deterministic control for the browser check, only with ?test in the URL.
   window.__schicht = {
     levels, get state() { return state; }, get mode() { return mode; },
-    card: i => startCard(i), start: i => startLevel(i), act: a => doStep(a), render, update,
+    card: i => startCard(i), start: i => startLevel(i), act: a => doStep(a), render, update, intro: () => startIntro(),
+    process: (type, tt) => { procType = type; procT = tt; mode = 'process'; },
     setLayer: l => audio.setLayer(l), lang: l => { lang = l; applyLanguage(); },
   };
 }

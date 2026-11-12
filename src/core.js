@@ -21,7 +21,8 @@
   const BELL_WARNING = 24;
   // Tiles: # wall, M machine, = glass, o hole, . floor, P start, X airlock exit,
   // 1-8 process stations (visited in order), V previous shift (night only).
-  const SOLID = new Set(['#', 'M', 'o', '=']);
+  // K lockers, B bench, D door (closed until the game opens it; only in the intro).
+  const SOLID = new Set(['#', 'M', 'o', '=', 'K', 'B', 'D']);
 
   // Ion species for implanter beams: mass in atomic mass units, charge in elementary charges.
   const AMU = 1.66053907e-27, QE = 1.602176634e-19;
