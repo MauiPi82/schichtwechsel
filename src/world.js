@@ -843,6 +843,12 @@ function floorLayer(L, layer) {
   return c;
 }
 
+// One of shift B has noticed you: a red mark over the head, on the figure at night, on the shadow by day.
+function alertMark(px, py) {
+  const bob = Math.round(Math.sin(F / 5) * 1.5), x = px + 15, y = py - 24 + bob;
+  R('#2a0606', x - 1, y - 1, 5, 14); R('#ff3a2a', x, y, 3, 8); R('#ff3a2a', x, y + 10, 3, 3);
+}
+
 /* ---------- Night light, pre-drawn ---------- */
 // The darkness around the player (1400 x 800 world units at half resolution, the radius 150 in the middle),
 // the warm glow of the visor, and a work lamp.
@@ -960,6 +966,7 @@ function draw(c, s, o) {
     ctx.fillStyle = isSet(i) ? `rgba(90,60,150,${a})` : `rgba(10,16,30,${a})`;
     ctx.beginPath(); ctx.ellipse(px + 16, py + 22, 9, 13, 0.25, 0, 7); ctx.fill();
     ctx.beginPath(); ctx.ellipse(px + 18, py + 6, 6, 6, 0, 0, 7); ctx.fill();
+    if (o.alert && o.alert[i] && !isSet(i)) alertMark(px, py);
   });
   if (!night) (o.ghosts || []).forEach(([gx, gy, a]) => {
     const px = gx * T, py = FY + gy * T;
@@ -1017,13 +1024,15 @@ function draw(c, s, o) {
       ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = g2; ctx.fillRect(cx - 22, cy - 22, 44, 44); ctx.globalCompositeOperation = 'source-over';
     });
     o.enemies.forEach(([ex, ey], i) => {
-      const d = Math.hypot(ex - s.x, ey - s.y);
-      if (d > 8 || isSet(i)) return;
+      const d = Math.hypot(ex - s.x, ey - s.y), alerted = o.alert && o.alert[i] && !isSet(i);
+      if (alerted) alertMark(ex * T, FY + ey * T);
+      if ((d > 8 && !alerted) || isSet(i)) return;
       const a = clamp((8 - d) / 4, 0, 0.95);
       ctx.globalAlpha = a * 0.35; ctx.strokeStyle = '#ffb43a'; ctx.lineWidth = 1;
       ctx.strokeRect(ex * T + 9.5, FY + ey * T - 8.5, 14, 13); ctx.strokeRect(ex * T + 7.5, FY + ey * T + 4.5, 18, 20);
       ctx.globalAlpha = a * (hash(F >> 2) > 0.08 ? 1 : 0.2);
-      R('#ffb43a', ex * T + 13, FY + ey * T - 2, 2, 2); R('#ffb43a', ex * T + 18, FY + ey * T - 2, 2, 2);
+      if (alerted) ctx.globalAlpha = 1;
+      R(alerted ? '#ff3a2a' : '#ffb43a', ex * T + 13, FY + ey * T - 2, 2, 2); R(alerted ? '#ff3a2a' : '#ffb43a', ex * T + 18, FY + ey * T - 2, 2, 2);
       ctx.globalAlpha = 1;
     });
   } else {

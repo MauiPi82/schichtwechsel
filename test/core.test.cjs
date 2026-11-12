@@ -279,3 +279,26 @@ test('every script of the game parses (the node tests load only some of them)', 
     assert.doesNotThrow(() => new vm.Script(fs.readFileSync(path.join(dir, f), 'utf8'), {filename: f}), f);
   }
 });
+
+test('watchfulness: lingering near one of shift B makes them follow, then they walk back to their round', () => {
+  const day = ['####################', '#P................X#', ...Array(7).fill('#..................#'), '####################'];
+  const night = day.map(r => r.replace(/[PX]/g, '.'));
+  const L = core.parseLevel({id: 'tw', time: '', title: {}, day, night, patrols: [{path: [[10, 4], [14, 4]], every: 2}], route: []});
+  let s = core.newState(L);
+  // Into the shift before, far from the round: nobody notices.
+  s = core.step(s, 'shift');
+  for (let i = 0; i < 8; i++) s = core.step(s, 'wait');
+  assert.ok(!(s.enemies[0].alert > s.step), 'far away: unnoticed');
+  // Walk up to the round and stay there after the ring is gone: noticed.
+  const moves = ['down', 'down', ...Array(9).fill('right')];
+  let noticed = false;
+  for (const m of moves) { s = core.step(s, m); if (s.events.includes('alert')) { noticed = true; break; } if (s.status !== 'play') break; }
+  assert.equal(s.status, 'play');
+  assert.ok(noticed && s.enemies[0].alert > s.step, 'close by, after the ring: noticed');
+  // Back into your own shift and wait: the alert runs out and they return to the round.
+  s = core.step(core.clone(s), 'shift');
+  for (let i = 0; i < 40; i++) s = core.step(s, 'wait');
+  const e = s.enemies[0];
+  assert.equal(e.off, false, 'back on the round');
+  assert.ok(L.patrols[0].cells.some(c => c.x === e.x && c.y === e.y), 'standing on a tile of the round');
+});

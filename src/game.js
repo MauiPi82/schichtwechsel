@@ -28,7 +28,7 @@ const UI = {
     sound: on => 'Ton: ' + (on ? 'an' : 'aus'), pause: 'Pause', full: 'Vollbild', menu: 'Menü', home: 'H: Hauptmenü',
     noteHead: 'VOGT MICROELETTRONICA · BAY 7 · TURNO B', q: ['„', '“'],
     useLight: 'ANLAUFEN: LICHT', useStop: 'ANLAUFEN: NOT-AUS', charging: 'LÄDT',
-    yieldWord: 'AUSBEUTE', best: 'BESTE AUSBEUTE', rewind: 'SHIFT: ZURÜCKSPULEN', slots: 'LOADPORT 1: 26 WAFER GEZÄHLT. DER FOUP HAT 25 PLÄTZE.', lightTip: 'LAUF GEGEN DIE ANLAGE: IHR LICHT HÄLT SIE AUF', graceTip: 'DER RING: SOLANGE ER LÄUFT, GREIFEN SIE DICH NICHT. ABER LAUF NIE IN SIE HINEIN.',
+    yieldWord: 'AUSBEUTE', best: 'BESTE AUSBEUTE', rewind: 'SHIFT: ZURÜCKSPULEN', slots: 'LOADPORT 1: 26 WAFER GEZÄHLT. DER FOUP HAT 25 PLÄTZE.', lightTip: 'LAUF GEGEN DIE ANLAGE: IHR LICHT HÄLT SIE AUF', graceTip: 'DER RING: SOLANGE ER LÄUFT, GREIFEN SIE DICH NICHT. ABER LAUF NIE IN SIE HINEIN.', alertTip: 'BEMERKT! ER FOLGT DIR EIN PAAR SCHRITTE. WECHSLE DIE SCHICHT ODER GEH AUF ABSTAND.',
     causeTip: {caught: 'Im Ring greifen sie nicht. Wer selbst in sie hineinläuft, ist erwischt.', crushed: 'Vor der Glocke auf ein grün umrandetes Feld stellen.', plasma: 'Das Plasma zündet im Takt. Warten, oder eine Plasmaanlage anlaufen: Not-Aus.', heat: 'In einer Kühlnische warten, bis die Hitze zurückweicht.', beam: 'Gestrichelt: der nächste Weg des Strahls. Die Anlage anlaufen stoppt ihn.', robot: 'Die Roboter fahren ihre feste Bahn. Warten, bis sie vorbei sind.'},
     yieldLog: y => `Ausbeute Los 4471: ${y} %`,
     // Why a shift was refused: what stands on this spot in the other shift.
@@ -48,7 +48,7 @@ const UI = {
     sound: on => 'Sound: ' + (on ? 'on' : 'off'), pause: 'Pause', full: 'Fullscreen', menu: 'Menu', home: 'H: main menu',
     noteHead: 'VOGT MICROELETTRONICA · BAY 7 · TURNO B', q: ['“', '”'],
     useLight: 'WALK INTO: LIGHT', useStop: 'WALK INTO: STOP', charging: 'CHARGING',
-    yieldWord: 'YIELD', best: 'BEST YIELD', rewind: 'SHIFT: REWIND', slots: 'LOADPORT 1: 26 WAFERS COUNTED. THE FOUP HAS 25 SLOTS.', lightTip: 'WALK INTO THE TOOL: ITS LIGHT STOPS THEM', graceTip: 'THE RING: WHILE IT RUNS THEY CANNOT CATCH YOU. BUT NEVER WALK INTO THEM.',
+    yieldWord: 'YIELD', best: 'BEST YIELD', rewind: 'SHIFT: REWIND', slots: 'LOADPORT 1: 26 WAFERS COUNTED. THE FOUP HAS 25 SLOTS.', lightTip: 'WALK INTO THE TOOL: ITS LIGHT STOPS THEM', graceTip: 'THE RING: WHILE IT RUNS THEY CANNOT CATCH YOU. BUT NEVER WALK INTO THEM.', alertTip: 'NOTICED! HE FOLLOWS YOU FOR A FEW STEPS. SHIFT, OR KEEP YOUR DISTANCE.',
     causeTip: {caught: 'In the ring they cannot catch you. Walking into them yourself, you are caught.', crushed: 'Before the bell, stand on a tile framed in green.', plasma: 'The plasma fires in rhythm. Wait, or walk into a plasma tool: emergency stop.', heat: 'Wait in a cooled niche until the heat falls back.', beam: 'Dashed: the beam\'s next path. Walking into the implanter stops it.', robot: 'The robots drive a fixed track. Wait until they have passed.'},
     yieldLog: y => `Yield of lot 4471: ${y} %`,
     blocked: (to, what) => what === 'o' ? 'NO FLOOR HERE IN THE SHIFT BEFORE'
@@ -340,6 +340,10 @@ const audio = {
         break;
       }
       case 'tool-wait': this.tone('square', 330, t0, 0.05, 0.04); this.tone('square', 330, t0 + 0.09, 0.05, 0.04); break;
+      case 'alert':
+        this.tone('square', 740, t0, 0.07, 0.05); this.tone('square', 554, t0 + 0.08, 0.12, 0.05);
+        this.tone('sawtooth', 110, t0, 0.5, 0.04, null, 70);
+        break;
       case 'sting':
         this.tone('sawtooth', 55, t0, 2.4, 0.07); this.tone('sawtooth', 58.3, t0, 2.4, 0.07);
         this.tone('sine', 1250, t0 + 0.1, 1.6, 0.025); this.tone('sine', 1323, t0 + 0.1, 1.6, 0.025);
@@ -559,7 +563,7 @@ function pollPad() {
 let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0, shake = 0;
 let progress = clamp(parseInt(store.get('level'), 10) || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
 const deathsBy = levels.map(() => 0);
-const BUILD = '0.55 · 2026-11-12';
+const BUILD = '0.56 · 2026-11-12';
 // Testers can jump to an hour: ?stunde=3 or ?hour=3 opens the third hour.
 const jump = parseInt(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || '0', 10) || 0;
 if (jump >= 1 && jump <= levels.length) progress = jump - 1;
@@ -940,6 +944,8 @@ function doStep(action) {
   if (state.events.includes('shift')) shiftHintT = 0;
   // The first time the ring shows with shift B around: what it means, once.
   if (state.events.includes('shift') && state.layer === 1 && state.enemies.length && !introMode && store.get('gracetip') !== '1') { store.set('gracetip', '1'); toast(t().graceTip, 360); }
+  // Noticed: a sting, and the first time what it means.
+  if (state.events.includes('alert')) { audio.sfx('alert'); if (store.get('alerttip') !== '1') { store.set('alerttip', '1'); toast(t().alertTip, 300); } }
   if (state.events.includes('freeze')) audio.sfx('freeze');
   if (state.events.includes('flash')) flashFx = {...state.used, t: 0};
   if (state.events.includes('blocked') && !introMode) {
@@ -1241,7 +1247,7 @@ function renderPlay() {
     lockerDone: introMode && lockerDone, lockerSpot: introMode && clockedIn && !lockerDone && mode !== 'locker' ? INTRO.locker.at : null,
     clockSpot: introMode && !clockedIn && mode !== 'process', hideNext: introMode && !showerDone,
     locker: introMode && (mode === 'locker' || (mode === 'note' && noteSrc === 'locker')) ? {no: INTRO.locker.no, t: mode === 'locker' ? lockerT : 99} : null,
-    frozen: state.enemies.map(e => C.frozen(state, e)), flash: flashFx && {...flashFx, a: 1 - flashFx.t / 34},
+    frozen: state.enemies.map(e => C.frozen(state, e)), alert: state.enemies.map(e => state.step < (e.alert || 0)), flash: flashFx && {...flashFx, a: 1 - flashFx.t / 34},
     grace: !introMode && state.layer === 1 && state.enemies.length ? clamp(1 - ((state.step - state.lastShift) * STEP_FRAMES + stepFrame) / (C.GRACE * STEP_FRAMES), 0, 1) : 0,
     ...storyView()});
   ctx.restore();

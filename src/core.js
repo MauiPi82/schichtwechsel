@@ -24,6 +24,9 @@
   // photoresist it reacts to light: within FLASH_RADIUS they set for FREEZE steps. Plasma chambers and the
   // implanter also stop on their emergency button for HAZARD_OFF steps. Every tool needs RECHARGE steps.
   const FLASH_RADIUS = 4, FREEZE = 18, HAZARD_OFF = 24, RECHARGE = 48;
+  // Watchfulness: whoever passes one of shift B on their round this close, in their shift, is followed for a few
+  // steps; then they walk back to the place on their round where they left it.
+  const ALERT_RADIUS = 2, ALERT_STEPS = 8;
   const BELL_WARNING = 24;
   // Plasma glows faintly this many steps before it fires.
   const PULSE_WARN = 10;
@@ -402,11 +405,26 @@
     }
 
     // On their rounds the previous shift keeps its rhythm: awake in their own shift, slow while you are in yours.
-    // Set by light, they stop.
+    // Set by light, they stop. Pass one of them closely in their shift and they leave the round to follow you.
     for (const e of state.enemies) {
-      if (e.pt === undefined || state.step % (e.ev * (state.layer === DAY ? 2 : 1)) !== 0 || frozen(state, e)) continue;
-      const cells = L.patrols[e.pt].cells;
-      e.pi = (e.pi + 1) % cells.length; e.x = cells[e.pi].x; e.y = cells[e.pi].y; e.moved = state.step; state.events.push('enemy-step');
+      if (e.pt === undefined || frozen(state, e)) continue;
+      // They notice you only once the ring is gone: a quick pass right after a shift goes unseen, lingering does not.
+      if (state.layer === NIGHT && !safe && state.step - state.lastShift >= GRACE && Math.max(Math.abs(e.x - state.x), Math.abs(e.y - state.y)) <= ALERT_RADIUS) {
+        if (!(state.step < (e.alert || 0))) state.events.push('alert');
+        e.alert = state.step + ALERT_STEPS;
+      }
+      if (state.step % (e.ev * (state.layer === DAY ? 2 : 1)) !== 0) continue;
+      const cells = L.patrols[e.pt].cells, home = cells[e.pi];
+      if (state.step < (e.alert || 0)) {
+        const next = enemyStep(L, e, state.x, state.y, (x, y) => state.enemies.some(o => o !== e && o.x === x && o.y === y));
+        if (next) { e.x = next[0]; e.y = next[1]; e.off = true; e.moved = state.step; state.events.push('enemy-step'); }
+      } else if (e.off) {
+        const next = enemyStep(L, e, home.x, home.y, () => false);
+        if (next) { e.x = next[0]; e.y = next[1]; e.moved = state.step; state.events.push('enemy-step'); }
+        if ((e.x === home.x && e.y === home.y) || !next) { e.x = home.x; e.y = home.y; e.off = false; }
+      } else {
+        e.pi = (e.pi + 1) % cells.length; e.x = cells[e.pi].x; e.y = cells[e.pi].y; e.moved = state.step; state.events.push('enemy-step');
+      }
     }
     // Chasers creep towards you, at half speed while you are in your own shift.
     if (state.step % (L.enemyEvery * (state.layer === DAY ? 2 : 1)) === 0) {
@@ -461,12 +479,14 @@
 
   // Breadth-first search over complete game states; returns the shortest action list that wins, or null.
   // noShift: SHIFT is never pressed (the bell may still shift). reticle: the hour only counts with the reticle.
-  function solve(level, {maxStates = 4e6, noShift = false, reticle = false} = {}) {
+  // unseen (default): the proof never lets shift B notice the player, so it stays small; a chase is the player's risk.
+  function solve(level, {maxStates = 4e6, noShift = false, reticle = false, unseen = true} = {}) {
     const period = [level.enemyEvery * 2, level.bell || 1, ...level.robots.map(r => r.length), ...level.beams.map(b => b.every * b.species.length),
       level.heat ? level.heat.period : 1, ...level.pulses.map(p => p.period), ...level.patrols.map(p => p.every * 2)]
       .reduce((a, b) => a / gcd(a, b) * b, 1);
     const key = s => `${s.x},${s.y},${s.layer},${s.got},${s.reticle ? 1 : 0},${s.step % period},${Math.min(s.step - s.lastShift, Math.max(SHIFT_COOLDOWN, GRACE))},` +
-      s.enemies.map(e => e.pt !== undefined ? 'p' + e.pi : e.x + ':' + e.y).join(';');
+      s.enemies.map(e => e.pt === undefined ? e.x + ':' + e.y
+        : 'p' + e.pi + (e.off || s.step < (e.alert || 0) ? `@${e.x}:${e.y}:${Math.max(0, (e.alert || 0) - s.step)}` : '')).join(';');
     const actions = noShift ? ACTIONS.filter(a => a !== 'shift') : ACTIONS;
     // Proven without the help of the tools: their light and their emergency stops only make an hour easier.
     const start = {...newState(level), noAids: true};
@@ -477,7 +497,7 @@
       for (const {s, path} of frontier) {
         for (const a of actions) {
           const t = step(clone(s), a);
-          if (t.status === 'lost') continue;
+          if (t.status === 'lost' || (unseen && t.events.includes('alert'))) continue;
           const p = {a, prev: path};
           if (t.status === 'won' && (!reticle || t.reticle)) {
             const out = [];
@@ -497,6 +517,6 @@
     return null;
   }
 
-  return {W, H, DAY, NIGHT, ACTIONS, DIRS, SHIFT_COOLDOWN, GRACE, FLASH_RADIUS, FREEZE, HAZARD_OFF, RECHARGE, BELL_WARNING, bellWarning, PULSE_WARN, SPECIES,
+  return {W, H, DAY, NIGHT, ACTIONS, DIRS, SHIFT_COOLDOWN, GRACE, FLASH_RADIUS, FREEZE, HAZARD_OFF, RECHARGE, BELL_WARNING, bellWarning, PULSE_WARN, ALERT_RADIUS, ALERT_STEPS, SPECIES,
     parseLevel, newState, step, clone, toolUse, hazardStopped, frozen, walkable, robotAt, beamPhase, pulseOn, timedHazard, pulsesNear, pulseStopped, bellIn, nearestEnemy, solve, idx};
 });
