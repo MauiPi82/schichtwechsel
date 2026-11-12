@@ -359,12 +359,29 @@ const coat = {
     const cx = a.x + 62, cy = a.y + a.h / 2 + 2, r = 44, film = filmOf(m.rpm);
     // Thin-film colours: the hue turns as the thickness changes (about 0.18 µm per order in resist).
     const hue = (film / 180 * 360) % 360;
+    // The coater cup around the wafer: resist flung off the edge lands on its wall.
+    circle('#1a2030', cx, cy, r + 9); circle('#2a3040', cx, cy, r + 7); circle('#141a28', cx, cy, r + 4);
+    if (m.rpm > 0) for (let k = 0; k < 10; k++) R('rgba(217,154,50,.35)', cx + Math.cos(k * 0.63) * (r + 6) - 1, cy + Math.sin(k * 0.63) * (r + 6) - 1, 2, 2);
     circle('#5a6270', cx, cy, r + 1); circle('#c9ced6', cx, cy, r);
     const spread = m.t < 50 ? smooth((m.t - 20) / 30) * 10 : 10 + smooth(m.rpm / 1500) * (r - 10);
     if (m.t > 20) { ctx.globalAlpha = 0.85; circle(`hsl(${hue},55%,${m.spinning ? 55 : 45}%)`, cx, cy, spread); ctx.globalAlpha = 1; }
-    if (m.t > 15 && m.t < 50) circle('#d99a32', cx, cy - r - 4 + ((m.t * 3) % (r + 4)), 1.5);
+    // The edge bead: a little more resist stays at the rim once the film reaches it.
+    if (spread > r - 2) { ctx.strokeStyle = `hsla(${hue},55%,35%,.9)`; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(cx, cy, r - 1, 0, 7); ctx.stroke(); }
     for (let k = 0; k < 4; k++) { const ang = m.rot * 6 + k * Math.PI / 2; ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(cx, cy, r * 0.7, ang, ang + 0.4); ctx.stroke(); }
+    // Spin-off: droplets leave the rim along the tangent, more and further the faster it turns.
+    if (m.rpm > 300) for (let k = 0; k < 8; k++) {
+      const ang = m.rot * 6 + k * 0.785, life = ((m.t * 0.15 + k * 0.37) % 1), d = life * 8 * Math.min(1, m.rpm / 3000);
+      const ex = cx + Math.cos(ang) * r, ey = cy + Math.sin(ang) * r, tx = -Math.sin(ang), ty = Math.cos(ang);
+      circle(`hsla(${hue},55%,50%,${1 - life})`, ex + tx * d + Math.cos(ang) * d * 0.5, ey + ty * d + Math.sin(ang) * d * 0.5, 0.9);
+    }
     R('#0b0f18', cx - 2, cy + r - 2, 4, 3);
+    // The dispense arm swings in over the centre, drops the resist, and swings out again.
+    const arm = m.t < 12 ? smooth(m.t / 12) : m.t < 50 ? 1 : 1 - smooth((m.t - 50) / 20);
+    if (arm > 0) {
+      const nx = cx + (1 - arm) * (r + 30), ny = cy - 2;
+      R('#7c8693', nx, ny - 2, cx + r + 34 - nx, 4); R('#5a6270', nx - 3, ny - 4, 7, 8); R('#d99a32', nx - 1, ny + 3, 3, 2);
+      if (m.t > 15 && m.t < 48) circle('#d99a32', nx, ny + 6, 1.5);
+    }
     // Dial with the green window around 3000 rpm.
     const dx = a.x + a.w - 70, dy = a.y + 54, dr = 34, A0 = Math.PI * 0.8, A1 = Math.PI * 2.2, ang = v => A0 + (A1 - A0) * v / 5000;
     ctx.lineWidth = 5; ctx.strokeStyle = '#1a2030'; ctx.beginPath(); ctx.arc(dx, dy, dr, A0, A1); ctx.stroke();

@@ -7,6 +7,7 @@ const W = 320, PX = 44, PY = 18, PW = 232, PH = 132;
 let ctx, F = 0;
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 const ease = k => 1 - Math.pow(1 - clamp(k, 0, 1), 3);
+const hash = n => { const v = Math.sin(n * 127.1 + 311.7) * 43758.5453; return v - Math.floor(v); };
 const R = (c, x, y, w, h) => { ctx.fillStyle = c; ctx.fillRect(x, y, w, h); };
 function circle(c, x, y, r) { ctx.fillStyle = c; ctx.beginPath(); ctx.arc(x, y, Math.max(0, r), 0, Math.PI * 2); ctx.fill(); }
 function text(s, x, y, o = {}) {
@@ -509,6 +510,30 @@ function chamberView(c, x, y, w, h, o) {
   if (o.window) { R('#9fb8d0', x + w - 4, top + 14, 4, 12); R(`rgba(${r},${g0},${b},${0.8 * glow})`, x + w - 3, top + 16, 2, 8); }
   ctx = main;
 }
+// Sputter chamber: the aluminium target on top with the magnets behind it; the argon plasma glows pink in a ring
+// under the target (the racetrack), ions fly up into the target, aluminium atoms fly down to the wafer.
+function sputterView(x, y, w, h) {
+  const de = lang === 'de', glow = 0.8 + 0.2 * Math.sin(F / 5);
+  R('#3a4058', x, y, w, h); R('#141a28', x + 4, y + 4, w - 8, h - 8);
+  R('#2a3040', x + 10, y + 6, w - 20, 6); for (let i = 0; i < 4; i++) R(i % 2 ? '#d8262a' : '#2c6fb5', x + 14 + i * ((w - 32) / 3), y + 7, 6, 4);
+  R('#c9ced6', x + 10, y + 12, w - 20, 5); text(de ? 'AL-TARGET' : 'AL TARGET', x + w / 2, y + 12, {align: 'center', color: '#3a4058', font: 'IBM Plex Sans', size: 6, max: w});
+  // The racetrack eroded into the target, and the plasma right under it.
+  R('#8e98a3', x + 18, y + 16, 12, 2); R('#8e98a3', x + w - 30, y + 16, 12, 2);
+  ctx.fillStyle = `rgba(255,120,200,${0.55 * glow})`; ctx.beginPath(); ctx.ellipse(x + w / 2, y + 24, w / 2 - 12, 6, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = `rgba(255,170,230,${0.35 * glow})`; ctx.fillRect(x + 8, y + 18, w - 16, 26);
+  for (let i = 0; i < 6; i++) { const iy = (F * 2 + i * 9) % 10; R('#ffd0f0', x + 16 + i * ((w - 32) / 5), y + 28 - iy, 1, 2); }
+  for (let i = 0; i < 14; i++) R('#e6e9ee', x + 12 + (i * 23) % (w - 24), y + 30 + ((F * 1.6 + i * 13) % (h - 58)), 1, 2);
+  R('#c9ced6', x + 16, y + h - 26, w - 32, 2); R('#5a6270', x + 12, y + h - 24, w - 24, 8);
+  text('Ar · 10⁻³ mbar', x + w / 2, y + h - 13, {align: 'center', color: '#9aa6b5', font: 'IBM Plex Sans', size: 6, max: w});
+}
+const twoPanel = (left, type) => (t, x, y, w, h) => { left(t, x, y, w, h); section(t, x + 104, y, w - 104, h, type); };
+const stripView = twoPanel((t, x, y, w, h) => chamberView(ctx, x + 4, y + 6, 96, h - 10, {gas: 'O₂', rgb: [170, 200, 255], glow: t > 20 && t < 200 ? 1 : 0.3}), 'strip');
+const annealView = twoPanel((t, x, y, w, h) => {
+  const rise = ease(t / 50), heat = clamp((t - 30) / 50, 0, 1);
+  furnaceView(ctx, x + 2, y + 2, 96, h - 6, {rise, heat, gas: ['rgba(200,210,255,.8)'], temp: `${Math.round(400 + 600 * heat)} °C · N₂`});
+}, 'anneal');
+const depositView = twoPanel((t, x, y, w, h) => chamberView(ctx, x + 4, y + 6, 96, h - 10, {gas: 'SiH₄ · N₂O', rgb: [150, 190, 255], glow: 1}), 'deposit');
+const sputterPanel = twoPanel((t, x, y, w, h) => sputterView(x + 4, y + 4, 96, h - 8), 'sputter');
 // Contact etch: the plasma chamber on the left, the holes going down through the mask on the right.
 function contacts(t, x, y, w, h) {
   // The etch removes oxide at a steady rate: the holes deepen linearly until they reach the silicon.
@@ -590,7 +615,7 @@ function section(t, x, y, w, h, type) {
   // Pad oxide with the nitride on top, both from the second hour.
   const film = () => { R('#cfe8ff', bx, oxTop + 4, bw, ox - 4); R('#9fc4a8', bx, oxTop, bw, 4); };
   const oxide = (open) => { film(); if (open) holes.forEach(hx => R('#0b0f18', hx, oxTop, 18, ox * open)); };
-  const resist = (amount, gaps) => { R('#d99a32', bx, oxTop - 12 * amount, bw, 12 * amount); if (gaps) holes.forEach(hx => R('#0b0f18', hx, oxTop - 12, 18, 12)); };
+  const resist = (amount, gaps) => { R('#d99a32', bx, oxTop - 12 * amount, bw, 12 * amount); if (amount > 0.02) R('#f0b850', bx, oxTop - 12 * amount, bw, 1); if (gaps) holes.forEach(hx => R('#0b0f18', hx, oxTop - 12 * amount, 18, 12 * amount)); };
   const rain = (col, n, slant = 0, until = oxTop) => {
     for (let i = 0; i < n; i++) {
       const py = y + 10 + ((F * 3 + i * 23) % (until - y - 10)), lap = Math.floor((F * 3 + i * 23) / (until - y - 10));
@@ -604,15 +629,27 @@ function section(t, x, y, w, h, type) {
       rain('#c890ff', 40); ctx.fillStyle = 'rgba(190,110,255,.12)'; ctx.fillRect(bx, y + 8, bw, oxTop - y - 20); break;
     }
     case 'strip': {
-      oxide(1); resist(1 - k, true);
-      for (let i = 0; i < 25; i++) circle('rgba(160,200,255,.8)', bx + (i * 31) % bw, oxTop - 14 - ((F + i * 13) % 40), 1);
-      text('CO₂ + H₂O', bx + bw - 60, y + 12, {color: '#9fc8ff'}); break;
+      // Oxygen radicals burn the resist from the top down; CO₂ and water rise off it.
+      const left = 1 - clamp((t - 20) / 170, 0, 1);
+      oxide(1); resist(left, true);
+      for (let i = 0; i < 16; i++) {
+        const up = (F * 0.8 + i * 13) % 40, mx = bx + 4 + (i * 31) % (bw - 8), my = oxTop - 12 * left - 2 - up;
+        if (left > 0.02) { circle('rgba(160,200,255,.8)', mx, my, 1); circle('rgba(255,120,100,.8)', mx + 2, my, 0.8); }
+      }
+      if (left > 0.02) text('CO₂ · H₂O', bx + bw / 2, y + 4, {align: 'center', color: '#9fc8ff'});
+      else text(lang === 'de' ? 'LACK ENTFERNT' : 'RESIST GONE', bx + bw / 2, y + 4, {align: 'center', color: '#3fe06a'});
+      break;
     }
     case 'implant': oxide(1); doped(4 + 8 * k, 0); rain('#9cff9c', 40, 0.12); break;
     case 'anneal': {
-      oxide(1); doped(12 + 6 * k, 6 * k);
-      ctx.fillStyle = `rgba(255,120,30,${0.18 + 0.15 * Math.sin(F / 6)})`; ctx.fillRect(bx, y + 8, bw, h - 18);
-      text('1050 °C', bx + bw - 54, y + 12, {color: '#ffb070'}); break;
+      // The implant left the crystal battered: displaced atoms (white). At 1000 °C they fall back into the lattice,
+      // and the arsenic spreads a little, about 2·√(D·t).
+      const kk = clamp((t - 20) / 180, 0, 1);
+      oxide(1); doped(12 + 6 * kk, 6 * kk);
+      holes.forEach((hx, j) => { for (let i = 0; i < 14; i++) { if (hash(i + j * 20) < kk) continue; R('rgba(255,255,255,.85)', hx + 1 + (i * 7) % 16, si + 1 + (i * 5) % 9, 1, 1); } });
+      ctx.fillStyle = `rgba(255,140,60,${0.08 + 0.04 * Math.sin(F / 6)})`; ctx.fillRect(bx, si, bw, 30);
+      text(kk < 1 ? (lang === 'de' ? 'GITTERSCHÄDEN HEILEN' : 'LATTICE DAMAGE HEALS') : (lang === 'de' ? 'GITTER GEHEILT' : 'LATTICE HEALED'), bx + bw / 2, y + 4, {align: 'center', color: kk < 1 ? '#ffb070' : '#3fe06a', max: bw});
+      break;
     }
     case 'deposit': {
       oxide(1); doped(18, 6);
@@ -642,9 +679,9 @@ function section(t, x, y, w, h, type) {
       oxide(1); doped(18, 6); holes.forEach(hx => R('#a9cbe6', hx, oxTop, 18, ox)); R('#a9cbe6', bx, oxTop - 22, bw, 22);
       holes.forEach(hx => R('#0b0f18', hx + 5, oxTop - 22, 8, 22 + ox)); holes.forEach(hx => R('#c9ced6', hx + 5, oxTop - 22, 8, (22 + ox) * Math.min(1, k * 1.5)));
       R('#c9ced6', bx, oxTop - 22 - 8 * k, bw, 8 * k);
-      R('#7c8693', bx + 20, y + 6, bw - 40, 8); text('AL TARGET', bx + bw / 2, y + 6, {align: 'center', color: '#1a1e24'});
-      for (let i = 0; i < 30; i++) R('#e6e9ee', bx + 22 + (i * 37) % (bw - 44), y + 16 + ((F * 2 + i * 17) % (oxTop - y - 50)), 1, 2);
-      for (let i = 0; i < 10; i++) circle('#c890ff', bx + 30 + (i * 53) % (bw - 60), y + 14 + ((F * 3 + i * 11) % 20), 1.3);
+      // Aluminium atoms arrive almost straight from above.
+      for (let i = 0; i < 18; i++) R('#e6e9ee', bx + 4 + (i * 37) % (bw - 8), y + 6 + ((F * 2 + i * 17) % Math.max(6, oxTop - 30 - y - 8 * k)), 1, 2);
+      text('Al', bx + bw / 2, y + 2, {align: 'center', color: '#c9ced6'});
       break;
     }
     default: oxide(1); rain('#9fc8ff', 20);
@@ -710,7 +747,7 @@ function draw(c, type, t, language, info) {
   text('LOT 4471', PX + PW - 6, y0 + 2, {align: 'right', color: '#ffcf5a'});
   ctx.save(); ctx.beginPath(); ctx.rect(PX, y0 + 12, PW, PH - 28); ctx.clip();
   R('#0d111a', PX, y0 + 12, PW, PH - 28);
-  const fn = {clockin, intake, clean, inspect, oxidize, nitride, ellipso, rs, coat, expose, cexpose: expose, develop, measure, contacts}[type];
+  const fn = {strip: stripView, anneal: annealView, deposit: depositView, sputter: sputterPanel, clockin, intake, clean, inspect, oxidize, nitride, ellipso, rs, coat, expose, cexpose: expose, develop, measure, contacts}[type];
   const tp = Math.min(tt, BASE + 10);
   if (fn) fn(tp, PX, y0 + 12, PW, PH - 28); else section(tp, PX, y0 + 12, PW, PH - 28, type);
   ctx.restore();
