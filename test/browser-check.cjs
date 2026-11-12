@@ -45,9 +45,16 @@ if (!url) throw new Error('Pass the URL of the served repository root.');
       const x0 = await page.evaluate(() => __schicht.state.x);
       await page.keyboard.down('ArrowRight'); await page.waitForTimeout(500); await page.keyboard.up('ArrowRight');
       assert.ok(await page.evaluate(() => __schicht.state.x) > x0, 'player walks right');
+      // A minigame with the real keyboard: hold SHIFT to spin up the coater, let go, it dries, SHIFT closes it.
+      await page.evaluate(() => __schicht.mini('coat'));
+      await page.waitForTimeout(900); await page.keyboard.down('Shift'); await page.waitForTimeout(2200); await page.keyboard.up('Shift');
+      await until(() => __schicht.miniGame && __schicht.miniGame.phase === 'result' && __schicht.miniGame.resultT > 30);
+      assert.equal(await page.evaluate(() => __schicht.miniGame && __schicht.miniGame.phase), 'result', 'the coater dries and grades');
+      await page.keyboard.press('Shift'); await settled('play');
+      assert.ok(await page.evaluate(() => __schicht.lot.s.coat !== undefined), 'the coat result goes into the lot');
       assert.deepEqual(errors, [], `no page errors in ${locale}`);
       await page.close();
     }
-    console.log('PASS: all levels won in the browser (DE and EN), keyboard input, no page errors.');
+    console.log('PASS: all levels won in the browser (DE and EN), keyboard input, a minigame with the keyboard, no page errors.');
   } finally { await browser.close(); }
 })().catch(e => { console.error(e); process.exit(1); });

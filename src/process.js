@@ -45,8 +45,8 @@ const CAP = {
     en: ['ETCH CONTACTS', 'Straight holes through the oxide, down onto the doped silicon.']},
   sputter: {de: ['SPUTTERN · ALUMINIUM', 'Argon schlägt Atome aus dem Target. Im Vakuum fliegen sie geradeaus.'],
     en: ['SPUTTER · ALUMINIUM', 'Argon knocks atoms out of the target. In vacuum they fly straight.']},
-  measure: {de: ['MESSEN · CD-SEM', 'Der Elektronenstrahl rastert die Linien ab. Breite: 40,2 nm.'],
-    en: ['MEASURE · CD-SEM', 'The electron beam scans the lines. Width: 40.2 nm.']},
+  measure: {de: ['MESSEN · CD-SEM', 'Der Elektronenstrahl rastert die Linien ab. Ziel: 40 nm Breite.'],
+    en: ['MEASURE · CD-SEM', 'The electron beam scans the lines. Target: 40 nm wide.']},
 };
 
 function wafer(cx, cy, r, film, rot) {
@@ -59,6 +59,20 @@ function wafer(cx, cy, r, film, rot) {
 }
 
 /* ---------- Front end: clean, inspect, oxidise, nitride, measure the films ---------- */
+// What the measuring stations find depends on how the played steps went (lot.s scores, lot.v values).
+let lotInfo = null;
+const sc = k => lotInfo && lotInfo.s && lotInfo.s[k] !== undefined ? lotInfo.s[k] : null;
+const val = (k, d) => lotInfo && lotInfo.v && lotInfo.v[k] !== undefined ? lotInfo.v[k] : d;
+const fmt = (v, d = 1) => v.toFixed(d).replace('.', lang === 'de' ? ',' : '.');
+function verdict(s, x, y) {
+  if (s === null || !window.SchichtMini) return;
+  const g = window.SchichtMini.grade(s);
+  text(g.word, x, y, {align: 'center', color: g.color, size: 8});
+}
+function cdOf() {
+  const e = sc('expose'), c = sc('coat'), t = sc('etch');
+  return 40.2 + 9 * (1 - (e === null ? 1 : e)) + 4 * (1 - (c === null ? 1 : c)) + 5 * (1 - (t === null ? 1 : t));
+}
 // RCA clean, side view of four baths with the carrier travelling along; below, the surface magnified.
 function clean(t, x, y, w, h) {
   const baths = [['SC-1', '#bfe3d0', '75 °C'], ['SC-2', '#dfe8b8', '75 °C'], ['HF 1%', '#cfe3f5', '22 °C'], [lang === 'de' ? 'SPÜLEN' : 'RINSE', '#d4e6fa', 'DIW']];
@@ -99,8 +113,13 @@ function clean(t, x, y, w, h) {
 }
 
 // Laser particle scan: a spot spirals out over the spinning wafer; the map fills in as it goes.
-const DUST = [[0.3, 1.2], [0.62, 4.1], [0.85, 2.6]];
+function dustOf() {
+  const n = Math.round(val('particles', 3)), out = [];
+  for (let i = 0; i < Math.min(n, 40); i++) out.push([0.15 + 0.8 * ((Math.sin(i * 12.9898) * 43758.5453) % 1 + 1) % 1, i * 2.39996]);
+  return out.sort((p, q) => p[0] - q[0]);
+}
 function inspect(t, x, y, w, h) {
+  const DUST = dustOf();
   const cx = x + 62, cy = y + h / 2 + 2, r = 44, k = clamp((t - 10) / 180, 0, 1), rot = F * 0.35;
   wafer(cx, cy, r, null, rot);
   const sr = k * (r - 3), sa = rot * 3;
@@ -116,7 +135,10 @@ function inspect(t, x, y, w, h) {
   let found = 0;
   DUST.forEach(([dr, da]) => { if (dr <= k) { found++; R('#ff5a3a', mx + Math.cos(da) * dr * mr - 1, my + Math.sin(da) * dr * mr - 1, 3, 3); } });
   text(lang === 'de' ? `PARTIKEL ≥ 26 NM: ${found}` : `PARTICLES ≥ 26 NM: ${found}`, mx, y + 4, {align: 'center', color: '#c9c2ae', max: 120});
-  if (k >= 1) text(lang === 'de' ? 'SAUBER GENUG · OK' : 'CLEAN ENOUGH · OK', mx, y + h - 12, {align: 'center', color: '#3fe06a'});
+  if (k >= 1) {
+    if (sc('clean') === null) text(lang === 'de' ? 'SAUBER GENUG · OK' : 'CLEAN ENOUGH · OK', mx, y + h - 12, {align: 'center', color: '#3fe06a'});
+    else verdict(sc('clean'), mx, y + h - 12);
+  }
 }
 
 // A vertical furnace from the side: heater coils, quartz tube, the boat of wafers rising in.
@@ -192,7 +214,11 @@ function ellipso(t, x, y, w, h) {
   const fit = clamp((t - 90) / 100, 0, 1);
   const psi = (12 + 20 * fit + Math.sin(F / 5) * 2 * (1 - fit)).toFixed(1), del = (95 + 60 * fit + Math.cos(F / 4) * 4 * (1 - fit)).toFixed(1);
   text(`Ψ ${psi}°  Δ ${del}°`, x + w / 2, y + 4, {align: 'center', color: '#9fe0ff'});
-  if (fit >= 1) text('SiO₂ 50,1 nm · Si₃N₄ 100,4 nm', x + w / 2, y + 15, {align: 'center', color: '#3fe06a', font: 'IBM Plex Sans', size: 8});
+  if (fit >= 1) {
+    const ox = val('oxide', 50.1);
+    text(`SiO₂ ${fmt(ox)} nm · Si₃N₄ ${fmt(100.4)} nm`, x + w / 2, y + 15, {align: 'center', color: '#e9e4d6', font: 'IBM Plex Sans', size: 8});
+    verdict(sc('oxidize'), x + w / 2, y + 26);
+  }
 }
 
 /* ---------- Lithography from the top ---------- */
@@ -359,7 +385,8 @@ function measure(t, x, y, w, h) {
   for (let yy = 0; yy < scan; yy++) {
     for (let i = 0; i < 7; i++) {
       const lx = zx + 8 + i * 28;
-      R('#8e98a3', lx, zy + yy, 12, 1); R('#dfe4ea', lx, zy + yy, 1, 1); R('#dfe4ea', lx + 11, zy + yy, 1, 1);
+      const lw = Math.round(12 * cdOf() / 40.2);
+      R('#8e98a3', lx, zy + yy, lw, 1); R('#dfe4ea', lx, zy + yy, 1, 1); R('#dfe4ea', lx + lw - 1, zy + yy, 1, 1);
     }
     if (yy % 3 === 0) R(`rgba(255,255,255,${((yy * 7) % 9) / 90})`, zx, zy + yy, zw, 1);
   }
@@ -368,7 +395,9 @@ function measure(t, x, y, w, h) {
     const lx = zx + 8 + 3 * 28;
     R('#ffcf5a', lx, zy + zh / 2, 12, 1); R('#ffcf5a', lx, zy + zh / 2 - 6, 1, 13); R('#ffcf5a', lx + 11, zy + zh / 2 - 6, 1, 13);
     R('rgba(10,14,20,.85)', lx + 16, zy + zh / 2 - 8, 74, 14);
-    text('CD = 40,2 nm', lx + 20, zy + zh / 2 - 5, {color: '#ffcf5a'});
+    const cd = cdOf();
+    text(`CD = ${fmt(cd)} nm`, lx + 20, zy + zh / 2 - 5, {color: '#ffcf5a'});
+    if (sc('expose') !== null || sc('etch') !== null) verdict(1 - Math.abs(cd - 40) / 12, lx + 57, zy + zh / 2 + 10);
   }
 }
 
@@ -396,7 +425,7 @@ const BASE = 230, HOLD = 150;
 const DUR = {clean: 620, inspect: 480, oxidize: 540, nitride: 480, ellipso: 460, reticle: 230};
 function duration(type) { return (DUR[type] || 330) + (type === 'reticle' ? 0 : HOLD); }
 function draw(c, type, t, language, info) {
-  ctx = c; lang = language;
+  ctx = c; lang = language; lotInfo = info && info.lot;
   if (type === 'reticle') { F = t; return drawReticleFound(t, info || {n: 1, found: 1, total: 8}); }
   const tt = t * BASE / (DUR[type] || 330);
   F = tt;
