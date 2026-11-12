@@ -23,6 +23,9 @@ const UI = {
     sub: 'TURNO DI NOTTE · LUINO', credit: 'Ein Spiel von Maurizio Odenwaeller für Game Off 2026 · entwickelt mit Claude',
     sound: on => 'Ton: ' + (on ? 'an' : 'aus'), pause: 'Pause', full: 'Vollbild',
     noteHead: 'VOGT MICROELETTRONICA · BAY 7 · TURNO B', q: ['„', '“'],
+    // Why a shift was refused: what stands on this spot in the other shift.
+    blocked: (to, what) => what === 'o' ? 'IN DER VORSCHICHT FEHLT HIER DER BODEN'
+      : `HIER STEHT IN ${to ? 'DER VORSCHICHT' : 'DEINER SCHICHT'} ${what === 'M' ? 'EINE ANLAGE' : 'EINE WAND'}`,
   },
   en: {
     day: 'YOUR SHIFT', night: 'THE SHIFT BEFORE', open: 'AIRLOCK OPEN', airlock: 'TO THE AIRLOCK', layerWord: 'LAYER',
@@ -36,6 +39,8 @@ const UI = {
     sub: 'TURNO DI NOTTE · LUINO', credit: 'A game by Maurizio Odenwaeller for Game Off 2026 · made with Claude',
     sound: on => 'Sound: ' + (on ? 'on' : 'off'), pause: 'Pause', full: 'Fullscreen',
     noteHead: 'VOGT MICROELETTRONICA · BAY 7 · TURNO B', q: ['“', '”'],
+    blocked: (to, what) => what === 'o' ? 'NO FLOOR HERE IN THE SHIFT BEFORE'
+      : `${what === 'M' ? 'A TOOL' : 'A WALL'} STANDS HERE IN ${to ? 'THE SHIFT BEFORE' : 'YOUR SHIFT'}`,
   },
 };
 const store = {
@@ -389,7 +394,7 @@ function pollPad() {
 let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0, shake = 0;
 let progress = clamp(+store.get('level') || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
 const deathsBy = levels.map(() => 0);
-const BUILD = '0.10 · 2026-11-12';
+const BUILD = '0.11 · 2026-11-12';
 // Testers can jump to an hour: ?stunde=3 or ?hour=3 opens the third hour.
 const jump = +(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || 0);
 if (jump >= 1 && jump <= levels.length) progress = jump - 1;
@@ -411,7 +416,7 @@ const idx = (x, y) => y * C.W + x;
 function introDoors(L) { const d = []; for (let i = 0; i < L.layers[0].length; i++) if (L.layers[0][i] === 'D') d.push(i); return d.sort((a, b) => a - b); }
 /* ---------- Announcements, notes from shift B, scares ---------- */
 // None of these changes the rules: a blackout freezes the clock while it lasts, so it can never cost a life.
-let paNow = null, paT = 0, paQueue = [], paDone = new Set(), noteRead = false, noteT = 0, scareDone = false, scare = null, freezeT = 0;
+let blockedT = 0, paNow = null, paT = 0, paQueue = [], paDone = new Set(), noteRead = false, noteT = 0, scareDone = false, scare = null, freezeT = 0;
 const fade = (tt, a, b, c) => tt < a ? tt / a : tt < b ? 1 : clamp((c - tt) / (c - b), 0, 1);
 const SCARE_LEN = {phone: 330, window: 90, blackout: 54, shadow: 80};
 function paLen(p) { return Math.round((PA_START + paSyllables(p.it).dur + 1.8) * 60); }
@@ -576,6 +581,10 @@ function doStep(action) {
     if (C.walkable(state.level, o, state.x, state.y) && C.walkable(state.level, o, state.x + dx, state.y + dy)) shiftHintT = 120;
   }
   if (state.events.includes('shift')) shiftHintT = 0;
+  if (state.events.includes('blocked') && !introMode) {
+    const to = 1 - state.layer, what = state.level.layers[to][idx(state.x, state.y)];
+    toast(t().blocked(to, what), 110); blockedT = 18;
+  }
   if (!introMode) storyStep();
   if (introMode) introStep();
   if (state.status === 'lost') { mode = 'dead'; deadT = 0; deaths++; deathsBy[levelIndex]++; }
@@ -608,6 +617,7 @@ function update() {
   if (scare && ['play', 'note', 'process'].includes(mode) && ++scare.t > SCARE_LEN[scare.type]) scare = null;
   if (toastT > 0) toastT--;
   if (shiftHintT > 0) shiftHintT--;
+  if (blockedT > 0) blockedT--;
   if (mode === 'cinema') updateCinema();
   if (mode === 'process' && ++procT > window.SchichtProcess.DURATION) mode = 'play';
   if (mode === 'shower') updateShower();
@@ -766,6 +776,12 @@ function renderPlay() {
     ...storyView()});
   ctx.restore();
   ctx.setTransform(Z, 0, 0, Z, 0, 0);
+  if (blockedT > 0 && !introMode) {
+    // A refused shift: the spot flashes red for a moment.
+    ctx.globalAlpha = blockedT / 18; ctx.strokeStyle = '#ff4a3a'; ctx.lineWidth = 1;
+    ctx.strokeRect(state.x * T + 0.5, FY + state.y * T + 0.5, T - 1, T - 1);
+    ctx.globalAlpha = 1;
+  }
   drawHUD();
   drawPA();
   if (toastT > 0) {

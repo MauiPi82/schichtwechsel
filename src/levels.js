@@ -34,7 +34,7 @@
       pa: [
         {at: 3, it: 'Attenzione. Turno B, presentarsi in Bay 7.', de: 'Achtung. Schicht B, bitte in Bay 7 melden.', en: 'Attention. Shift B, please report to Bay 7.'},
       ],
-      note: {x: 10, y: 4, by: 'Rossi', text: {
+      note: {x: 11, y: 4, by: 'Rossi', text: {
         de: ['21:31. Los 4471 vom Stocker geholt.', 'Der Scanner summt, obwohl er im Leerlauf ist.', 'Colombo sagt, das ist normal.', 'Ist es nicht.'],
         en: ['21:31. Took lot 4471 from the stocker.', 'The scanner hums, though it is idle.', 'Colombo says that is normal.', 'It is not.'],
       }},
@@ -88,7 +88,7 @@
       pa: [
         {at: 5, it: 'Il lotto 4471 è in attesa. Ripeto: in attesa.', de: 'Los 4471 wartet. Ich wiederhole: wartet.', en: 'Lot 4471 is waiting. I repeat: waiting.'},
       ],
-      note: {x: 9, y: 8, by: 'Colombo', text: {
+      note: {x: 10, y: 8, by: 'Colombo', text: {
         de: ['Die Öfen stehen auf 1000 °C.', 'Es läuft kein Rezept.', 'Ich hab es ins Schichtbuch geschrieben.', 'Danach war die Seite leer.'],
         en: ['The furnaces sit at 1000 °C.', 'No recipe is running.', 'I wrote it in the shift log.', 'Afterwards the page was blank.'],
       }},
@@ -312,7 +312,7 @@
       pa: [
         {at: 4, it: 'Il signor Rossi è atteso in portineria.', de: 'Herr Rossi wird an der Pforte erwartet.', en: 'Signor Rossi is expected at the gate.'},
       ],
-      note: {x: 10, y: 3, by: 'Ferrari', text: {
+      note: {x: 9, y: 3, by: 'Ferrari', text: {
         de: ['03:00. Wir wollten ausstempeln.', 'Die Karte geht durch die Uhr wie durch Luft.', 'Auf dem Display: USCITA NEGATA.', 'Ausgang verweigert.'],
         en: ['03:00. We tried to clock out.', 'The card passes through the clock like air.', 'The display says: USCITA NEGATA.', 'Exit denied.'],
       }},

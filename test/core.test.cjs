@@ -169,6 +169,7 @@ test('every hour has announcements, a reachable note from shift B and one harmle
       }
     }
     assert.ok(seen.has(`${x},${y},${layer}`), `${def.id}: note reachable`);
+    assert.ok(core.walkable(level, 1 - layer, x, y), `${def.id}: the shift works on the note, it never lies in a wall gap`);
     const sc = def.scare;
     assert.ok(['phone', 'window', 'blackout', 'shadow'].includes(sc.type), `${def.id} scare type`);
     if (sc.type === 'phone') assert.ok(def.day[sc.y][sc.x] === '#' && def.day[sc.y + 1][sc.x] !== '#', `${def.id}: phone hangs on a wall face`);
