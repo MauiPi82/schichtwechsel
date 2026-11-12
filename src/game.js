@@ -1,7 +1,7 @@
 /* Schichtwechsel - rendering, audio, input and screens. Rules live in core.js, levels in levels.js. */
 (() => {
 'use strict';
-const C = window.SchichtCore, {LEVELS, ENDING, INTRO, FINALE} = window.SchichtLevels;
+const C = window.SchichtCore, {LEVELS, ENDING, INTRO, FINALE, PROLOGUE} = window.SchichtLevels;
 const cv = document.getElementById('game'), ctx = cv.getContext('2d');
 // In an iframe (itch.io) or with ?embed only the game is shown, filling the frame.
 const embedded = (() => { try { return window.top !== window.self; } catch (_) { return true; } })() || new URLSearchParams(location.search).has('embed');
@@ -542,7 +542,7 @@ function pollPad() {
 let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0, shake = 0;
 let progress = clamp(parseInt(store.get('level'), 10) || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
 const deathsBy = levels.map(() => 0);
-const BUILD = '0.52 · 2026-11-12';
+const BUILD = '0.53 · 2026-11-12';
 // Testers can jump to an hour: ?stunde=3 or ?hour=3 opens the third hour.
 const jump = parseInt(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || '0', 10) || 0;
 if (jump >= 1 && jump <= levels.length) progress = jump - 1;
@@ -623,7 +623,8 @@ function endMini() {
 let lightTaught = false, flashFx = null, blockedT = 0, paNow = null, paT = 0, paQueue = [], paDone = new Set(), noteRead = false, noteT = 0, scareDone = false, scare = null, freezeT = 0;
 const fade = (tt, a, b, c) => tt < a ? tt / a : tt < b ? 1 : clamp((c - tt) / (c - b), 0, 1);
 const SCARE_LEN = {phone: 330, window: 90, blackout: 54, shadow: 80};
-function paLen(p) { return Math.round((PA_START + paSyllables(p.it).dur + 1.8) * 60); }
+// After the voice the translation stays at least three seconds of play.
+function paLen(p) { return Math.round((PA_START + paSyllables(p.it).dur + 3.2) * 60); }
 function startPA(p) { paNow = {...p, len: paLen(p), voice: paSyllables(p.it).dur}; paT = 0; audio.announce(p.it); }
 function phoneRinging(tt) { return tt < 60 || (tt >= 150 && tt < 210) || (tt >= 300 && tt < 322); }
 function blackoutAt(tt) {
@@ -633,7 +634,7 @@ function blackoutAt(tt) {
 function storyStep() {
   const def = LEVELS[levelIndex], L = state.level;
   (def.pa || []).forEach((p, i) => { if (!paDone.has(i) && state.step >= p.at) { paDone.add(i); paQueue.push(p); } });
-  if (!paNow && paQueue.length) startPA(paQueue.shift());
+  if (!paNow && paQueue.length && mode === 'play') startPA(paQueue.shift());
   if (state.events.includes('note') && !noteRead && state.status === 'play' && mode === 'play') {
     noteRead = true; mode = 'note'; noteT = 0; audio.sfx('rustle');
     notesRead.add(def.id); store.set('notes', JSON.stringify([...notesRead]));
@@ -972,7 +973,9 @@ function update() {
     miniPressed = false;
     if (mini.closed) endMini();
   }
-  if (paNow && ++paT > paNow.len) { paNow = null; if (paQueue.length && mode !== 'card') startPA(paQueue.shift()); }
+  // Once the voice is done, the subtitle only counts down in play: a window or the pause does not eat it.
+  if (paNow && (mode === 'play' || paT / 60 < PA_START + paNow.voice) && ++paT > paNow.len) { paNow = null; }
+  if (!paNow && paQueue.length && mode === 'play' && !introMode) startPA(paQueue.shift());
   if (scare && ['play', 'note', 'process'].includes(mode) && ++scare.t > SCARE_LEN[scare.type]) scare = null;
   if (toastT > 0 && !toastHeld() && mode !== 'note') toastT--;
   if (shiftHintT > 0) shiftHintT--;
@@ -1169,7 +1172,8 @@ function drawPA() {
   const k = clamp((paT / 60 - PA_START) / Math.max(0.3, paNow.voice), 0, 1), it = paNow.it.slice(0, Math.ceil(paNow.it.length * k));
   const [q0, q1] = t().q;
   txt(paT / 60 < PA_START ? '· · ·' : `${q0}${it}${k < 1 ? '' : q1}`, x + 26, y + 2, {font: 'IBM Plex Sans', size: 9, italic: true, color: night ? '#ffcf5a' : '#e9eef5', max: w - 32});
-  if (k >= 1) txt(paNow[lang], x + 26, y + 13, {font: 'IBM Plex Sans', size: 7, color: '#8c93a8', max: w - 32});
+  // The translation runs along with the voice, not after it.
+  if (paT / 60 >= PA_START) txt(paNow[lang], x + 26, y + 13, {font: 'IBM Plex Sans', size: 8, color: '#c9c2ae', max: w - 32});
   ctx.globalAlpha = 1;
 }
 // A note from shift B: torn ruled paper, a coffee ring, blue handwriting, the signature.
@@ -1217,6 +1221,22 @@ function renderPlay() {
     ...storyView()});
   ctx.restore();
   ctx.setTransform(Z, 0, 0, Z, 0, 0);
+  // The tear of a shift runs through the room only; header, hints and announcements stay readable on top.
+  if (fx > 0) {
+    // The shift: the picture tears into horizontal slices, washed in the colour of the new layer.
+    const a = fx / 12;
+    if (!reduced) {
+      const snap = snapshot();
+      ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+      for (let i = 0; i < 9; i++) {
+        const sy = Math.floor(hash(i + frame) * cv.height), sh = 6 + Math.floor(hash(i * 3 + frame) * 40);
+        ctx.drawImage(snap, 0, sy, cv.width, sh, Math.round((hash(i * 7 + frame) - 0.5) * 60 * a), sy, cv.width, sh);
+      }
+      ctx.restore();
+    }
+    ctx.fillStyle = fxLayer ? `rgba(255,180,50,${0.35 * a})` : `rgba(230,245,255,${0.45 * a})`;
+    ctx.fillRect(0, 0, W, H);
+  }
   if (blockedT > 0 && !introMode) {
     // A refused shift: the spot flashes red for a moment.
     ctx.globalAlpha = blockedT / 18; ctx.strokeStyle = '#ff4a3a'; ctx.lineWidth = 1;
@@ -1240,21 +1260,7 @@ function renderPlay() {
     lines.forEach((l, i) => txt(l, W / 2, ty + 3 + i * 10, {align: 'center', color: '#e9e4d6', max: w - 10}));
     ctx.globalAlpha = 1;
   }
-  if (fx > 0) {
-    // The shift: the picture tears into horizontal slices, washed in the colour of the new layer.
-    const a = fx / 12;
-    if (!reduced) {
-      const snap = snapshot();
-      ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
-      for (let i = 0; i < 9; i++) {
-        const sy = Math.floor(hash(i + frame) * cv.height), sh = 6 + Math.floor(hash(i * 3 + frame) * 40);
-        ctx.drawImage(snap, 0, sy, cv.width, sh, Math.round((hash(i * 7 + frame) - 0.5) * 60 * a), sy, cv.width, sh);
-      }
-      ctx.restore();
-    }
-    ctx.fillStyle = fxLayer ? `rgba(255,180,50,${0.35 * a})` : `rgba(230,245,255,${0.45 * a})`;
-    ctx.fillRect(0, 0, W, H);
-  }
+
 }
 
 // Before the bell: a double exposure of the other layer around the player. Its walls show through in red,
@@ -1582,9 +1588,9 @@ function renderEnding() {
   drawStack(204, 22, 100, 72, cardT > 200 ? LEVELS.length : LEVELS.length - 1);
   if (cardT > 200) txt(ENDING.stack[lang], 254, 100, {align: 'center', color: '#e0402a', font: 'IBM Plex Sans', size: 7});
   if (cardT > 260) {
-    txt(t().stats(deaths, totalShifts), 16, 136, {color: '#8c93a8', max: 180});
-    txt(t().perHour, 16, 146, {color: '#4c5470', font: 'IBM Plex Sans', size: 6});
-    txt(LEVELS.map((d, i) => `${d.time.slice(0, 2)}h ${deathsBy[i]}`).join('  '), 16, 153, {color: '#6b7190', font: 'IBM Plex Sans', size: 7, max: 180});
+    txt(t().stats(deaths, totalShifts), 16, 134, {color: '#8c93a8', max: 180});
+    txt(t().perHour, 16, 143, {color: '#6b7190', font: 'IBM Plex Sans', size: 6});
+    txt(LEVELS.map((d, i) => `${d.time.slice(0, 2)}h ${deathsBy[i]}`).join('  '), 16, 150, {color: '#8c93a8', font: 'IBM Plex Sans', size: 7, max: 176});
   }
   if (cardT > 280 && Object.keys(lot.s).length) {
     const y = lotYield(), g = window.SchichtMini.grade((y - 26) / 71);
@@ -1593,7 +1599,8 @@ function renderEnding() {
     const worst = Object.keys(lot.s).filter(p => STEP_NAME[p]).sort((a, b) => lot.s[a] - lot.s[b])[0];
     if (worst && lossOf(lot.s[worst]) > 0) txt(`${STEP_NAME[worst][lang === 'de' ? 0 : 1]} −${lossOf(lot.s[worst])} %`, 254, 126, {align: 'center', color: '#8a7a5a', font: 'IBM Plex Sans', size: 7, max: 100});
   }
-  if (cardT > 300) txt(t().thanks, W / 2, 158, {align: 'center', color: '#c9c2ae'});
+  // Left column, under the statistics: it never meets the reticle note on the right.
+  if (cardT > 300) txt(t().thanks, 16, 161, {color: '#c9c2ae', max: 176});
   if (cardT > 330) {
     // Below the yield: how many reticles, and what all eight would have done.
     txt(`${t().reticles} ${found.size}/${LEVELS.length}`, 254, 140, {align: 'center', color: '#6b7190', max: 100});
@@ -1617,15 +1624,15 @@ function renderMode() {
   ctx.setTransform(Z, 0, 0, Z, 0, 0);
   ctx.imageSmoothingEnabled = false;
   if (mode === 'cinema') {
-    ctx.setTransform(Z / 2, 0, 0, Z / 2, 0, 0); window.SchichtCinema.draw(ctx, cinemaT, frame);
+    ctx.setTransform(Z / 2, 0, 0, Z / 2, 0, 0); window.SchichtCinema.draw(ctx, cinemaT, frame, PROLOGUE.caps[lang]);
     ctx.setTransform(Z, 0, 0, Z, 0, 0);
-    if (cinemaT > 1) txt(lang === 'de' ? 'ENTER: ÜBERSPRINGEN' : 'ENTER: SKIP', W - 6, H - 12, {align: 'right', color: '#3a4058', shadow: null});
+    if (cinemaT > 1) txt(lang === 'de' ? 'ENTER: ÜBERSPRINGEN' : 'ENTER: SKIP', W - 6, 4, {align: 'right', color: '#8c93a8', shadow: null});
     return;
   }
   if (mode === 'epilogue') {
     ctx.setTransform(Z / 2, 0, 0, Z / 2, 0, 0); window.SchichtCinema.drawEnd(ctx, epiT, frame, ENDING.shots[lang]);
     ctx.setTransform(Z, 0, 0, Z, 0, 0);
-    if (epiT > 1) txt(lang === 'de' ? 'ENTER: ÜBERSPRINGEN' : 'ENTER: SKIP', W - 6, 4, {align: 'right', color: '#3a4058', shadow: null});
+    if (epiT > 1) txt(lang === 'de' ? 'ENTER: ÜBERSPRINGEN' : 'ENTER: SKIP', W - 6, 4, {align: 'right', color: '#8c93a8', shadow: null});
     return;
   }
   if (mode === 'title') return renderTitle();
@@ -1648,10 +1655,12 @@ function renderMode() {
   }
   if (mode === 'paused') {
     R('rgba(5,6,10,.7)', 0, 0, W, H);
+    // A solid panel: nothing of the room (labels, beams) shows through the text.
+    R('rgba(8,10,16,.96)', W / 2 - 100, 62, 200, 66); R('#ffcf5a', W / 2 - 100, 62, 200, 1);
     txt(t().paused, W / 2, 70, {align: 'center', size: 16, font: 'Pixelify Sans', weight: 700, color: '#ffcf5a'});
     txt(t().pausedHint, W / 2, 96, {align: 'center', color: '#c9c2ae'});
-    txt(t().retry, W / 2, 108, {align: 'center', color: '#6b7190'});
-    txt(isTouch ? (lang === 'de' ? '≡: HAUPTMENÜ · ANTIPPEN: WEITER' : '≡: MAIN MENU · TAP: RESUME') : t().home, W / 2, 118, {align: 'center', color: '#6b7190'});
+    txt(t().retry, W / 2, 107, {align: 'center', color: '#8c93a8'});
+    txt(isTouch ? (lang === 'de' ? '≡: HAUPTMENÜ · ANTIPPEN: WEITER' : '≡: MAIN MENU · TAP: RESUME') : t().home, W / 2, 117, {align: 'center', color: '#8c93a8', max: 196});
   }
 }
 

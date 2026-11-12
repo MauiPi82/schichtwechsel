@@ -498,18 +498,18 @@ function play(c, time, frame, shots, total) {
   for (let k = 0; k < 220; k++) R(`rgba(255,255,255,${hash(k + frame) * 0.06})`, hash(k * 3 + frame) * W, hash(k * 7 + frame) * H, 1, 1);
   R('#000', 0, 0, W, BAR); R('#000', 0, H - BAR, W, BAR);
 }
-function draw(c, time, frame) { play(c, time, frame, SHOTS, TOTAL); }
-// The epilogue with a caption per shot in the lower bar.
-function drawEnd(c, time, frame, captions) {
-  play(c, time, frame, END_SHOTS, END_TOTAL);
-  const [i, t] = shotAt(time, END_SHOTS, END_TOTAL);
-  if (i >= END_SHOTS.length || !captions || !captions[i]) return;
-  const a = Math.min(clamp((t - 0.6) / 0.8, 0, 1), clamp((END_SHOTS[i].dur - t - 0.3) / 0.6, 0, 1));
+// A caption per shot in the lower bar (prologue and epilogue).
+function caption(time, shots, total, captions) {
+  const [i, t] = shotAt(time, shots, total);
+  if (i >= shots.length || !captions || !captions[i]) return;
+  const a = Math.min(clamp((t - 0.6) / 0.8, 0, 1), clamp((shots[i].dur - t - 0.3) / 0.6, 0, 1));
   ctx.globalAlpha = a;
   ctx.font = '400 15px "IBM Plex Sans", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
   ctx.fillStyle = '#e9e4d6'; ctx.fillText(captions[i], W / 2, H - BAR + 11, W - 40);
   ctx.globalAlpha = 1;
 }
+function draw(c, time, frame, captions) { play(c, time, frame, SHOTS, TOTAL); caption(time, SHOTS, TOTAL, captions); }
+function drawEnd(c, time, frame, captions) { play(c, time, frame, END_SHOTS, END_TOTAL); caption(time, END_SHOTS, END_TOTAL, captions); }
 
 // One scene of the Odenchip ending, drawn into the finale's own sequence.
 function scene(c, name, t, frame) { ctx = c; F = frame; ({clockOut: clockOutScene, gateOut: gateOutScene})[name](t); }

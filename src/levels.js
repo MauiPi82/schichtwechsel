@@ -612,5 +612,13 @@
     },
   };
 
-  return {LEVELS, ENDING, INTRO, FINALE};
+  // The prologue says little: where and when, what the scanner did, and that your shift begins.
+  const PROLOGUE = {
+    caps: {
+      de: ['Luino, am Lago Maggiore. 21:38.', 'Bay 7: Turno B schiebt Los 4471 zum Scanner.', 'Der Scanner belichtet von selbst. Auf dem Tisch liegt kein Wafer.', 'Jemand schlägt auf den Not-Aus.', '', '21:56. Deine Nachtschicht beginnt.'],
+      en: ['Luino, on Lake Maggiore. 21:38.', 'Bay 7: shift B wheels lot 4471 to the scanner.', 'The scanner exposes by itself. There is no wafer on the stage.', 'Someone hits the emergency stop.', '', '21:56. Your night shift begins.'],
+    },
+  };
+
+  return {LEVELS, ENDING, INTRO, FINALE, PROLOGUE};
 });
