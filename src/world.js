@@ -642,7 +642,7 @@ function beams(L, s) {
     }
     const ph = b.phases[C.beamPhase(b, s.step)];
     if (off) { if ((F >> 5) % 2) text('BEAM OFF', b.x * T + 36, FY + b.y * T + 8, {color: '#e0281a', shadow: '#fff'}); continue; }
-    if (b.every - (s.step % b.every) <= 6 && (F >> 2) % 2) continue;
+    if (b.every - (s.step % b.every) <= 6 && (F >> 4) % 2) continue;
     const col = {B: '#9fe0ff', P: '#d59cff', As: '#9cff9c', BF2: '#ffe08a'}[ph.species];
     for (const [w, a] of [[9, 0.12], [5, 0.25], [2, 1]]) {
       ctx.strokeStyle = col; ctx.globalAlpha = a * (0.85 + 0.15 * Math.sin(F / 3)); ctx.lineWidth = w;
@@ -707,18 +707,38 @@ function windowFace(g) {
   ctx.restore(); ctx.globalAlpha = 1;
 }
 
-/* ---------- Scene ---------- */
-function draw(c, s, o) {
-  ctx = c; F = o.frame; night = s.layer === 1; reduced = o.reduced; p = P[s.layer];
-  const L = s.level, layer = s.layer;
-  R(p.void, 0, 0, WW, 360);
-  // Tiles in rows; tools and figures are drawn row by row so nearer things overlap farther ones.
+/* ---------- Floor cache ---------- */
+function floorTiles(L, layer) {
   for (let y = 0; y < C.H; y++) for (let x = 0; x < C.W; x++) {
     const c2 = tileAt(L, layer, x, y), px = x * T, py = FY + y * T;
     if (c2 === 'o') holeTile(L, layer, x, y, px, py);
     else if (c2 === 'A') showerFloor(L, x, y, px, py);
     else if (c2 !== '#' && c2 !== '=') floorTile(x, y, px, py);
   }
+}
+const floorCache = new Map();
+function floorLayer(L, layer) {
+  const key = `${L.id}:${layer}`;
+  let c = floorCache.get(key);
+  if (!c) {
+    c = document.createElement('canvas'); c.width = WW * 2; c.height = 360 * 2;
+    const main = ctx;
+    ctx = c.getContext('2d'); ctx.setTransform(2, 0, 0, 2, 0, 0);
+    floorTiles(L, layer);
+    ctx = main; floorCache.set(key, c);
+  }
+  return c;
+}
+
+/* ---------- Scene ---------- */
+function draw(c, s, o) {
+  ctx = c; F = o.frame; night = s.layer === 1; reduced = o.reduced; p = P[s.layer];
+  const L = s.level, layer = s.layer;
+  R(p.void, 0, 0, WW, 360);
+  // Tiles in rows; tools and figures are drawn row by row so nearer things overlap farther ones.
+  // The floor never changes within an hour: it is drawn once per layer and then copied.
+  if (L.intro) floorTiles(L, layer);
+  else ctx.drawImage(floorLayer(L, layer), 0, 0, WW, 360);
   airlock(L, layer, s);
   heatAndPlasma(L, layer, s);
   if (o.note && o.note.layer === layer) paperNote(o.note);
@@ -801,9 +821,10 @@ function draw(c, s, o) {
   }
   // Light: by day a cool ceiling glow; in the shift before the helmet lamp and a few dying sodium lamps.
   if (night) {
-    const lx = ppx + 16, ly = ppy + 12, r = 118 + (reduced ? 0 : (hash(F >> 2) - 0.5) * 6);
-    const g = ctx.createRadialGradient(lx, ly, 10, lx, ly, r);
-    g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.5, 'rgba(2,1,0,.35)'); g.addColorStop(1, 'rgba(1,0,0,.95)');
+    // The helmet lamp: wide enough to read the room, and the dark never quite black.
+    const lx = ppx + 16, ly = ppy + 12, r = 150 + (reduced ? 0 : (hash(F >> 2) - 0.5) * 6);
+    const g = ctx.createRadialGradient(lx, ly, 12, lx, ly, r);
+    g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.55, 'rgba(2,1,0,.28)'); g.addColorStop(1, 'rgba(1,0,0,.84)');
     ctx.fillStyle = g; ctx.fillRect(0, FY, WW, C.H * T);
     ctx.globalCompositeOperation = 'lighter';
     const warm = ctx.createRadialGradient(lx, ly, 4, lx, ly, r * 0.6);
@@ -842,7 +863,10 @@ function draw(c, s, o) {
     o.enemies.forEach(([ex, ey], i) => {
       const d = Math.hypot(ex - s.x, ey - s.y);
       if (d > 8 || isSet(i)) return;
-      ctx.globalAlpha = clamp((8 - d) / 4, 0, 0.95) * (hash(F >> 2) > 0.08 ? 1 : 0.2);
+      const a = clamp((8 - d) / 4, 0, 0.95);
+      ctx.globalAlpha = a * 0.35; ctx.strokeStyle = '#ffb43a'; ctx.lineWidth = 1;
+      ctx.strokeRect(ex * T + 9.5, FY + ey * T - 8.5, 14, 13); ctx.strokeRect(ex * T + 7.5, FY + ey * T + 4.5, 18, 20);
+      ctx.globalAlpha = a * (hash(F >> 2) > 0.08 ? 1 : 0.2);
       R('#ffb43a', ex * T + 13, FY + ey * T - 2, 2, 2); R('#ffb43a', ex * T + 18, FY + ey * T - 2, 2, 2);
       ctx.globalAlpha = 1;
     });

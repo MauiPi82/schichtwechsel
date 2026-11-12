@@ -276,7 +276,7 @@
 
   function bellIn(state) {
     const b = state.level.bell;
-    return b ? b - (state.step % b) : Infinity;
+    return b ? b - ((state.step - (state.bellFrom || 0)) % b) : Infinity;
   }
 
   function step(state, action) {
@@ -316,9 +316,10 @@
     }
 
     if (L.bell) {
-      const left = L.bell - (state.step % L.bell);
+      // bellFrom: after a resume the bell starts a full interval again (0 for a fresh hour and the solver).
+      const bs = state.step - (state.bellFrom || 0), left = L.bell - (bs % L.bell);
       if (left === BELL_WARNING || left === BELL_WARNING / 2) state.events.push('bell-warning');
-      if (state.step % L.bell === 0) {
+      if (bs % L.bell === 0) {
         const other = 1 - state.layer;
         state.events.push('bell');
         if (!walkable(L, other, state.x, state.y)) {

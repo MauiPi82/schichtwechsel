@@ -3,6 +3,9 @@
 'use strict';
 const C = window.SchichtCore, {LEVELS, ENDING, INTRO, FINALE} = window.SchichtLevels;
 const cv = document.getElementById('game'), ctx = cv.getContext('2d');
+// In an iframe (itch.io) or with ?embed only the game is shown, filling the frame.
+const embedded = (() => { try { return window.top !== window.self; } catch (_) { return true; } })() || new URLSearchParams(location.search).has('embed');
+if (embedded) document.body.classList.add('embed');
 const W = 320, H = 180, Z = 4, T = 16, FY = 16;
 const STEP_FRAMES = 8;
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -94,7 +97,7 @@ function applyLanguage() {
   btnPause.textContent = t().pause;
   btnFull.textContent = t().full;
 }
-langSel.addEventListener('change', () => { lang = langSel.value; store.set('lang', lang); applyLanguage(); });
+langSel.addEventListener('change', () => { lang = langSel.value; store.set('lang', lang); applyLanguage(); langSel.blur(); });
 
 /* ---------- Helpers ---------- */
 const hash = n => { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };
@@ -113,7 +116,7 @@ function txt(s, x, y, o = {}) {
 const audio = {
   ctx: null, on: store.get('sound') !== 'off', vol: clamp(+(store.get('volume') ?? 80) / 100, 0, 1), master: null, layer: 0, noise: null, radioNext: 0, radioPos: 0,
   unlock() {
-    if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return; }
+    if (this.ctx) { if (this.ctx.state !== 'running' && this.ctx.state !== 'closed') this.ctx.resume(); return; }
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
     const a = this.ctx = new AC();
@@ -335,6 +338,8 @@ const audio = {
   // Shift radio: an original waltz with mandolin tremolo. At night the same tune plays slower, lower and echoed.
   scheduleRadio() {
     if (!this.ctx || !this.on) return;
+    // After a pause or with the sound off, pick up from now instead of catching up on every missed note.
+    if (this.radioNext < this.ctx.currentTime) this.radioNext = this.ctx.currentTime + 0.05;
     const beat = 60 / 100;
     while (this.radioNext < this.ctx.currentTime + 0.4) {
       const [note, len, chord] = RADIO[this.radioPos % RADIO.length];
@@ -391,7 +396,7 @@ addEventListener('keydown', e => {
   if (e.target instanceof Element && e.target.closest('select,input,textarea,button,a')) return;
   audio.unlock();
   const d = KEYDIR[e.code];
-  if (d) { e.preventDefault(); if (!e.repeat) { held.add(d); lastDir = d; queuedDir = d; if (mode === 'note' && noteT > 25) mode = 'play'; } return; }
+  if (d) { e.preventDefault(); if (!e.repeat) { held.add(d); lastDir = d; queuedDir = mode === 'note' ? null : d; } return; }
   if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'Space') {
     e.preventDefault(); shiftHeld = true; if (e.repeat) return;
     press('shift');
@@ -399,10 +404,12 @@ addEventListener('keydown', e => {
     return;
   }
   if (e.code === 'Enter' || e.code === 'NumpadEnter') { e.preventDefault(); press('enter'); return; }
-  if (e.code === 'KeyP' || e.code === 'Escape') { togglePause(); return; }
-  if (e.code === 'KeyM') { audio.toggle(); return; }
-  if (e.code === 'KeyR' && (mode === 'play' || mode === 'paused')) { checkpoint = null; startLevel(levelIndex); return; }
-  if (e.code === 'KeyN' && mode === 'title' && veilPhase !== 'out') { progress = 0; store.set('level', 0); audio.unlock(); transition(startCinema, 36, 1); }
+  const k = (e.key || '').toLowerCase(), is = (c, ch) => e.code === c || k === ch;
+  if (is('KeyP', 'p') || e.code === 'Escape') { togglePause(); return; }
+  if (is('KeyM', 'm')) { audio.toggle(); return; }
+  if (is('KeyR', 'r') && (mode === 'play' || mode === 'paused') && !introMode) { checkpoint = null; startLevel(levelIndex); return; }
+  if (is('KeyL', 'l') && mode === 'title') { lang = lang === 'de' ? 'en' : 'de'; store.set('lang', lang); applyLanguage(); return; }
+  if (is('KeyN', 'n') && mode === 'title' && veilPhase !== 'out') { progress = 0; store.set('level', 0); audio.unlock(); transition(startCinema, 36, 1); }
 });
 addEventListener('keyup', e => {
   const d = KEYDIR[e.code]; if (d) held.delete(d);
@@ -414,8 +421,10 @@ function press(what) {
   if (mode === 'cinema') { if (cinemaT > 0.4) transition(() => startIntro(), 28, 60); return; }
   if (introMode && (mode === 'play' || mode === 'shower')) { if (what === 'enter') transition(endIntro, 30, 1); return; }
   if (mode === 'mini') { if (what === 'enter') window.SchichtMini.skip(mini); else miniPressed = true; return; }
+  // After a death the picture waits; a key brings you back to the last process step, in your own shift.
+  if (mode === 'dead') { if (deadT > DEAD_LEN) { queuedDir = null; queuedShift = false; startLevel(levelIndex, true); fadeIn(24); } return; }
   if (mode === 'process') { if (procT > 40) mode = 'play'; return; }
-  if (mode === 'note') { if (noteT > 25) mode = 'play'; return; }
+  if (mode === 'note') { if (noteT > 25) { mode = 'play'; queuedDir = null; queuedShift = false; } return; }
   if (mode === 'play') { if (what === 'shift') { queuedShift = true; shiftQueuedAt = frame; } return; }
   if (mode === 'title') { audio.unlock(); if (progress === 0) transition(startCinema, 36, 1); else transition(() => startCard(progress), 30, 30); return; }
   if (mode === 'card' && cardT > 20) { transition(() => { checkpoint = null; startLevel(levelIndex); }, 22, 36); return; }
@@ -434,7 +443,8 @@ document.querySelectorAll('.pad [data-dir]').forEach(b => {
 const padShift = document.querySelector('.pad [data-k="shift"]');
 padShift.addEventListener('pointerdown', e => { e.preventDefault(); audio.unlock(); shiftHeld = true; press('shift'); padShift.classList.add('on'); });
 ['pointerup', 'pointercancel', 'pointerleave'].forEach(n => padShift.addEventListener(n, () => { shiftHeld = false; padShift.classList.remove('on'); }));
-cv.addEventListener('pointerdown', () => { audio.unlock(); if (mode !== 'play') press('enter'); });
+cv.addEventListener('pointerdown', () => { window.focus(); audio.unlock(); if (mode !== 'play') press('enter'); });
+['pointerup', 'touchend', 'click'].forEach(n => document.addEventListener(n, () => audio.unlock(), {passive: true}));
 // Gamepad: stick or d-pad to move, A or a shoulder button to shift, Start to pause.
 let padPrev = {};
 function pollPad() {
@@ -458,7 +468,7 @@ function pollPad() {
 let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0, shake = 0;
 let progress = clamp(+store.get('level') || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
 const deathsBy = levels.map(() => 0);
-const BUILD = '0.19 · 2026-11-12';
+const BUILD = '0.20 · 2026-11-12';
 // Testers can jump to an hour: ?stunde=3 or ?hour=3 opens the third hour.
 const jump = +(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || 0);
 if (jump >= 1 && jump <= levels.length) progress = jump - 1;
@@ -628,7 +638,7 @@ function startLevel(i, resume = false) {
     state = C.clone(checkpoint);
     state.enemies.forEach((e, n) => { const s0 = levels[i].enemyStarts[n]; Object.assign(e, {x: s0.x, y: s0.y, px: s0.x, py: s0.y, moved: -1, fx: undefined, fy: undefined}); });
     state.px = state.x; state.py = state.y;
-    state.safeUntil = state.step + 14;
+    state.safeUntil = state.step + 14; state.bellFrom = state.step;
   } else { state = C.newState(levels[i]); hintT = 0; toastT = 0; shiftHintT = 0; paDone = new Set(); paQueue = []; paNow = null; noteRead = false; scareDone = false; }
   scare = null; freezeT = 0;
   queuedDir = null; queuedShift = false;
@@ -671,7 +681,7 @@ function doStep(action) {
     }
   }
   if (state.layer !== before) { fx = reduced ? 6 : 12; fxLayer = state.layer; audio.setLayer(state.layer); }
-  if (state.events.includes('reticle') && !introMode) {
+  if (state.events.includes('reticle') && !introMode && !found.has(LEVELS[levelIndex].id)) {
     found.add(LEVELS[levelIndex].id); store.set('reticles', JSON.stringify([...found]));
     audio.sfx('reticle'); procType = 'reticle'; procT = 0; mode = 'process';
   }
@@ -735,7 +745,7 @@ function update() {
   if (mode === 'cinema') updateCinema();
   if (mode === 'process' && ++procT > window.SchichtProcess.duration(procType)) mode = 'play';
   if (mode === 'shower') updateShower();
-  if (mode === 'dead' && ++deadT > DEAD_LEN) { startLevel(levelIndex, true); fadeIn(24); }
+  if (mode === 'dead') deadT++;
   if (mode === 'clear' && ++deadT > 60) {
     checkpoint = null;
     if (levelIndex + 1 < levels.length) startCard(levelIndex + 1);
@@ -866,11 +876,13 @@ function storyView() {
     blackout: sc && sc.type === 'blackout' ? blackoutAt(sc.t) : 0,
   };
 }
+// The strip never covers the player: at the top, or above the bottom bar when the player is up there.
+function paY() { return state && state.y <= 3 ? FY + C.H * T - 13 - 26 : FY + 3; }
 // The announcement as a strip under the bar: loudspeaker, the Italian words as they are spoken, the translation.
 function drawPA() {
   if (!paNow || introMode) return;
   const a = clamp(Math.min(paT / 12, (paNow.len - paT) / 24), 0, 1), night = state.layer === 1;
-  const x = 10, y = FY + 3, w = W - 20, speaking = paT / 60 > PA_START && paT / 60 < PA_START + paNow.voice;
+  const x = 10, y = paY(), w = W - 20, speaking = paT / 60 > PA_START && paT / 60 < PA_START + paNow.voice;
   ctx.globalAlpha = a;
   R('rgba(6,8,12,.9)', x, y, w, 24); R(night ? '#ffb43a' : '#9fe0ff', x, y + 23, w, 1);
   R('#c9c2ae', x + 6, y + 9, 3, 6);
@@ -901,6 +913,13 @@ function drawNote() {
   ctx.globalAlpha = 1;
 }
 
+// A copy of the frame so far, for effects that shift slices of the picture.
+let snapCanvas = null;
+function snapshot() {
+  if (!snapCanvas || snapCanvas.width !== cv.width) { snapCanvas = document.createElement('canvas'); snapCanvas.width = cv.width; snapCanvas.height = cv.height; }
+  const c = snapCanvas.getContext('2d'); c.clearRect(0, 0, cv.width, cv.height); c.drawImage(cv, 0, 0);
+  return snapCanvas;
+}
 function renderPlay() {
   const k = clamp(stepFrame / STEP_FRAMES, 0, 1);
   R('#000', 0, 0, W, H);
@@ -928,7 +947,7 @@ function renderPlay() {
     ctx.globalAlpha = clamp(toastT / 20, 0, 1);
     ctx.font = '400 8px "Silkscreen", monospace';
     const w = Math.min(W - 16, ctx.measureText(toastText).width + 14);
-    const ty = paNow && !introMode ? FY + 30 : FY + 4;
+    const ty = paNow && !introMode && paY() === FY + 3 ? FY + 30 : FY + 4;
     R('rgba(5,6,10,.85)', W / 2 - w / 2, ty, w, 13); R(state.layer ? '#ffb43a' : '#9fe0ff', W / 2 - w / 2, ty + 12, w, 1);
     txt(toastText, W / 2, ty + 3, {align: 'center', color: '#e9e4d6', max: w - 10});
     ctx.globalAlpha = 1;
@@ -937,10 +956,11 @@ function renderPlay() {
     // The shift: the picture tears into horizontal slices, washed in the colour of the new layer.
     const a = fx / 12;
     if (!reduced) {
+      const snap = snapshot();
       ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
       for (let i = 0; i < 9; i++) {
         const sy = Math.floor(hash(i + frame) * cv.height), sh = 6 + Math.floor(hash(i * 3 + frame) * 40);
-        ctx.drawImage(cv, 0, sy, cv.width, sh, Math.round((hash(i * 7 + frame) - 0.5) * 60 * a), sy, cv.width, sh);
+        ctx.drawImage(snap, 0, sy, cv.width, sh, Math.round((hash(i * 7 + frame) - 0.5) * 60 * a), sy, cv.width, sh);
       }
       ctx.restore();
     }
@@ -991,7 +1011,8 @@ function deathPicture(cause, d) {
     const h = clamp(d / 24, 0, 1);
     if (!reduced) {
       ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
-      for (let y = 0; y < cv.height; y += 8) ctx.drawImage(cv, 0, y, cv.width, 8, Math.sin(y / 23 + d / 3) * 6 * h, y, cv.width, 8);
+      const snap = snapshot();
+      for (let y = 0; y < cv.height; y += 8) ctx.drawImage(snap, 0, y, cv.width, 8, Math.sin(y / 23 + d / 3) * 6 * h, y, cv.width, 8);
       ctx.restore();
     }
     const g = ctx.createLinearGradient(0, H, 0, FY);
@@ -1024,6 +1045,10 @@ function deathPicture(cause, d) {
 }
 
 function renderDead() {
+  renderDeadPicture();
+  if (deadT > DEAD_LEN) txt(t().cont, W / 2, H / 2 + 14, {align: 'center', color: '#8c93a8'});
+}
+function renderDeadPicture() {
   renderPlay();
   const cause = state.cause || 'caught';
   if (cause !== 'caught') {
@@ -1105,9 +1130,12 @@ function renderTitle() {
   }
   txt(t().credit, W / 2, H - 10, {align: 'center', color: '#4c5470', font: 'IBM Plex Sans', size: 6});
   txt('v' + BUILD, W - 3, 3, {align: 'right', color: '#2c3248', font: 'IBM Plex Sans', size: 6, shadow: null});
+  // In an iframe the keyboard only arrives after a click into the game.
+  if (embedded && !document.hasFocus() && (frame >> 5) % 2) txt(lang === 'de' ? 'INS SPIEL KLICKEN' : 'CLICK INTO THE GAME', W / 2, 146, {align: 'center', color: '#9fe0ff'});
+  if (embedded) txt(lang === 'de' ? 'L: ENGLISH · M: TON' : 'L: DEUTSCH · M: SOUND', W - 4, H - 20, {align: 'right', color: '#4c5470', font: 'IBM Plex Sans', size: 6, shadow: null});
   if (store.get('odenchip') === '1') {
     ctx.save(); ctx.translate(20, 20); ctx.scale(0.06, 0.06); ctx.translate(-window.SchichtOdenchip.PK.cx, -window.SchichtOdenchip.PK.cy);
-    window.SchichtOdenchip.pack({wires: 99, mold: 1, mark: 1}); ctx.restore();
+    window.SchichtOdenchip.pack({wires: 99, mold: 1, mark: 1}, ctx); ctx.restore();
     txt('ODENCHIP', 34, 16, {color: '#ffd27a', shadow: null});
   } else if (found.size) txt(`${t().reticles} ${found.size}/${LEVELS.length}`, 6, 6, {color: '#4c5470', shadow: null});
   if (store.get('best')) txt(`${t().best} ${store.get('best')} %`, 6, H - 10, {color: '#6b5a2a', font: 'IBM Plex Sans', size: 6, shadow: null});
@@ -1193,6 +1221,7 @@ const btnSound = document.getElementById('btnSound'), btnPause = document.getEle
 btnSound.addEventListener('click', e => { audio.unlock(); audio.toggle(); e.currentTarget.blur(); });
 const volume = document.getElementById('volume');
 volume.value = Math.round(audio.vol * 100);
+volume.addEventListener('change', () => volume.blur());
 volume.addEventListener('input', () => {
   audio.vol = volume.value / 100; store.set('volume', volume.value);
   if (audio.master && audio.on) audio.master.gain.value = audio.vol;
@@ -1201,20 +1230,26 @@ btnPause.addEventListener('click', e => { togglePause(); e.currentTarget.blur();
 btnFull.addEventListener('click', e => {
   e.currentTarget.blur();
   try {
-    if (document.fullscreenElement) document.exitFullscreen();
-    else { const p = document.body.requestFullscreen && document.body.requestFullscreen(); if (p && p.catch) p.catch(() => {}); }
+    if (document.fullscreenElement || document.webkitFullscreenElement) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    else { const go = document.body.requestFullscreen || document.body.webkitRequestFullscreen; const p = go && go.call(document.body); if (p && p.catch) p.catch(() => {}); }
   } catch (_) { /* fullscreen unavailable */ }
 });
+if (!document.fullscreenEnabled && !document.webkitFullscreenEnabled) btnFull.style.display = 'none';
 applyLanguage();
 
 /* ---------- Main loop ---------- */
 let last = performance.now(), acc = 0;
 const FRAME = 1000 / 60;
+// One failing frame must never stop the game: the loop always asks for the next frame, and only renders
+// when something was updated (no double work on 120 or 144 Hz screens).
 function loop(now) {
-  acc += Math.min(250, now - last); last = now;
-  while (acc >= FRAME) { update(); acc -= FRAME; }
-  render();
   requestAnimationFrame(loop);
+  acc += Math.min(250, now - last); last = now;
+  let ticked = false;
+  try {
+    while (acc >= FRAME) { update(); acc -= FRAME; ticked = true; }
+    if (ticked) render();
+  } catch (e) { console.error(e); }
 }
 if (new URLSearchParams(location.search).has('test')) {
   // Test hook: deterministic control for the browser check, only with ?test in the URL.
@@ -1231,6 +1266,6 @@ if (new URLSearchParams(location.search).has('test')) {
     get fadingOut() { return veilPhase === 'out'; }, get veil() { return veil; }, get cardT() { return cardT; }, set cinemaT(v) { cinemaT = v; }, scareNow: (type, extra = {}) => { scare = {type, t: 0, ...extra}; },
   };
 }
-render();
+try { render(); } catch (e) { console.error(e); }
 requestAnimationFrame(loop);
 })();

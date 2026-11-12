@@ -52,9 +52,15 @@ if (!url) throw new Error('Pass the URL of the served repository root.');
       assert.equal(await page.evaluate(() => __schicht.miniGame && __schicht.miniGame.phase), 'result', 'the coater dries and grades');
       await page.keyboard.press('Shift'); await settled('play');
       assert.ok(await page.evaluate(() => __schicht.lot.s.coat !== undefined), 'the coat result goes into the lot');
+      // Reload with every saved state there is (finished night, secret ending, reticles, a lot): it must start.
+      await page.evaluate(() => { for (const [k, v] of Object.entries({odenchip: '1', level: '7', reticles: '["si","ox","pr","st","im","an","ct","me"]', intro: '1', best: '91', lot: '{"s":{"clean":0.9},"v":{"particles":4}}'})) localStorage.setItem('schichtwechsel-' + k, v); });
+      await page.reload(); await page.evaluate(() => document.fonts.ready);
+      const f0 = await page.evaluate(() => new Promise(r => requestAnimationFrame(() => r(performance.now()))));
+      await page.waitForTimeout(300);
+      assert.equal(await page.evaluate(() => __schicht.mode), 'title', 'the game starts with every saved state');
       assert.deepEqual(errors, [], `no page errors in ${locale}`);
       await page.close();
     }
-    console.log('PASS: all levels won in the browser (DE and EN), keyboard input, a minigame with the keyboard, no page errors.');
+    console.log('PASS: all levels won in the browser (DE and EN), keyboard input, a minigame with the keyboard, reload with saved states, no page errors.');
   } finally { await browser.close(); }
 })().catch(e => { console.error(e); process.exit(1); });

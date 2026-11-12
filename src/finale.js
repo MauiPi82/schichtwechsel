@@ -51,11 +51,24 @@ function reticle(c, x, y, s, n = 0) {
   for (let i = 0; i < 9; i++) R('#1a1e24', x + s * (0.07 + i * 0.04), y + s * 0.91, Math.max(1, s * 0.015), s * 0.05);
 }
 
+let dieCanvas = null;
+function dieSprite() {
+  if (!dieCanvas) {
+    const main = ctx;
+    dieCanvas = document.createElement('canvas'); dieCanvas.width = dieCanvas.height = 72;
+    die(dieCanvas.getContext('2d'), 0, 0, 72);
+    ctx = main;
+  }
+  return dieCanvas;
+}
+
 /* ---------- Package and board, after the outro of Elektronenreise ---------- */
 const PK = {cx: 320, cy: 176, die: 110, body: 210, pin: 14, tip: 76, n: 14};
 const pkPt = (s, a, d) => s === 0 ? [PK.cx + a, PK.cy - d] : s === 1 ? [PK.cx + d, PK.cy + a] : s === 2 ? [PK.cx + a, PK.cy + d] : [PK.cx - d, PK.cy + a];
 const pinA = i => -PK.body / 2 + (i + 1) * PK.body / (PK.n + 1);
-function pack(o) {
+// Draws on the given context; the title screen calls this before the finale ever ran.
+function pack(o, c) {
+  if (c) ctx = c;
   const hb = PK.body / 2;
   for (let s = 0; s < 4; s++) for (let i = 0; i < PK.n; i++) {
     const at = -68 + i * 136 / (PK.n - 1), ap = pinA(i);
@@ -127,10 +140,13 @@ function draw(c, t, frame, lang, texts) {
     if (id === 'wafer') {
       ctx.save(); ctx.translate(W / 2, 190); ctx.scale(zoom, zoom); ctx.translate(-W / 2, -190);
       dot(W / 2, 190, 140, '#5a6270'); dot(W / 2, 190, 136, '#8e99a6');
+      // Hundreds of identical chips: one die is drawn once, sharp enough for the zoom, then copied.
+      const sprite = dieSprite(), main = ctx;
       for (let j = -9; j <= 9; j++) for (let i = -9; i <= 9; i++) {
         const x = W / 2 + i * 15 - 7, y = 190 + j * 15 - 7;
-        if (Math.hypot(i * 15, j * 15) < 128) die(ctx, x, y, 13);
+        if (Math.hypot(i * 15, j * 15) < 128) main.drawImage(sprite, x, y, 13, 13);
       }
+      ctx = main;
       ctx.restore();
     } else {
       const zk = ease(clamp((u - 2.2) / 2, 0, 1)), s = 240 + zk * 1100;

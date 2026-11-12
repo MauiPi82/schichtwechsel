@@ -43,6 +43,13 @@
   footer{width:100%;max-width:980px;color:var(--muted);font-size:12px;display:flex;flex-wrap:wrap;gap:8px 16px}
   footer a{color:var(--muted)} footer a:hover,footer a:focus-visible{color:var(--night)}
   @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+  /* Embedded (itch.io iframe or ?embed): only the game, as large as the frame allows; the pad lies over it. */
+  body.embed{padding:0;gap:0;min-height:100vh;height:100vh;justify-content:center;overflow:hidden}
+  body.embed header,body.embed .about,body.embed footer{display:none}
+  body.embed .frame{width:min(100vw,calc(100vh*16/9));max-width:none;padding:0;border:0;border-radius:0}
+  body.embed canvas{border-radius:0}
+  body.embed .pad{position:fixed;left:0;right:0;bottom:10px;max-width:none;padding:0 14px;pointer-events:none}
+  body.embed .pad button{pointer-events:auto;opacity:.75}
 </style>
 </head>
 <body>

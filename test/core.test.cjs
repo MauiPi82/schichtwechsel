@@ -217,3 +217,11 @@ test('the emergency stop of a plasma chamber stops its plasma for a while', () =
   assert.equal(core.timedHazard(L, p.layer, t, p.x0, p.y0), 'plasma');
   assert.ok(L.blocks[0].some(b => core.toolUse(L, b).stops === 'plasma'), 'a chamber in the contacts hour can stop the plasma');
 });
+
+test('after a resume the bell starts a full interval again', () => {
+  const def = LEVELS.find(d => d.id === 'st'), L = core.parseLevel(def);
+  const s = core.newState(L);
+  s.step = 100; s.bellFrom = 100;
+  assert.equal(core.bellIn(s), L.bell, 'a whole interval until the next strike');
+  for (let i = 0; i < L.bell - 1; i++) { core.step(s, 'wait'); assert.ok(!s.events.includes('bell'), `no strike at ${s.step}`); }
+});
