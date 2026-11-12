@@ -416,7 +416,7 @@ addEventListener('keydown', e => {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   audio.unlock();
   const d = KEYDIR[e.code];
-  if (d && mode === 'book') { e.preventDefault(); if (!e.repeat) bookSel = clamp(bookSel + (d === 'down' ? 1 : d === 'up' ? -1 : 0), 0, LEVELS.length - 1); return; }
+  if (d && mode === 'book') { e.preventDefault(); if (!e.repeat) bookSel = clamp(bookSel + (d === 'down' ? 1 : d === 'up' ? -1 : 0), 0, bookMax()); return; }
   if (d) { e.preventDefault(); if (!e.repeat) { held.add(d); lastDir = d; queuedDir = mode === 'note' ? null : d; } return; }
   if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'Space') {
     e.preventDefault(); shiftHeld = true; if (e.repeat) return;
@@ -467,7 +467,11 @@ function press(what) {
   if (mode === 'note') { if (noteT > 25) { mode = 'play'; queuedDir = null; queuedShift = false; } return; }
   if (mode === 'paused') { if (what === 'enter') mode = 'play'; return; }
   if (mode === 'play') { if (what === 'shift' && frame - windowClosedAt > 15) { queuedShift = true; shiftQueuedAt = frame; } return; }
-  if (mode === 'book') { if (bookSel <= openUpTo()) transition(() => startCard(bookSel), 24, 30); return; }
+  if (mode === 'book') {
+    if (bookSel === LEVELS.length) transition(() => { mode = 'finale'; finT = 0; audio.setLayer(0); audio.bell(0.25); }, 24, 40);
+    else if (bookSel <= openUpTo()) transition(() => { fromBook = true; startCard(bookSel); }, 24, 30);
+    return;
+  }
   if (mode === 'title') { audio.unlock(); if (progress === 0) transition(startCinema, 36, 1); else transition(() => startCard(progress), 30, 30); return; }
   if (mode === 'card' && cardT > 20) { transition(() => { checkpoint = null; startLevel(levelIndex); }, 22, 36); return; }
   const toTitle = () => { mode = 'title'; audio.setLayer(0); };
@@ -484,7 +488,7 @@ const setPadDir = d => {
   padDir = d;
   dpad.querySelectorAll('[data-dir]').forEach(b => b.classList.toggle('on', b.dataset.dir === d));
   if (!d) return;
-  if (mode === 'book') { bookSel = clamp(bookSel + (d === 'down' ? 1 : d === 'up' ? -1 : 0), 0, LEVELS.length - 1); return; }
+  if (mode === 'book') { bookSel = clamp(bookSel + (d === 'down' ? 1 : d === 'up' ? -1 : 0), 0, bookMax()); return; }
   held.add(d); lastDir = d; queuedDir = d;
 };
 const dirAt = e => {
@@ -590,7 +594,9 @@ const idx = (x, y) => y * C.W + x;
 function introDoors(L) { const d = []; for (let i = 0; i < L.layers[0].length; i++) if (L.layers[0][i] === 'D') d.push(i); return d.sort((a, b) => a - b); }
 /* ---------- Lot 4471: what you made of it ---------- */
 // Scores (0..1) of the played steps and their measured values; the measuring stations and the yield read them.
-let lot = {s: {}, v: {}}, mini = null, notesRead = new Set(), bookSel = 0;
+let lot = {s: {}, v: {}}, mini = null, notesRead = new Set(), bookSel = 0, fromBook = false;
+// The shift log lists the hours; with all eight reticles a ninth entry opens the Odenchip finale.
+const bookMax = () => found.size >= LEVELS.length ? LEVELS.length : LEVELS.length - 1;
 try { notesRead = new Set(JSON.parse(store.get('notes') || '[]')); } catch (_) { notesRead = new Set(); }
 // The key a route step's grade is kept under: its minigame, if it has one.
 const stepKey = r => r.mini === false ? null : r.mini || r.proc;
@@ -838,7 +844,7 @@ function startLevel(i, resume = false) {
 function menu() {
   if (mode === 'title' || veilPhase === 'out') return;
   transition(() => {
-    mode = 'title'; introMode = false; mini = null; pendingMode = null; scare = null; paNow = null; paQueue = []; toastT = 0;
+    mode = 'title'; introMode = false; mini = null; pendingMode = null; scare = null; paNow = null; paQueue = []; toastT = 0; fromBook = false;
     audio.rain(0); audio.setLayer(0);
   }, 24, 24);
 }
@@ -984,7 +990,9 @@ function update() {
     checkpoint = null;
     // Decide before the next card changes levelIndex: only after the last hour does the night end.
     const last = levelIndex + 1 >= levels.length;
-    if (!last) startCard(levelIndex + 1);
+    // An hour replayed from the shift log returns there: the reticle hunt does not need the whole night again.
+    if (fromBook) { fromBook = false; bookSel = Math.min(levelIndex + 1, bookMax()); transition(() => { mode = 'book'; audio.setLayer(0); }, 24, 16); }
+    else if (!last) startCard(levelIndex + 1);
     else {
       if (Object.keys(lot.s).length) store.set('best', String(Math.max(+(store.get('best') || 0), lotYield())));
       if (found.size >= LEVELS.length) { mode = 'finale'; finT = 0; store.set('odenchip', '1'); audio.setLayer(0); audio.bell(0.25); fadeIn(40); }
@@ -1470,8 +1478,8 @@ function renderBook() {
   const yNow = Object.keys(lot.s).length ? `${t().yieldWord} ${lotYield()} %` : '';
   txt(`${yNow}${store.get('best') ? `   ${lang === 'de' ? 'BESTE' : 'BEST'} ${store.get('best')} %` : ''}`, W - 6, 4, {align: 'right', color: '#c9a15a'});
   LEVELS.forEach((def, i) => {
-    const y = 22 + i * 15, open = i <= openUpTo(), sel = i === bookSel;
-    if (sel) { R('rgba(255,207,90,.12)', 4, y - 2, W - 8, 14); R('#ffcf5a', 4, y - 2, 2, 14); }
+    const y = 21 + i * 13, open = i <= openUpTo(), sel = i === bookSel;
+    if (sel) { R('rgba(255,207,90,.12)', 4, y - 2, W - 8, 12); R('#ffcf5a', 4, y - 2, 2, 12); }
     const dim = open ? '#e9e4d6' : '#3a4058';
     txt(def.time, 12, y, {color: open ? '#9fe0ff' : '#3a4058'});
     txt(open ? def.title[lang] : '· · ·', 46, y, {color: dim, font: 'IBM Plex Sans', size: 8, max: 80});
@@ -1486,12 +1494,27 @@ function renderBook() {
     const loss = steps.reduce((a, p) => a + lossOf(lot.s[p]), 0);
     if (steps.length) txt(`−${loss} %`, W - 8, y, {align: 'right', color: loss ? '#c9a15a' : '#3fe06a'});
   });
+  if (found.size >= LEVELS.length) {
+    const y = 21 + LEVELS.length * 13, sel = bookSel === LEVELS.length;
+    if (sel) { R('rgba(159,224,255,.12)', 4, y - 2, W - 8, 12); R('#9fe0ff', 4, y - 2, 2, 12); }
+    txt('06:00', 12, y, {color: '#ffcf5a'}); txt(lang === 'de' ? 'Odenchip · alle acht Retikel' : 'Odenchip · all eight reticles', 46, y, {color: '#ffcf5a', font: 'IBM Plex Sans', size: 8, max: 150});
+  }
+  // What the marks mean.
+  { const ly = 21 + 9 * 13 + 1; ctx.strokeStyle = '#9fe0ff'; ctx.lineWidth = 1; ctx.strokeRect(12.5, ly + 0.5, 7, 7); R('#cfe8ff', 14, ly + 2, 4, 4);
+    txt(lang === 'de' ? 'RETIKEL' : 'RETICLE', 23, ly, {color: '#6b7190'}); R('#ece4cc', 72, ly + 1, 7, 6); R('#1f2c6e', 73, ly + 3, 5, 1);
+    txt(lang === 'de' ? 'NOTIZ' : 'NOTE', 83, ly, {color: '#6b7190'}); R('#3fe06a', 122, ly + 1, 5, 5);
+    txt(lang === 'de' ? 'SCHRITT UND NOTE · AUSBEUTEVERLUST' : 'STEP AND GRADE · YIELD LOST', 131, ly, {color: '#6b7190', max: W - 140}); }
   // The selected hour in words.
+  if (bookSel === LEVELS.length) {
+    txt(lang === 'de' ? 'Die Nacht mit allen acht Retikeln: das Ende, in dem alle vier hinauskommen.' : 'The night with all eight reticles: the ending where all four get out.', W / 2, 150, {align: 'center', color: '#c9c2ae', font: 'IBM Plex Sans', size: 7, max: W - 16});
+    txt(lang === 'de' ? '↑ ↓ WÄHLEN · SHIFT: ANSEHEN · B: ZURÜCK' : '↑ ↓ CHOOSE · SHIFT: WATCH · B: BACK', W / 2, 163, {align: 'center', color: '#8c93a8'});
+    return;
+  }
   const def = LEVELS[bookSel], parts = (def.route || []).map(stepKey).filter(p => STEP_NAME[p] && lot.s[p] !== undefined)
     .map(p => `${STEP_NAME[p][lang === 'de' ? 0 : 1]} ${window.SchichtMini.grade(lot.s[p]).word} −${lossOf(lot.s[p])} %`);
   txt(parts.join(' · ') || (bookSel <= openUpTo() ? (lang === 'de' ? 'In dieser Stunde ist noch nichts gespielt.' : 'Nothing played in this hour yet.') : (lang === 'de' ? 'Diese Stunde kommt später in der Nacht.' : 'This hour comes later in the night.')),
-    W / 2, 146, {align: 'center', color: '#c9c2ae', font: 'IBM Plex Sans', size: 7, max: W - 16});
-  txt(lang === 'de' ? '↑ ↓ WÄHLEN · SHIFT: STUNDE SPIELEN · B: ZURÜCK' : '↑ ↓ CHOOSE · SHIFT: PLAY HOUR · B: BACK', W / 2, 162, {align: 'center', color: '#6b7190'});
+    W / 2, 150, {align: 'center', color: '#c9c2ae', font: 'IBM Plex Sans', size: 7, max: W - 16});
+  txt(lang === 'de' ? '↑ ↓ WÄHLEN · SHIFT: STUNDE SPIELEN · B: ZURÜCK' : '↑ ↓ CHOOSE · SHIFT: PLAY HOUR · B: BACK', W / 2, 163, {align: 'center', color: '#8c93a8'});
 }
 
 function renderTitle() {

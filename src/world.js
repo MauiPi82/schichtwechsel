@@ -776,7 +776,7 @@ function heatAndPlasma(L, layer, s) {
   for (let n = 0; n < L.pulses.length; n++) {
     const pl = L.pulses[n];
     if (pl.layer !== layer || C.pulseStopped(s, n)) continue;
-    const on = C.pulseOn(pl, s.step), ph = s.step % pl.period, soon = !on && ((ph + 6) % pl.period) >= pl.on[0] && ((ph + 6) % pl.period) < pl.on[0] + 6;
+    const on = C.pulseOn(pl, s.step), ph = s.step % pl.period, soon = !on && ((ph + C.PULSE_WARN) % pl.period) >= pl.on[0] && ((ph + C.PULSE_WARN) % pl.period) < pl.on[0] + C.PULSE_WARN;
     if (!on && !soon) continue;
     for (let y = pl.y0; y <= pl.y1; y++) for (let x = pl.x0; x <= pl.x1; x++) {
       if (!L.walk[layer][y * C.W + x]) continue;
@@ -918,7 +918,7 @@ function draw(c, s, o) {
           const n = b.n || Math.max(1, Math.round((tw * T - 4) / 62)), per = tw / n;
           return Math.max(...[...Array(Math.ceil(per))].map((_, i) => heatAt(Math.min(b.x1, b.x0 + Math.floor(k * per) + i), row)));
         }},
-        {plasmaOn: on, plasmaSoon: paced && !on && near(s.step + 6), hasPulses: paced, allOn: paced});
+        {plasmaOn: on, plasmaSoon: paced && !on && near(s.step + C.PULSE_WARN), hasPulses: paced, allOn: paced});
     }
     if (layer === 0 && y === C.H - 1) beams(L, s);
     for (const f of figures) if (Math.floor(f.y + 0.5) === y) f.draw();

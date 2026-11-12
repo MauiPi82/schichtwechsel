@@ -25,6 +25,8 @@
   // implanter also stop on their emergency button for HAZARD_OFF steps. Every tool needs RECHARGE steps.
   const FLASH_RADIUS = 4, FREEZE = 18, HAZARD_OFF = 24, RECHARGE = 48;
   const BELL_WARNING = 24;
+  // Plasma glows faintly this many steps before it fires.
+  const PULSE_WARN = 10;
   // The warning comes in the last third of the interval, at most BELL_WARNING steps before the bell.
   const bellWarning = bell => Math.min(BELL_WARNING, Math.floor(bell / 3));
   // Tiles: # wall, M machine, = glass, o hole, . floor, P start, X airlock exit,
@@ -389,7 +391,7 @@
     if (hz) return lose(state, hz);
     L.pulses.forEach((p, n) => {
       if (pulseStopped(state, n)) return;
-      if ((state.step + 6) % p.period === p.on[0]) state.events.push('pulse-warning');
+      if ((state.step + PULSE_WARN) % p.period === p.on[0]) state.events.push('pulse-warning');
       if (state.step % p.period === p.on[0]) state.events.push('pulse');
     });
     if (L.heat && L.heat.sources.some(([, , off = 0]) => (state.step - off) % L.heat.period === L.heat.open[0])) state.events.push('furnace-open');
@@ -495,6 +497,6 @@
     return null;
   }
 
-  return {W, H, DAY, NIGHT, ACTIONS, DIRS, SHIFT_COOLDOWN, GRACE, FLASH_RADIUS, FREEZE, HAZARD_OFF, RECHARGE, BELL_WARNING, bellWarning, SPECIES,
+  return {W, H, DAY, NIGHT, ACTIONS, DIRS, SHIFT_COOLDOWN, GRACE, FLASH_RADIUS, FREEZE, HAZARD_OFF, RECHARGE, BELL_WARNING, bellWarning, PULSE_WARN, SPECIES,
     parseLevel, newState, step, clone, toolUse, hazardStopped, frozen, walkable, robotAt, beamPhase, pulseOn, timedHazard, pulsesNear, pulseStopped, bellIn, nearestEnemy, solve, idx};
 });
