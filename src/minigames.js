@@ -71,9 +71,10 @@ const BATHS = [
   {name: 'HF 1%', col: '#cfe3f5', max: 150, unit: 's', zone: [45, 90], what: ['NATIVES OXID', 'NATIVE OXIDE']},
 ];
 const BATH_FRAMES = 420;
-// The bench: a load station, then the four tanks. The robot first moves the 25 wafers from the FOUP into a
-// carrier, the gripper on the gantry takes the carrier from bath to bath.
-const CLEAN_LOAD = 130;
+// The bench: a load station, three chemical baths, the rinse and the dryer. The robot moves the 25 wafers from the
+// FOUP into a carrier, the gripper on the gantry takes it from bath to bath. You time the three chemical baths;
+// rinsing (quick dump), drying (IPA vapour) and putting the wafers back into the FOUP run by themselves.
+const CLEAN_LOAD = 130, CL_RINSE = 150, CL_DRY = 130, CL_BACK = 84, CL_UNLOAD = 100;
 const clean = {
   init(m) { m.bath = 0; m.st = 'load'; m.bt = 0; m.res = []; m.times = []; },
   update(m, inp) {
@@ -88,43 +89,80 @@ const clean = {
         m.st = 'up'; m.bt = 0; m.sfx('click');
       }
     } else if (m.st === 'up' && m.bt >= 44) {
-      m.bath++; m.bt = 0; m.st = 'down';
-      if (m.bath >= BATHS.length) {
+      m.bath++; m.bt = 0; m.st = m.bath >= BATHS.length ? 'rinse' : 'down';
+    } else if (m.st === 'rinse' && m.bt >= CL_RINSE) { m.st = 'dry'; m.bt = 0; m.sfx('click'); }
+    else if (m.st === 'dry' && m.bt >= CL_DRY) { m.st = 'back'; m.bt = 0; }
+    else if (m.st === 'back' && m.bt >= CL_BACK) { m.st = 'unload'; m.bt = 0; }
+    else if (m.st === 'unload') {
+      if (m.bt % 16 === 0 && m.bt < 80) m.sfx('click');
+      if (m.bt >= CL_UNLOAD) {
         const [s1, s2, s3] = m.res, particles = Math.round(1 + 26 * (1 - s1) + 6 * (1 - s3));
         finish(m, (s1 + s2 + s3) / 3, {particles}, [
           L(`SC-1 ${num(m.times[0])} min · SC-2 ${num(m.times[1])} min · HF ${Math.round(m.times[2])} s`, `SC-1 ${num(m.times[0])} min · SC-2 ${num(m.times[1])} min · HF ${Math.round(m.times[2])} s`),
-          L('Was übrig bleibt, zählt gleich die Partikelmessung.', 'The particle scanner will count what is left.')]);
+          L('Gespült, getrocknet, zurück in der Box. Die Partikelmessung zählt gleich nach.', 'Rinsed, dried, back in the box. The particle scanner counts next.')]);
       }
     }
   },
   draw(m) {
-    const a = frame(m, L('REINIGEN · RCA', 'CLEAN · RCA'), L('SHIFT: HERAUSHEBEN, WENN DIE ZEIT IM GRÜNEN IST', 'SHIFT: LIFT OUT WHILE THE TIME IS IN THE GREEN'));
-    const tw = (a.w - 16) / 5, ty = a.y + 26, th = 32, col = i => a.x + 8 + i * tw, mid = i => col(i) + (tw - 6) / 2;
+    const auto = ['rinse', 'dry', 'back', 'unload'].includes(m.st);
+    const help = m.st === 'load' ? L('DER ROBOTER SETZT DIE 25 WAFER IN DEN TRÄGER', 'THE ROBOT MOVES THE 25 WAFERS INTO THE CARRIER')
+      : m.st === 'unload' || m.st === 'back' ? L('ZURÜCK IN DIE BOX', 'BACK INTO THE BOX')
+      : auto ? L('SPÜLEN UND TROCKNEN LAUFEN VON SELBST', 'RINSING AND DRYING RUN BY THEMSELVES')
+      : L('SHIFT: HERAUSHEBEN, WENN DIE ZEIT IM GRÜNEN IST', 'SHIFT: LIFT OUT WHILE THE TIME IS IN THE GREEN');
+    const a = frame(m, L('REINIGEN · RCA', 'CLEAN · RCA'), help);
+    const tw = (a.w - 16) / 6, ty = a.y + 26, th = 32, col = i => a.x + 8 + i * tw, mid = i => col(i) + (tw - 6) / 2;
     // Gantry rail with its trolley.
     R('#7c8693', a.x + 4, a.y + 5, a.w - 8, 3); R('#5a6370', a.x + 4, a.y + 8, a.w - 8, 1);
-    const tanks = [...BATHS, {name: L('SPÜLEN', 'RINSE'), col: '#d4e6fa', zone: null}];
-    const at = Math.min(m.bath, 3), inBath = m.st === 'in' || m.st === 'down' && m.bt > 24;
-    // Load station: the FOUP with its door open, and the carrier the robot fills, five wafers at a time.
-    const lx = col(0), lw = tw - 6, loaded = m.st === 'load' ? clamp(Math.floor((m.bt - 10) / 16), 0, 5) : 5;
-    R('#7c8693', lx - 2, ty + 4, 15, 22); R('#141a28', lx, ty + 6, 11, 18);
-    for (let n = 0; n < 5 - loaded; n++) for (let q = 0; q < 5; q++) R('#c9ced6', lx + 1, ty + 7 + (n * 5 + q) * 0.68, 9, 1);
-    R('#d8262a', lx - 4, ty + 8, 2, 6);
-    if (m.st === 'load' && m.bt > 10 && m.bt < 90) { const f = ((m.bt - 10) % 16) / 16; R('#9aa3ad', lx + 9 + f * 8, ty + 12, 6, 1); R('#c9ced6', lx + 9 + f * 8, ty + 10, 6, 2); }
-    R('#5a6270', lx, ty + th - 2, lw, 3);
-    text(L('LADEN', 'LOAD'), mid(0), ty + th + 2, {align: 'center', color: m.st === 'load' ? '#ffcf5a' : '#6b7190', max: tw - 6});
+    const tanks = [...BATHS, {name: L('SPÜLEN', 'RINSE'), col: '#d4e6fa', zone: null}, {name: L('TROCKNEN', 'DRY'), col: '#cfe0f0', zone: null}];
+    // Where the carrier is (tank index 0..4, or -1 at the load station) and how deep it hangs (0 up, 1 down).
+    const lx = col(0), lw = tw - 6, c0 = lx + 22;
+    let cx, dip, tank = -1;
+    if (m.st === 'load') { const g = clamp((m.bt - 90) / 40, 0, 1); cx = c0 + (mid(1) - c0) * smooth((g - 0.3) / 0.7); dip = 1 - smooth(g / 0.3); }
+    else if (m.st === 'rinse') { tank = 3; cx = mid(4); dip = m.bt < 30 ? smooth(m.bt / 30) : m.bt < 125 ? 1 : 1 - smooth((m.bt - 125) / 25); }
+    else if (m.st === 'dry') { tank = 4; cx = m.bt < 30 ? mid(4) + (mid(5) - mid(4)) * smooth(m.bt / 30) : mid(5); dip = m.bt < 30 ? 0 : m.bt < 52 ? smooth((m.bt - 30) / 22) : 1 - smooth((m.bt - 52) / 78); }
+    else if (m.st === 'back') { cx = mid(5) + (c0 - mid(5)) * smooth(clamp(m.bt / 70, 0, 1)); dip = smooth((m.bt - 70) / 14); }
+    else if (m.st === 'unload') { cx = c0; dip = 1; }
+    else {
+      const at = Math.min(m.bath, 3), from = mid(at + 1), to = mid(Math.min(5, at + 2));
+      tank = at; dip = m.st === 'down' ? smooth(m.bt / 36) : m.st === 'in' ? 1 : 1 - smooth(m.bt / 16);
+      cx = m.st === 'up' && m.bt > 16 ? from + (to - from) * smooth((m.bt - 16) / 28) : from;
+    }
+    const cy = a.y + 10 + dip * 20, dipped = dip > 0.6;
+    // Load station: the FOUP with its door open; wafers go into the carrier five at a time, and at the end back.
+    const inBox = m.st === 'load' ? 5 - clamp(Math.floor((m.bt - 10) / 16), 0, 5) : m.st === 'unload' ? clamp(Math.floor(m.bt / 16), 0, 5) : 0;
+    R('#7c8693', lx - 6, ty + 4, 13, 22); R('#141a28', lx - 4, ty + 6, 9, 18);
+    for (let n = 0; n < inBox; n++) for (let q = 0; q < 5; q++) R('#c9ced6', lx - 3, ty + 7 + (n * 5 + q) * 0.68, 7, 1);
+    R('#d8262a', lx - 8, ty + 8, 2, 6);
+    const moving = (m.st === 'load' && m.bt > 10 && m.bt < 90) || (m.st === 'unload' && m.bt < 80);
+    if (moving) { const f = (m.bt % 16) / 16, dx = m.st === 'load' ? f : 1 - f; R('#9aa3ad', lx + 4 + dx * 6, ty + 12, 5, 1); R('#c9ced6', lx + 4 + dx * 6, ty + 10, 5, 2); }
+    R('#5a6270', lx + 8, ty + th - 2, lw - 6, 3);
+    text(L('LADEN', 'LOAD'), mid(0), ty + th + 2, {align: 'center', color: m.st === 'load' || m.st === 'unload' ? '#ffcf5a' : '#6b7190', max: tw - 6});
+    // Quick dump rinse: the water drops away and is sprayed back in, twice.
+    const qdr = m.st === 'rinse' && m.bt > 30 && m.bt < 125 ? Math.abs(Math.sin((m.bt - 30) / 95 * Math.PI * 2)) : 0;
     tanks.forEach((b, i) => {
-      const bx = col(i + 1), bw = tw - 6, cur = i === at, hot = i < 2, dipped = cur && inBath;
-      // The tank: walls, the liquid (a little higher with the carrier in it), its surface, the heater glow.
+      const bx = col(i + 1), bw = tw - 6, cur = i === tank, hot = i < 2, here = cur && dipped;
       R('#5a6270', bx, ty, bw, th); R('#2a303a', bx + 2, ty + 2, bw - 4, th - 4);
-      const lv = ty + 7 - (dipped ? 2 : 0);
-      R(b.col, bx + 2, lv, bw - 4, ty + th - 2 - lv); R('rgba(255,255,255,.55)', bx + 2, lv, bw - 4, 1);
-      if (hot) R('rgba(255,120,60,.5)', bx + 2, ty + th - 4, bw - 4, 2);
-      // SC-1 and SC-2 are hot: bubbles rise, steam drifts off. The rinse overflows at the rim.
-      if (hot) for (let k = 0; k < 4; k++) circle('rgba(255,255,255,.75)', bx + 4 + ((k * 11 + i * 5) % (bw - 8)), ty + th - 4 - ((F * 0.4 + k * 7) % (th - 12)), 0.9);
-      if (hot) for (let k = 0; k < 2; k++) { const sy = (F * 0.25 + k * 10) % 18; ctx.fillStyle = `rgba(220,230,240,${0.25 * (1 - sy / 18)})`; ctx.beginPath(); ctx.arc(bx + 8 + k * 14 + Math.sin(F / 20 + k) * 2, ty - sy, 3 + sy / 6, 0, 7); ctx.fill(); }
-      if (i === 3) { R('rgba(210,230,255,.8)', bx - 1, ty - 1, 2, 6 + (F >> 3) % 3); R('rgba(210,230,255,.8)', bx + bw - 1, ty - 1, 2, 6 + ((F >> 3) + 1) % 3); }
-      if (i === 2) text('HF', bx + bw - 4, ty + th - 9, {align: 'right', color: '#7a8a9a', size: 8});
-      text(b.name, bx + bw / 2, ty + th + 2, {align: 'center', color: cur && m.st !== 'load' ? '#ffcf5a' : '#6b7190', max: tw - 6});
+      if (i === 4) {
+        // The dryer: a closed chamber, its lid open while the carrier goes in or out; IPA vapour above the water.
+        R(b.col, bx + 2, ty + 20, bw - 4, th - 22); R('rgba(255,255,255,.55)', bx + 2, ty + 20, bw - 4, 1);
+        for (let k = 0; k < 3; k++) { const vy = (F * 0.3 + k * 6) % 16; ctx.fillStyle = `rgba(235,240,255,${0.35 * (1 - vy / 16)})`; ctx.beginPath(); ctx.arc(bx + 6 + k * 9, ty + 18 - vy, 2 + vy / 6, 0, 7); ctx.fill(); }
+        const open = m.st === 'dry' || (m.st === 'back' && m.bt < 12);
+        R('#7c8693', open ? bx + bw - 4 : bx, ty - 3, open ? 4 : bw, 3);
+        text('IPA', bx + bw / 2, ty + 6, {align: 'center', color: '#7a8a9a', size: 8});
+      } else {
+        // The bath: liquid (a little higher with the carrier in it), its surface, the heater glow.
+        const lv = ty + 7 - (here ? 2 : 0) + (i === 3 ? Math.round(qdr * (th - 12)) : 0);
+        R(b.col, bx + 2, lv, bw - 4, ty + th - 2 - lv); R('rgba(255,255,255,.55)', bx + 2, lv, bw - 4, 1);
+        if (hot) R('rgba(255,120,60,.5)', bx + 2, ty + th - 4, bw - 4, 2);
+        if (hot) for (let k = 0; k < 4; k++) circle('rgba(255,255,255,.75)', bx + 4 + ((k * 11 + i * 5) % (bw - 8)), ty + th - 4 - ((F * 0.4 + k * 7) % (th - 12)), 0.9);
+        if (hot) for (let k = 0; k < 2; k++) { const sy = (F * 0.25 + k * 10) % 18; ctx.fillStyle = `rgba(220,230,240,${0.25 * (1 - sy / 18)})`; ctx.beginPath(); ctx.arc(bx + 7 + k * 12 + Math.sin(F / 20 + k) * 2, ty - sy, 3 + sy / 6, 0, 7); ctx.fill(); }
+        if (i === 3) {
+          R('rgba(210,230,255,.8)', bx - 1, ty - 1, 2, 6 + (F >> 3) % 3); R('rgba(210,230,255,.8)', bx + bw - 1, ty - 1, 2, 6 + ((F >> 3) + 1) % 3);
+          if (qdr > 0.05) for (let k = 0; k < 6; k++) R('rgba(210,230,255,.9)', bx + 3 + k * 5, ty + 3 + ((F * 2 + k * 5) % 12), 1, 3);
+        }
+        if (i === 2) text('HF', bx + bw - 3, ty + th - 9, {align: 'right', color: '#7a8a9a', size: 8});
+      }
+      text(b.name, bx + bw / 2, ty + th + 2, {align: 'center', color: cur ? '#ffcf5a' : '#6b7190', max: tw - 4});
       if (i < 3) {
         // The timer bar with its green window.
         const by = ty + th + 12, z = b.zone;
@@ -133,38 +171,33 @@ const clean = {
         const v = i < m.bath ? m.times[i] / b.max : i === m.bath && m.st === 'in' ? m.bt / BATH_FRAMES : 0;
         R(i < m.bath ? '#9aa3ad' : '#ffcf5a', bx, by + 1, v * bw, 3);
         if (i === m.bath && m.st === 'in') text(`${num(v * b.max, b.unit === 's' ? 0 : 1)} ${b.unit}`, bx + bw / 2, by + 7, {align: 'center', color: '#e9e4d6', max: bw});
-        else if (i < m.bath) text(grade(m.res[i]).word, bx + bw / 2, by + 7, {align: 'center', color: grade(m.res[i]).color, max: bw});
+        else if (i < m.bath) text(grade(m.res[i]).word, bx + bw / 2, by + 7, {align: 'center', color: grade(m.res[i]).color, max: bw + 4});
       }
     });
-    // The carrier on the gripper: from the load station into each bath, up, dripping, and along to the next.
-    let cx, dip;
-    if (m.st === 'load') {
-      const g = clamp((m.bt - 90) / 40, 0, 1);
-      const c0 = lx + 30;
-      cx = c0 + (mid(1) - c0) * smooth((g - 0.3) / 0.7); dip = 1 - smooth(g / 0.3);
-    } else {
-      const from = mid(at + 1), to = mid(Math.min(4, at + 2));
-      dip = m.st === 'down' ? smooth(m.bt / 36) : m.st === 'in' ? 1 : 1 - smooth(m.bt / 16);
-      cx = m.st === 'up' && m.bt > 16 ? from + (to - from) * smooth((m.bt - 16) / 28) : from;
-    }
-    const cy = a.y + 10 + dip * 20;
+    // The carrier on its gripper.
     R('#9aa3ad', cx - 6, a.y + 3, 12, 6); R('#9aa3ad', cx - 1, a.y + 9, 2, cy - a.y - 9);
     R('#7c8693', cx - 9, cy - 2, 18, 2); R('#7c8693', cx - 9, cy - 2, 2, 5); R('#7c8693', cx + 7, cy - 2, 2, 5);
     R('#e6e9ee', cx - 13, cy + 1, 26, 16); R('#c3ccd8', cx - 13, cy + 15, 26, 2);
     for (let k = 0; k < 25; k++) R(k % 2 ? '#f7f9fc' : '#aab4c2', cx - 12 + k, cy + 3, 1, 11);
-    if (m.st === 'load' && m.bt < 90) { ctx.fillStyle = 'rgba(13,17,26,.7)'; ctx.fillRect(cx - 12 + loaded * 5, cy + 3, 25 - loaded * 5, 11); }
-    text(m.st === 'load' ? `${loaded * 5}/25` : '25', cx, cy - 11, {align: 'center', color: '#c9c2ae', max: 30});
-    // In the bath the liquid covers the carrier: drawn again over it, see-through.
-    if (m.st !== 'load' && at < 4) {
-      const bx = col(at + 1), bw = tw - 6, lv = ty + 7 - (inBath ? 2 : 0), b = tanks[at];
+    const inCarrier = 5 - inBox;
+    if (m.st === 'load' || m.st === 'unload') { ctx.fillStyle = 'rgba(13,17,26,.7)'; ctx.fillRect(cx - 12 + inCarrier * 5, cy + 3, 25 - inCarrier * 5, 11); }
+    text(m.st === 'load' || m.st === 'unload' ? `${inCarrier * 5}/25` : '25', cx, cy - 11, {align: 'center', color: '#c9c2ae', max: 30});
+    // In a bath the liquid covers the carrier: drawn again over it, see-through.
+    if (tank >= 0 && tank < 4 && dipped) {
+      const bx = col(tank + 1), lv = ty + 5 + (tank === 3 ? Math.round(qdr * (th - 12)) : 0), b = tanks[tank];
       if (cy + 17 > lv) { ctx.globalAlpha = 0.55; R(b.col, Math.max(bx + 2, cx - 14), lv, 28, Math.min(ty + th - 2, cy + 18) - lv); ctx.globalAlpha = 1; R('rgba(255,255,255,.55)', Math.max(bx + 2, cx - 14), lv, 28, 1); }
     }
-    if (m.st === 'up' && m.bt < 30) for (let k = 0; k < 4; k++) { const dy = ((m.bt * 2 + k * 9) % 20); circle('rgba(190,220,255,.85)', cx - 9 + k * 6, cy + 18 + dy, 1); }
-    // What the bath does to the surface, while you watch the time.
+    if (tank === 4 && dip > 0.3) { const lv = ty + 20; if (cy + 17 > lv) { ctx.globalAlpha = 0.5; R(tanks[4].col, cx - 14, lv, 28, Math.min(ty + th - 2, cy + 18) - lv); ctx.globalAlpha = 1; } }
+    if ((m.st === 'up' && m.bt < 30) || (m.st === 'rinse' && m.bt > 125)) for (let k = 0; k < 4; k++) { const dy = ((m.bt * 2 + k * 9) % 20); circle('rgba(190,220,255,.85)', cx - 9 + k * 6, cy + 18 + dy, 1); }
+    // What the step does to the surface.
     const k = m.st === 'in' && m.bath < 3 ? m.bt / BATH_FRAMES : 0;
     const zy = a.y + a.h - 18, zx = a.x + 10, zw = a.w - 20;
     R('#141a28', zx, zy, zw, 18); R('#4f5866', zx, zy + 12, zw, 6);
-    if (m.bath < 3) {
+    if (auto || m.st === 'load') {
+      const say = {load: L('25 WAFER AUS DER BOX IN DEN TRÄGER', '25 WAFERS FROM THE BOX INTO THE CARRIER'), rinse: L('DI-WASSER SPÜLT DIE SÄURE AB', 'DI WATER RINSES THE ACID OFF'),
+        dry: L('IPA-DAMPF: DAS WASSER LÄUFT OHNE TROPFEN AB', 'IPA VAPOUR: THE WATER RUNS OFF WITHOUT DROPS'), back: L('ZURÜCK ZUR BOX', 'BACK TO THE BOX'), unload: L('25 WAFER ZURÜCK IN DER BOX', '25 WAFERS BACK IN THE BOX')}[m.st];
+      text(say, zx + 3, zy + 1, {color: '#9fe0ff', max: zw - 10});
+    } else if (m.bath < 3) {
       const b = BATHS[m.bath], part = b.zone[0] / b.max;
       text(L(`${b.name} LÖST ${b.what[0]}`, `${b.name} REMOVES ${b.what[1]}`), zx + 3, zy + 1, {color: '#9fe0ff', max: zw - 10});
       for (let j = 0; j < 9; j++) {
