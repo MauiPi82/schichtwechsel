@@ -23,7 +23,7 @@ const UI = {
     resume: 'Weiter ab', fresh: 'N: neue Nacht ab 22:00', physics: 'PHYSIK DER SCHICHT',
     caught: 'ERWISCHT', noticed: 'BEMERKT', crushed: 'EINGEMAUERT', robot: 'ÜBERFAHREN', beam: 'IM STRAHL', heat: 'VERBRANNT', plasma: 'IM PLASMA',
     trialWarn: 'Die Glocke! Beim Schlag trägt sie dich in die andere Schicht. Grüner Rahmen: Dort kannst du stehen. Roter Rahmen: Dort ist Wand, geh weiter. Der erste Schlag ist ein Probeschlag.',
-    trialShift: l => l ? 'Probeschlag: Die Glocke hat dich in die Vorschicht getragen. Ab jetzt zählt jeder Schlag. Vor jedem zündet hinten im Verascher das Plasma.' : 'Probeschlag: Die Glocke hat dich in deine Schicht getragen. Ab jetzt zählt jeder Schlag.',
+    trialShift: l => l ? 'Probeschlag: Die Glocke hat dich in die Vorschicht getragen. Ab jetzt zählt jeder Schlag. Vor jedem zündet hinten der Verascher (er brennt Lack weg) sein Plasma.' : 'Probeschlag: Die Glocke hat dich in deine Schicht getragen. Ab jetzt zählt jeder Schlag.',
     trialStay: 'Probeschlag: Drüben wäre hier Wand gewesen. Ab dem nächsten Schlag mauert sie dich ein. Stell dich vorher auf ein grün umrahmtes Feld.',
     paused: 'PAUSE', pausedHint: 'P oder ESC: weiter', bell: 'GLOCKE', ion: 'IONEN', retry: 'R: neu versuchen',
     stats: (d, s) => `Erwischt: ${d}   Schichtwechsel: ${s}`, perHour: 'Je Stunde:', thanks: 'Danke fürs Spielen.',
@@ -31,7 +31,7 @@ const UI = {
     sound: on => 'Ton: ' + (on ? 'an' : 'aus'), pause: 'Pause', full: 'Vollbild', menu: 'Menü', home: 'H: Hauptmenü',
     noteHead: 'VOGT MICROELETTRONICA · BAY 7 · TURNO B', q: ['„', '“'],
     useLight: 'REINLAUFEN: LICHT AN', useStop: 'REINLAUFEN: NOT-AUS', charging: 'LÄDT',
-    yieldWord: 'AUSBEUTE', best: 'BESTE AUSBEUTE', rewind: 'SHIFT: ZURÜCKSPULEN', slots: 'LOADPORT 1: 26 WAFER GEZÄHLT. DER FOUP HAT 25 PLÄTZE.', lightTip: 'LAUF IN DIE ANLAGE HINEIN: SIE MACHT LICHT, UND DAS LICHT HÄLT DIE VORSCHICHT AUF', graceTip: 'DER RING: SOLANGE ER LÄUFT, GREIFEN SIE DICH NICHT. ABER LAUF NIE IN SIE HINEIN.', alertTip: 'BEMERKT! ER FOLGT DIR EIN PAAR SCHRITTE. BLEIB IN BEWEGUNG ODER WECHSLE DIE SCHICHT.',
+    yieldWord: 'AUSBEUTE', best: 'BESTE AUSBEUTE', rewind: 'SHIFT: NOCHMAL VERSUCHEN', slots: 'LOADPORT 1: 26 WAFER GEZÄHLT. DER FOUP HAT 25 PLÄTZE.', lightTip: 'LAUF IN DIE ANLAGE HINEIN: SIE MACHT LICHT, UND DAS LICHT HÄLT DIE VORSCHICHT AUF', graceTip: 'DER RING: SOLANGE ER LÄUFT, GREIFEN SIE DICH NICHT. ABER LAUF NIE IN SIE HINEIN.', alertTip: 'BEMERKT! ER FOLGT DIR EIN PAAR SCHRITTE. BLEIB IN BEWEGUNG ODER WECHSLE DIE SCHICHT.',
     causeTip: {noticed: 'Er hatte dich bemerkt: Wer zu lange in ihrer Nähe bleibt, wird verfolgt. Bleib in Bewegung, geh auf Abstand oder wechsle die Schicht.', caught: 'Im Ring greifen sie nicht. Wer selbst in sie hineinläuft, ist erwischt.', crushed: 'Vor der Glocke auf ein grün umrandetes Feld stellen.', plasma: 'Das Plasma zündet im Takt. Warten, oder eine Plasmaanlage anlaufen: Not-Aus.', heat: 'In einer Kühlnische warten, bis die Hitze zurückweicht.', beam: 'Gestrichelt: der nächste Weg des Strahls. Die Anlage anlaufen stoppt ihn.', robot: 'Die Roboter fahren ihre feste Bahn. Warten, bis sie vorbei sind.'},
     yieldLog: y => `Ausbeute Los 4471: ${y} %`,
     // Why a shift was refused: what stands on this spot in the other shift.
@@ -46,7 +46,7 @@ const UI = {
     resume: 'Continue from', fresh: 'N: new night from 22:00', physics: 'PHYSICS OF THE SHIFT',
     caught: 'CAUGHT', noticed: 'NOTICED', crushed: 'WALLED IN', robot: 'RUN OVER', beam: 'IN THE BEAM', heat: 'BURNED', plasma: 'IN THE PLASMA',
     trialWarn: 'The bell! When it strikes it carries you into the other shift. Green frame: you can stand there. Red frame: there is a wall, move on. The first strike is a trial.',
-    trialShift: l => l ? 'Trial strike: the bell carried you into the shift before. From now on every strike counts. Before each one the asher at the back fires its plasma.' : 'Trial strike: the bell carried you into your shift. From now on every strike counts.',
+    trialShift: l => l ? 'Trial strike: the bell carried you into the shift before. From now on every strike counts. Before each one the asher at the back (it burns resist off) fires its plasma.' : 'Trial strike: the bell carried you into your shift. From now on every strike counts.',
     trialStay: 'Trial strike: over there this was a wall. From the next strike on it walls you in. Stand on a tile framed in green before it.',
     paused: 'PAUSED', pausedHint: 'P or ESC: resume', bell: 'BELL', ion: 'IONS', retry: 'R: try again',
     stats: (d, s) => `Caught: ${d}   Shift changes: ${s}`, perHour: 'Per hour:', thanks: 'Thank you for playing.',
@@ -54,7 +54,7 @@ const UI = {
     sound: on => 'Sound: ' + (on ? 'on' : 'off'), pause: 'Pause', full: 'Fullscreen', menu: 'Menu', home: 'H: main menu',
     noteHead: 'VOGT MICROELETTRONICA · BAY 7 · TURNO B', q: ['“', '”'],
     useLight: 'WALK IN: LIGHT ON', useStop: 'WALK IN: E-STOP', charging: 'CHARGING',
-    yieldWord: 'YIELD', best: 'BEST YIELD', rewind: 'SHIFT: REWIND', slots: 'LOADPORT 1: 26 WAFERS COUNTED. THE FOUP HAS 25 SLOTS.', lightTip: 'WALK INTO THE TOOL: IT LIGHTS UP, AND ITS LIGHT HOLDS THE SHIFT BEFORE', graceTip: 'THE RING: WHILE IT RUNS THEY CANNOT CATCH YOU. BUT NEVER WALK INTO THEM.', alertTip: 'NOTICED! HE FOLLOWS YOU FOR A FEW STEPS. KEEP MOVING, OR SHIFT.',
+    yieldWord: 'YIELD', best: 'BEST YIELD', rewind: 'SHIFT: TRY AGAIN', slots: 'LOADPORT 1: 26 WAFERS COUNTED. THE FOUP HAS 25 SLOTS.', lightTip: 'WALK INTO THE TOOL: IT LIGHTS UP, AND ITS LIGHT HOLDS THE SHIFT BEFORE', graceTip: 'THE RING: WHILE IT RUNS THEY CANNOT CATCH YOU. BUT NEVER WALK INTO THEM.', alertTip: 'NOTICED! HE FOLLOWS YOU FOR A FEW STEPS. KEEP MOVING, OR SHIFT.',
     causeTip: {noticed: 'He had noticed you: linger near them and they follow. Keep moving, keep your distance, or shift.', caught: 'In the ring they cannot catch you. Walking into them yourself, you are caught.', crushed: 'Before the bell, stand on a tile framed in green.', plasma: 'The plasma fires in rhythm. Wait, or walk into a plasma tool: emergency stop.', heat: 'Wait in a cooled niche until the heat falls back.', beam: 'Dashed: the beam\'s next path. Walking into the implanter stops it.', robot: 'The robots drive a fixed track. Wait until they have passed.'},
     yieldLog: y => `Yield of lot 4471: ${y} %`,
     blocked: (to, what) => what === 'o' ? 'NO FLOOR HERE IN THE SHIFT BEFORE'
@@ -573,7 +573,7 @@ function pollPad() {
 let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0, shake = 0;
 let progress = clamp(parseInt(store.get('level'), 10) || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
 const deathsBy = levels.map(() => 0);
-const BUILD = '0.64 · 2026-11-12';
+const BUILD = '0.65 · 2026-11-12';
 // Testers can jump to an hour: ?stunde=3 or ?hour=3 opens the third hour.
 const jump = parseInt(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || '0', 10) || 0;
 if (jump >= 1 && jump <= levels.length) progress = jump - 1;
@@ -948,7 +948,7 @@ function doStep(action) {
   if (state.layer !== before) { fx = reduced ? 6 : 12; fxLayer = state.layer; audio.setLayer(state.layer); }
   if (state.events.includes('reticle') && !introMode && !found.has(LEVELS[levelIndex].id)) {
     found.add(LEVELS[levelIndex].id); store.set('reticles', JSON.stringify([...found]));
-    audio.sfx('reticle'); procType = 'reticle'; procT = 0; mode = 'process';
+    audio.sfx('reticle'); procType = 'reticle'; procT = 0; procFast = seenProc.has('reticle'); mode = 'process';
   }
   // In the gowning intro the only station is the handover cart: you pick up lot 4471.
   if (state.events.includes('station') && introMode) { procType = 'intake'; procT = 0; mode = 'process'; }
@@ -1067,7 +1067,11 @@ function update() {
   if (flashFx && ++flashFx.t > 34) flashFx = null;
   if (mode === 'cinema') updateCinema();
   if (mode === 'epilogue') updateEpilogue();
-  if (mode === 'process' && (procT += procFast ? 2 : 1) > window.SchichtProcess.duration(procType)) { endProcess(); if (!introMode) { waitKey = true; queuedDir = null; queuedShift = false; } }
+  if (mode === 'process' && (procT += procFast ? 2 : 1) > window.SchichtProcess.duration(procType)) {
+    // A window seen for the first time stays on its last picture until SHIFT; a known one closes by itself.
+    if (!procFast && !introMode) procT = window.SchichtProcess.duration(procType);
+    else { endProcess(); if (!introMode) { waitKey = true; queuedDir = null; queuedShift = false; } }
+  }
   if (reading && mode === 'play' && ++reading.t > READING_LEN) reading = null;
   if (mode === 'play' && state && !introMode) {
     const k = clamp(stepFrame / STEP_FRAMES, 0, 1);
@@ -1381,9 +1385,9 @@ function renderPlay() {
   }
   // After an animation the hour stands still until you move or shift: nothing happens while you read.
   if (waitKey && mode === 'play' && !introMode && (frame >> 5) % 2 === 0) {
-    const s = isTouch ? (lang === 'de' ? 'DIE STUNDE WARTET AUF DICH' : 'THE HOUR WAITS FOR YOU') : (lang === 'de' ? 'DIE STUNDE WARTET: PFEIL ODER SHIFT' : 'THE HOUR WAITS: ARROW OR SHIFT');
+    const s = isTouch ? (lang === 'de' ? 'WEITER: KREUZ ODER SHIFT' : 'GO ON: D-PAD OR SHIFT') : (lang === 'de' ? 'WEITER: PFEIL ODER SHIFT' : 'GO ON: ARROW OR SHIFT');
     ctx.font = '400 8px "Silkscreen", monospace';
-    const w = ctx.measureText(s).width + 12, y = FY + C.H * T - 14;
+    const w = ctx.measureText(s).width + 12, y = FY + C.H * T - 28;
     R('rgba(5,6,10,.8)', W / 2 - w / 2, y, w, 11); txt(s, W / 2, y + 2, {align: 'center', color: '#c9c2ae'});
   }
 }
@@ -1504,9 +1508,9 @@ function renderDead() {
 // Where the tape stops: the last process step of this hour, or its start when none is done yet.
 function rewindTarget(long) {
   const de = lang === 'de', step = checkpoint && LEVELS[levelIndex].route && LEVELS[levelIndex].route[checkpoint.got - 1];
-  if (!step) return de ? (long ? 'ZURÜCK ZUM BEGINN DER STUNDE' : 'STUNDENBEGINN') : (long ? 'BACK TO THE START OF THE HOUR' : 'START OF HOUR');
+  if (!step) return de ? (long ? 'AB BEGINN DER STUNDE' : 'STUNDENBEGINN') : (long ? 'FROM THE START OF THE HOUR' : 'START OF HOUR');
   const name = `${checkpoint.got} · ${step[lang].toUpperCase()}`;
-  return long ? `${de ? 'ZURÜCK ZU SCHRITT' : 'BACK TO STEP'} ${name}` : name;
+  return long ? `${de ? 'AB SCHRITT' : 'FROM STEP'} ${name}` : name;
 }
 function startRewind() {
   mode = 'rewind'; rewT = 0; rewFrom = history.length; audio.sfx('rewind');

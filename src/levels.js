@@ -209,11 +209,11 @@
         de: ['Der Scanner belichtet mit 193 nm, unter Wasser (n ≈ 1,44).', 'Kleinster Halbpitch ≈ k₁ · λ / NA = 0,28 · 193 nm / 1,35 ≈ 40 nm.', 'Das Ätzen überträgt das Muster dann in Nitrid und Oxid.'],
         en: ['The scanner exposes at 193 nm, through water (n ≈ 1.44).', 'Smallest half-pitch ≈ k₁ · λ / NA = 0.28 · 193 nm / 1.35 ≈ 40 nm.', 'Etching then transfers the pattern into nitride and oxide.'],
       },
-      hint: {de: 'Die Glocke wechselt für dich. Steh auf festem Boden', en: 'The bell shifts for you. Stand on solid ground'},
+      hint: {de: 'Die Glocke wechselt für dich. Vor dem Schlag: auf ein grün umrahmtes Feld', en: 'The bell shifts for you. Before it strikes: onto a tile framed in green'},
       // Announcements over the PA (step, Italian, translation), a note from shift B, one scare.
       pa: [
         {at: 6, it: 'Si ricorda: il turno di notte finisce alle sei.', de: 'Zur Erinnerung: Die Nachtschicht endet um sechs.', en: 'A reminder: the night shift ends at six.'},
-        {at: 16, it: "Inceneritore in funzione. Al rintocco, stare lontani.", de: 'Verascher in Betrieb. Beim Glockenschlag Abstand halten.', en: 'Asher running. Keep clear when the bell strikes.'},
+        {at: 16, it: "Inceneritore in funzione. Al rintocco, stare lontani.", de: 'Verascher in Betrieb (er brennt Lack weg). Beim Glockenschlag Abstand halten.', en: 'Asher running (it burns resist off). Keep clear when the bell strikes.'},
       ],
       note: {x: 13, y: 1, by: 'Rossi', text: {
         de: ['Der Campanile hat geschlagen,', 'und ich stand woanders. Gleiche Bay, andere Schicht.', 'Colombo stand direkt neben mir.', 'Er hat mich nicht gehört.'],
@@ -269,7 +269,7 @@
         de: ['Der Implanter fährt sein Rezept: Bor, Phosphor, Arsen.', 'Er hätte um 22:00 stehen sollen.', 'Q-Zeit überschritten: Los 4471 gesperrt (HOLD).', 'Freigegeben von: TURNO B.'],
         en: ['The implanter runs its recipe: boron, phosphorus, arsenic.', 'It should have stopped at 22:00.', 'Q-time exceeded: lot 4471 on HOLD.', 'Released by: TURNO B.'],
       },
-      plain: {de: 'Ein Strahl schießt Arsen-Atome ins Silizium. Erst dadurch leitet es an diesen Stellen.', en: 'A beam shoots arsenic atoms into the silicon. Only then does it conduct in those spots.'},
+      plain: {de: 'Dotieren: Ein Strahl schießt Arsen-Atome ins Silizium. Erst diese fremden Atome machen es dort leitend.', en: 'Doping: a beam shoots arsenic atoms into the silicon. Only these foreign atoms make it conduct there.'},
       fact: {
         de: ['Im Magnet fliegt jedes Ion auf einem Kreis: r = √(2mE) / (qB).', 'Bei 40 keV und 0,25 T: Bor 0,38 m, Phosphor 0,64 m, Arsen 1,00 m.', 'So trennt die Anlage die Sorten. Der Strahl ist tödlich.'],
         en: ['In the magnet every ion flies on a circle: r = √(2mE) / (qB).', 'At 40 keV and 0.25 T: boron 0.38 m, phosphorus 0.64 m, arsenic 1.00 m.', 'That is how the tool separates them. The beam is deadly.'],
@@ -626,8 +626,8 @@
   // The prologue says little: where and when, what the scanner did, and that your shift begins.
   const PROLOGUE = {
     caps: {
-      de: ['Luino, am Lago Maggiore. 21:38.', 'Bay 7: Turno B schiebt Los 4471 zum Scanner.', 'Der Scanner belichtet von selbst. Auf dem Tisch liegt kein Wafer.', 'Jemand schlägt auf den Not-Aus.', '', '21:56. Deine Nachtschicht beginnt.'],
-      en: ['Luino, on Lake Maggiore. 21:38.', 'Bay 7: shift B wheels lot 4471 to the scanner.', 'The scanner exposes by itself. There is no wafer on the stage.', 'Someone hits the emergency stop.', '', '21:56. Your night shift begins.'],
+      de: ['Luino, am Lago Maggiore. 21:38.', 'Bay 7: Turno B schiebt Los 4471 zum Scanner.', 'Der Scanner belichtet von selbst. Auf dem Tisch liegt keine Siliziumscheibe.', 'Jemand schlägt auf den Not-Aus.', '', '21:56. Deine Nachtschicht beginnt.'],
+      en: ['Luino, on Lake Maggiore. 21:38.', 'Bay 7: shift B wheels lot 4471 to the scanner.', 'The scanner exposes by itself. There is no silicon wafer on the stage.', 'Someone hits the emergency stop.', '', '21:56. Your night shift begins.'],
     },
   };
 
