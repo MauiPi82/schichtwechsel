@@ -30,13 +30,17 @@ if (!url) throw new Error('Pass the URL of the served repository root.');
       // Real keyboard input reaches the game: start from the title and walk.
       // A fresh night (no stored progress) starts with the gowning intro.
       await page.evaluate(() => { try { localStorage.clear(); } catch (_) { /* blocked */ } });
-      await page.reload(); await page.keyboard.press('Shift'); await page.waitForTimeout(600);
+      // Every change of scene fades through black, so wait for the next scene instead of a fixed time.
+      const until = (fn, arg) => page.waitForFunction(fn, arg, {timeout: 6000}).catch(() => {});
+      const settled = m => until(m => __schicht.mode === m && !__schicht.fadingOut, m);
+      await page.reload(); await page.keyboard.press('Shift');
+      await until(() => __schicht.mode === 'cinema' && __schicht.cinemaT > 0.6);
       assert.equal(await page.evaluate(() => __schicht.mode), 'cinema', 'a fresh night starts with the prologue');
-      await page.keyboard.press('Enter'); await page.waitForTimeout(300);
+      await page.keyboard.press('Enter'); await settled('play');
       assert.equal(await page.evaluate(() => __schicht.mode), 'play', 'the prologue skips to the gowning intro');
-      await page.keyboard.press('Enter'); await page.waitForTimeout(300);
+      await page.keyboard.press('Enter'); await until(() => __schicht.mode === 'card' && __schicht.cardT > 30);
       assert.equal(await page.evaluate(() => __schicht.mode), 'card', 'Enter skips the intro');
-      await page.waitForTimeout(500); await page.keyboard.press('Enter'); await page.waitForTimeout(100);
+      await page.keyboard.press('Enter'); await settled('play');
       assert.equal(await page.evaluate(() => __schicht.mode), 'play');
       const x0 = await page.evaluate(() => __schicht.state.x);
       await page.keyboard.down('ArrowRight'); await page.waitForTimeout(500); await page.keyboard.up('ArrowRight');

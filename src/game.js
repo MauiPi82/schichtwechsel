@@ -359,20 +359,22 @@ addEventListener('keydown', e => {
   if (e.code === 'KeyP' || e.code === 'Escape') { togglePause(); return; }
   if (e.code === 'KeyM') { audio.toggle(); return; }
   if (e.code === 'KeyR' && (mode === 'play' || mode === 'paused')) { checkpoint = null; startLevel(levelIndex); return; }
-  if (e.code === 'KeyN' && mode === 'title') { progress = 0; store.set('level', 0); audio.unlock(); startCinema(); }
+  if (e.code === 'KeyN' && mode === 'title' && veilPhase !== 'out') { progress = 0; store.set('level', 0); audio.unlock(); transition(startCinema, 36, 1); }
 });
 addEventListener('keyup', e => { const d = KEYDIR[e.code]; if (d) held.delete(d); });
 addEventListener('blur', () => held.clear());
 function press(what) {
-  if (mode === 'cinema') { if (cinemaT > 0.4) startIntro(); return; }
-  if (introMode && (mode === 'play' || mode === 'shower')) { if (what === 'enter') endIntro(); return; }
+  if (veilPhase === 'out') return;
+  if (mode === 'cinema') { if (cinemaT > 0.4) transition(() => startIntro(), 28, 60); return; }
+  if (introMode && (mode === 'play' || mode === 'shower')) { if (what === 'enter') transition(endIntro, 30, 1); return; }
   if (mode === 'process') { if (procT > 40) mode = 'play'; return; }
   if (mode === 'note') { if (noteT > 25) mode = 'play'; return; }
   if (mode === 'play') { if (what === 'shift') queuedShift = true; return; }
-  if (mode === 'title') { audio.unlock(); if (progress === 0) startCinema(); else startCard(progress); return; }
-  if (mode === 'card' && cardT > 20) { checkpoint = null; startLevel(levelIndex); return; }
-  if (mode === 'ending' && cardT > 120) { mode = 'title'; audio.setLayer(0); }
-  if (mode === 'finale') { if (finT < window.SchichtOdenchip.TOTAL) finT = window.SchichtOdenchip.TOTAL; else if (finT > window.SchichtOdenchip.TOTAL + 5) { mode = 'title'; audio.setLayer(0); } }
+  if (mode === 'title') { audio.unlock(); if (progress === 0) transition(startCinema, 36, 1); else transition(() => startCard(progress), 30, 30); return; }
+  if (mode === 'card' && cardT > 20) { transition(() => { checkpoint = null; startLevel(levelIndex); }, 22, 36); return; }
+  const toTitle = () => { mode = 'title'; audio.setLayer(0); };
+  if (mode === 'ending' && cardT > 120) transition(toTitle, 40, 40);
+  if (mode === 'finale') { if (finT < window.SchichtOdenchip.TOTAL) finT = window.SchichtOdenchip.TOTAL; else if (finT > window.SchichtOdenchip.TOTAL + 5) transition(toTitle, 40, 40); }
 }
 // Touch pad: hold a direction, tap SHIFT.
 document.querySelectorAll('.pad [data-dir]').forEach(b => {
@@ -408,12 +410,12 @@ function pollPad() {
 let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0, shake = 0;
 let progress = clamp(+store.get('level') || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
 const deathsBy = levels.map(() => 0);
-const BUILD = '0.12 · 2026-11-12';
+const BUILD = '0.13 · 2026-11-12';
 // Testers can jump to an hour: ?stunde=3 or ?hour=3 opens the third hour.
 const jump = +(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || 0);
 if (jump >= 1 && jump <= levels.length) progress = jump - 1;
 function startCard(i) {
-  levelIndex = i; mode = 'card'; cardT = 0; paNow = null; paQueue = []; scare = null;
+  levelIndex = i; mode = 'card'; cardT = 0; fadeIn(36); paNow = null; paQueue = []; scare = null;
   audio.setLayer(0); audio.bell(0.2);
 }
 let checkpoint = null, toastText = '', toastT = 0, shiftHintT = 0, stickyTimes = [], stickyWarned = store.get('sticky') === '1';
@@ -483,6 +485,26 @@ function updateFinale() {
 }
 
 /* ---------- Prologue (no words) ---------- */
+/* ---------- Transitions ---------- */
+// Between two parts of the game the picture fades to black, the next part is set up, and it fades in again.
+// While it fades out, time stands still and input waits, so nothing happens twice.
+let veil = 0, veilPhase = null, veilT = 0, veilOut = 1, veilIn = 1, veilThen = null;
+function transition(then, out = 24, inn = 30) {
+  if (veilPhase === 'out') return;
+  veilThen = then; veilOut = out; veilIn = inn; veilPhase = 'out'; veilT = Math.round(veil * out);
+}
+function fadeIn(inn = 30) { veil = 1; veilPhase = 'in'; veilIn = inn; veilT = 0; }
+function stepVeil() {
+  veilT++;
+  if (veilPhase === 'out') {
+    veil = clamp(veilT / veilOut, 0, 1);
+    if (veil >= 1) { const then = veilThen; veilThen = null; veilPhase = 'in'; veilT = 0; then(); }
+  } else if (veilPhase === 'in') {
+    veil = clamp(1 - veilT / veilIn, 0, 1);
+    if (veil <= 0) veilPhase = null;
+  }
+}
+
 let cinemaT = 0;
 function startCinema() { mode = 'cinema'; cinemaT = 0; audio.setLayer(0); audio.rain(0.09); }
 // Sound cues per shot: [shot, second, cue].
@@ -498,7 +520,7 @@ function updateCinema() {
     if (cue === 'bell') audio.bell(0.3); else if (cue === 'horn') audio.horn(); else audio.sfx(cue, {gain: 0.25});
   }
   if (shot === 2 && t < 2.6 && frame % 6 === 0) audio.sfx('zap');
-  if (cinemaT >= window.SchichtCinema.TOTAL) startIntro();
+  if (cinemaT >= window.SchichtCinema.TOTAL) { startIntro(); fadeIn(70); }
 }
 function startIntro() {
   const L = C.parseLevel(INTRO);
@@ -517,7 +539,7 @@ function introStep() {
   INTRO.triggers.forEach((tr, n) => {
     if (!introSeen.has(n) && Math.abs(tr.x - state.x) + Math.abs(tr.y - state.y) <= 1) { introSeen.add(n); toast(tr.text[lang], 420); }
   });
-  if (!suited && state.y <= 4 && state.x >= INTRO.suitAt) { suited = true; audio.sfx('rustle'); fx = 6; fxLayer = 0; }
+  if (!suited && state.y <= 4 && state.x >= INTRO.suitAt) { audio.sfx('rustle'); transition(() => { suited = true; audio.sfx('rustle'); }, 18, 30); }
   if (!showerDone && L.layers[0][idx(state.x, state.y)] === 'A' && suited) {
     const [entry] = introDoors(L);
     L.open.delete(entry); L.walk[0][entry] = 0;
@@ -602,7 +624,7 @@ function doStep(action) {
   if (!introMode) storyStep();
   if (introMode) introStep();
   if (state.status === 'lost') { mode = 'dead'; deadT = 0; deaths++; deathsBy[levelIndex]++; }
-  if (state.status === 'won' && introMode) { audio.sfx('door'); endIntro(); return; }
+  if (state.status === 'won' && introMode) { if (veilPhase !== 'out') { audio.sfx('door'); transition(endIntro, 40, 1); } return; }
   if (state.status === 'won') {
     mode = 'clear'; deadT = 0;
     progress = Math.max(progress, Math.min(levelIndex + 1, levels.length - 1)); store.set('level', progress);
@@ -611,6 +633,7 @@ function doStep(action) {
 
 function update() {
   frame++; pollPad();
+  if (veilPhase) { stepVeil(); if (veilPhase === 'out') return; }
   if (mode === 'card' || mode === 'ending') cardT++;
   if (mode === 'finale') updateFinale();
   if (mode === 'play') {
@@ -635,12 +658,12 @@ function update() {
   if (mode === 'cinema') updateCinema();
   if (mode === 'process' && ++procT > window.SchichtProcess.DURATION) mode = 'play';
   if (mode === 'shower') updateShower();
-  if (mode === 'dead' && ++deadT > DEAD_LEN) startLevel(levelIndex, true);
+  if (mode === 'dead' && ++deadT > DEAD_LEN) { startLevel(levelIndex, true); fadeIn(24); }
   if (mode === 'clear' && ++deadT > 60) {
     checkpoint = null;
     if (levelIndex + 1 < levels.length) startCard(levelIndex + 1);
-    else if (found.size >= LEVELS.length) { mode = 'finale'; finT = 0; store.set('odenchip', '1'); audio.setLayer(0); audio.bell(0.25); }
-    else { mode = 'ending'; cardT = 0; audio.setLayer(0); audio.horn(); }
+    else if (found.size >= LEVELS.length) { mode = 'finale'; finT = 0; store.set('odenchip', '1'); audio.setLayer(0); audio.bell(0.25); fadeIn(40); }
+    else { mode = 'ending'; cardT = 0; audio.setLayer(0); audio.horn(); fadeIn(40); }
   }
 }
 
@@ -1012,6 +1035,14 @@ function renderEnding() {
 }
 
 function render() {
+  renderMode();
+  if (veil > 0) {
+    ctx.setTransform(Z, 0, 0, Z, 0, 0);
+    const v = veil * veil * (3 - 2 * veil);
+    ctx.fillStyle = `rgba(0,0,0,${v})`; ctx.fillRect(0, 0, W, H);
+  }
+}
+function renderMode() {
   ctx.setTransform(Z, 0, 0, Z, 0, 0);
   ctx.imageSmoothingEnabled = false;
   if (mode === 'cinema') {
@@ -1080,7 +1111,8 @@ if (new URLSearchParams(location.search).has('test')) {
     setLayer: l => audio.setLayer(l), lang: l => { lang = l; applyLanguage(); },
     get paNow() { return paNow; }, get paT() { return paT; }, set paT(v) { paT = v; }, get scare() { return scare; }, get noteT() { return noteT; }, set noteT(v) { noteT = v; },
     pa: i => startPA(LEVELS[levelIndex].pa[i]), setMode: m => { mode = m; }, calm: () => { fx = 0; shake = 0; },
-    dead: (cause, tt) => { state.cause = cause; mode = 'dead'; deadT = tt; }, scareNow: (type, extra = {}) => { scare = {type, t: 0, ...extra}; },
+    dead: (cause, tt) => { state.cause = cause; mode = 'dead'; deadT = tt; },
+    get fadingOut() { return veilPhase === 'out'; }, get veil() { return veil; }, get cardT() { return cardT; }, set cinemaT(v) { cinemaT = v; }, scareNow: (type, extra = {}) => { scare = {type, t: 0, ...extra}; },
   };
 }
 render();

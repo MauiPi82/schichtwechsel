@@ -170,35 +170,55 @@ function arrivalScene(t) {
   R('#4a3420', x + 13, 258, 5, 8);
 }
 
+// xin: how long the shot dissolves in over the one before (seconds). The power cut stays short on purpose.
 const SHOTS = [
-  {dur: 7.0, draw: t => { lakeScene(t, [21, 40], t * 8); rain(0.3); }, sound: 'lake'},
-  {dur: 6.0, draw: bayScene, sound: 'bay'},
-  {dur: 4.6, draw: scannerScene, sound: 'scanner'},
-  {dur: 3.2, draw: emoScene, sound: 'emo'},
-  {dur: 4.6, draw: darkScene, sound: 'dark'},
-  {dur: 7.4, draw: t => { arrivalScene(t); rain(0.35); }, sound: 'arrival'},
+  {dur: 7.0, xin: 0, draw: t => { lakeScene(t, [21, 40], t * 8); rain(0.3); }, sound: 'lake'},
+  {dur: 6.6, xin: 1.4, draw: bayScene, sound: 'bay'},
+  {dur: 5.2, xin: 1.0, draw: scannerScene, sound: 'scanner'},
+  {dur: 3.6, xin: 0.6, draw: emoScene, sound: 'emo'},
+  {dur: 4.8, xin: 0.35, draw: darkScene, sound: 'dark'},
+  {dur: 8.4, xin: 1.8, draw: t => { arrivalScene(t); rain(0.35); }, sound: 'arrival'},
 ];
-const TOTAL = SHOTS.reduce((a, s) => a + s.dur, 0);
+const FADE_IN = 1.6, FADE_OUT = 1.8;
+let at = 0;
+for (const s of SHOTS) { at -= s.xin; s.start = at; at += s.dur; }
+const TOTAL = at;
 
+// The shot that is coming in at this moment, and its own time.
 function shotAt(time) {
-  let t = time;
-  for (let i = 0; i < SHOTS.length; i++) { if (t < SHOTS[i].dur) return [i, t]; t -= SHOTS[i].dur; }
-  return [SHOTS.length, 0];
+  if (time >= TOTAL) return [SHOTS.length, 0];
+  for (let i = SHOTS.length - 1; i >= 0; i--) if (time >= SHOTS[i].start) return [i, time - SHOTS[i].start];
+  return [0, time];
 }
 
-function draw(c, time, frame) {
-  ctx = c; F = frame;
-  const [i, t] = shotAt(time);
-  if (i >= SHOTS.length) { R('#000', 0, 0, W, H); return; }
+let off = null, octx = null;
+function drawShot(i, t) {
   ctx.save();
   // A slow push-in on every shot.
   const z = 1 + t * 0.012;
   ctx.translate(W / 2, H / 2); ctx.scale(z, z); ctx.translate(-W / 2, -H / 2);
   SHOTS[i].draw(t);
   ctx.restore();
-  // Cuts through black.
-  const s = SHOTS[i], fade = Math.min(clamp(t / 0.5, 0, 1), clamp((s.dur - t) / 0.5, 0, 1));
-  ctx.fillStyle = `rgba(0,0,0,${1 - fade})`; ctx.fillRect(0, 0, W, H);
+}
+
+function draw(c, time, frame) {
+  ctx = c; F = frame;
+  const [i, t] = shotAt(time);
+  if (i >= SHOTS.length) { R('#000', 0, 0, W, H); return; }
+  const s = SHOTS[i];
+  if (i > 0 && t < s.xin) {
+    // Dissolve: the shot before stays underneath, the new one is drawn off screen and laid over it.
+    drawShot(i - 1, time - SHOTS[i - 1].start);
+    if (!off || off.width !== c.canvas.width || off.height !== c.canvas.height) {
+      off = document.createElement('canvas'); off.width = c.canvas.width; off.height = c.canvas.height; octx = off.getContext('2d');
+    }
+    octx.setTransform(c.getTransform()); octx.clearRect(0, 0, W, H);
+    ctx = octx; drawShot(i, t); ctx = c;
+    c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = ease(t / s.xin); c.drawImage(off, 0, 0); c.restore();
+  } else drawShot(i, t);
+  // In from black at the start, out to black at the end.
+  const black = Math.max(1 - ease(time / FADE_IN), ease((time - (TOTAL - FADE_OUT)) / FADE_OUT));
+  if (black > 0) { ctx.fillStyle = `rgba(0,0,0,${black})`; ctx.fillRect(0, 0, W, H); }
   for (let k = 0; k < 220; k++) R(`rgba(255,255,255,${hash(k + frame) * 0.06})`, hash(k * 3 + frame) * W, hash(k * 7 + frame) * H, 1, 1);
   R('#000', 0, 0, W, BAR); R('#000', 0, H - BAR, W, BAR);
 }
