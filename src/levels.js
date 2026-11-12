@@ -374,7 +374,7 @@
       ],
     },
     {
-      id: 'ct', reticle: [18, 1], time: '04:00',
+      id: 'ct', reticle: [13, 1], time: '04:00',
       layer: {de: 'Kontakte', en: 'Contacts'}, stack: {de: 'Kontaktloch · 60 nm', en: 'Contact hole · 60 nm'},
       title: {de: 'Plasma', en: 'Plasma'},
       log: {
@@ -397,14 +397,13 @@
       scare: {type: 'blackout', at: 22, layer: 'night'},
       route: [{de: 'Oxid abscheiden', en: 'Deposit oxide', proc: 'deposit'}, {de: 'Kontakte belichten', en: 'Expose contacts', proc: 'cexpose'}, {de: 'Kontakte ätzen', en: 'Etch contacts', proc: 'contacts'}],
       enemyEvery: 6,
-      // Day: the plasma fires along the corridor in thirds. The middle is walled by day; in the shift before
-      // the plasma burns there too, in between. Wait for the gaps, or stop a chamber with its emergency button.
+      // Plasma only where plasma chambers stand: the PECVD chamber on the left and the etcher on the right fire
+      // into the corridor in turn, by day. In the shift before the floor under both has caved in, so you pass them
+      // in your shift: wait for the gaps, or stop a chamber with its emergency button. The middle is walled by day;
+      // there you pass in the shift before, where one of shift B walks its round.
       pulses: [
-        {x0: 1, y0: 3, x1: 6, y1: 4, period: 30, on: [0, 14]},
-        {x0: 7, y0: 3, x1: 12, y1: 4, period: 30, on: [10, 24]},
-        {x0: 13, y0: 3, x1: 18, y1: 4, period: 30, on: [16, 30]},
-        {x0: 7, y0: 3, x1: 12, y1: 4, period: 30, on: [24, 30], layer: 1},
-        {x0: 7, y0: 3, x1: 12, y1: 4, period: 30, on: [0, 8], layer: 1},
+        {x0: 1, y0: 3, x1: 8, y1: 4, period: 30, on: [0, 13]},
+        {x0: 12, y0: 3, x1: 18, y1: 4, period: 30, on: [15, 28]},
       ],
       tools: [
         {x0: 1, y0: 6, type: 'chamber', kind: 'cvd', name: 'VALENTA D-2'},
@@ -421,7 +420,7 @@
         '#...MM....MM....MM.#',
         '#........##2.......#',
         '#........##........#',
-        '####.####.####.#####',
+        '####.#########.#####',
         '#MMM.....#.....MMM.#',
         '#MMM.....#.....MMM.#',
         '#.1......#......3.X#',
@@ -431,9 +430,9 @@
         '####################',
         '#...oo....oo....oo.#',
         '#...oo....oo....oo.#',
-        '#..................#',
-        '#..................#',
-        '####.####.####.#####',
+        '#...oo..........oo.#',
+        '#...oo..........oo.#',
+        '####.#########.#####',
         '#MMM.....#.........#',
         '#MMM.....#.........#',
         '#........#.........#',

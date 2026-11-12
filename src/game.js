@@ -414,8 +414,11 @@ addEventListener('keydown', e => {
   const k = (e.key || '').toLowerCase(), is = (c, ch) => e.code === c || k === ch;
   if (is('KeyP', 'p') || e.code === 'Escape') { togglePause(); return; }
   if (is('KeyM', 'm')) { audio.toggle(); return; }
+  if (CHEAT && is('KeyN', 'n') && mode === 'play' && !introMode) { cheatWin(); return; }
+  if (CHEAT && is('KeyU', 'u')) { cheatSafe = !cheatSafe; toast(cheatSafe ? 'CHEAT: UNVERWUNDBAR' : 'CHEAT: VERWUNDBAR', 90); return; }
+  if (CHEAT && is('KeyO', 'o')) { for (const d of LEVELS) found.add(d.id); store.set('reticles', JSON.stringify([...found])); toast('CHEAT: 8/8 RETIKEL', 90); return; }
   if (is('KeyR', 'r') && (mode === 'play' || mode === 'paused') && !introMode) { checkpoint = null; startLevel(levelIndex); return; }
-  if (is('KeyB', 'b') && mode === 'title' && veilPhase !== 'out') { audio.unlock(); bookSel = Math.min(progress, levelIndex); transition(() => { mode = 'book'; }, 16, 16); return; }
+  if (is('KeyB', 'b') && mode === 'title' && veilPhase !== 'out') { audio.unlock(); bookSel = Math.min(openUpTo(), levelIndex); transition(() => { mode = 'book'; }, 16, 16); return; }
   if ((is('KeyB', 'b') || e.code === 'Escape') && mode === 'book') { transition(() => { mode = 'title'; }, 16, 16); return; }
   if (is('KeyL', 'l') && mode === 'title') { lang = lang === 'de' ? 'en' : 'de'; store.set('lang', lang); applyLanguage(); return; }
   if (is('KeyN', 'n') && mode === 'title' && veilPhase !== 'out') { progress = 0; store.set('level', 0); audio.unlock(); transition(startCinema, 36, 1); }
@@ -435,7 +438,7 @@ function press(what) {
   if (mode === 'process') { if (procT > 40) mode = 'play'; return; }
   if (mode === 'note') { if (noteT > 25) { mode = 'play'; queuedDir = null; queuedShift = false; } return; }
   if (mode === 'play') { if (what === 'shift') { queuedShift = true; shiftQueuedAt = frame; } return; }
-  if (mode === 'book') { if (bookSel <= progress) transition(() => startCard(bookSel), 24, 30); return; }
+  if (mode === 'book') { if (bookSel <= openUpTo()) transition(() => startCard(bookSel), 24, 30); return; }
   if (mode === 'title') { audio.unlock(); if (progress === 0) transition(startCinema, 36, 1); else transition(() => startCard(progress), 30, 30); return; }
   if (mode === 'card' && cardT > 20) { transition(() => { checkpoint = null; startLevel(levelIndex); }, 22, 36); return; }
   const toTitle = () => { mode = 'title'; audio.setLayer(0); };
@@ -478,10 +481,20 @@ function pollPad() {
 let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0, shake = 0;
 let progress = clamp(+store.get('level') || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
 const deathsBy = levels.map(() => 0);
-const BUILD = '0.29 · 2026-11-12';
+const BUILD = '0.30 · 2026-11-12';
 // Testers can jump to an hour: ?stunde=3 or ?hour=3 opens the third hour.
 const jump = +(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || 0);
 if (jump >= 1 && jump <= levels.length) progress = jump - 1;
+// Look-around mode for the author and testers: ?cheat. N finishes the hour, U toggles invulnerability (on at start),
+// O counts all eight reticles as found, and the shift log opens every hour. Nothing of it shows without the parameter.
+const CHEAT = new URLSearchParams(location.search).has('cheat');
+let cheatSafe = CHEAT;
+const openUpTo = () => CHEAT ? levels.length - 1 : progress;
+function cheatWin() {
+  if (mode !== 'play' || introMode || !state || state.status !== 'play') return;
+  state.status = 'won'; mode = 'clear'; deadT = 0; audio.sfx('won');
+  progress = Math.max(progress, Math.min(levelIndex + 1, levels.length - 1)); store.set('level', progress);
+}
 function startCard(i) {
   levelIndex = i; mode = 'card'; cardT = 0; fadeIn(36); paNow = null; paQueue = []; scare = null;
   audio.setLayer(0); audio.bell(0.2);
@@ -714,6 +727,7 @@ function nextAction() {
 function doStep(action) {
   const before = state.layer, from = state.enemies.map(e => [e.x, e.y]);
   if (!introMode) { history.push(C.clone(state)); if (history.length > 600) history.shift(); }
+  if (cheatSafe && !introMode) state.safeUntil = Math.max(state.safeUntil, state.step + 2);
   C.step(state, action);
   state.enemies.forEach((e, i) => { if (e.moved === state.step) { e.fx = from[i][0]; e.fy = from[i][1]; } });
   totalShifts += state.events.filter(e => e === 'shift').length;
@@ -998,7 +1012,7 @@ function renderPlay() {
   if (shake > 0) ctx.translate(Math.round((hash(frame * 3) - 0.5) * shake * 0.8), Math.round((hash(frame * 5) - 0.5) * shake * 0.6));
   const rt = state.level.reticle && !state.reticle && !introMode && !found.has(LEVELS[levelIndex].id) ? state.level.reticle : null;
   window.SchichtWorld.draw(ctx, state, {reticle: rt, reticleN: levelIndex,k: mode === 'play' ? k : 1, frame, reduced, lang, enemies: introGhosts() || state.enemies.map(enemyPos),
-    playerVisible: !(state.step < state.safeUntil && (frame >> 2) % 2), shiftHint: shiftHintT > 0 && !introMode, civilian: introMode && !suited,
+    playerVisible: cheatSafe || !(state.step < state.safeUntil && (frame >> 2) % 2), shiftHint: shiftHintT > 0 && !introMode, civilian: introMode && !suited,
     frozen: state.enemies.map(e => C.frozen(state, e)), flash: flashFx && {...flashFx, a: 1 - flashFx.t / 34},
     grace: !introMode && state.layer === 1 && state.enemies.length ? clamp(1 - ((state.step - state.lastShift) * STEP_FRAMES + stepFrame) / (C.GRACE * STEP_FRAMES), 0, 1) : 0,
     ...storyView()});
@@ -1232,7 +1246,7 @@ function renderBook() {
   const yNow = Object.keys(lot.s).length ? `${t().yieldWord} ${lotYield()} %` : '';
   txt(`${yNow}${store.get('best') ? `   ${lang === 'de' ? 'BESTE' : 'BEST'} ${store.get('best')} %` : ''}`, W - 6, 4, {align: 'right', color: '#c9a15a'});
   LEVELS.forEach((def, i) => {
-    const y = 22 + i * 15, open = i <= progress, sel = i === bookSel;
+    const y = 22 + i * 15, open = i <= openUpTo(), sel = i === bookSel;
     if (sel) { R('rgba(255,207,90,.12)', 4, y - 2, W - 8, 14); R('#ffcf5a', 4, y - 2, 2, 14); }
     const dim = open ? '#e9e4d6' : '#3a4058';
     txt(def.time, 12, y, {color: open ? '#9fe0ff' : '#3a4058'});
@@ -1251,7 +1265,7 @@ function renderBook() {
   // The selected hour in words.
   const def = LEVELS[bookSel], parts = (def.route || []).map(r => r.proc).filter(p => STEP_NAME[p] && lot.s[p] !== undefined)
     .map(p => `${STEP_NAME[p][lang === 'de' ? 0 : 1]} ${window.SchichtMini.grade(lot.s[p]).word} −${lossOf(lot.s[p])} %`);
-  txt(parts.join(' · ') || (bookSel <= progress ? (lang === 'de' ? 'In dieser Stunde ist noch nichts gespielt.' : 'Nothing played in this hour yet.') : (lang === 'de' ? 'Diese Stunde kommt später in der Nacht.' : 'This hour comes later in the night.')),
+  txt(parts.join(' · ') || (bookSel <= openUpTo() ? (lang === 'de' ? 'In dieser Stunde ist noch nichts gespielt.' : 'Nothing played in this hour yet.') : (lang === 'de' ? 'Diese Stunde kommt später in der Nacht.' : 'This hour comes later in the night.')),
     W / 2, 146, {align: 'center', color: '#c9c2ae', font: 'IBM Plex Sans', size: 7, max: W - 16});
   txt(lang === 'de' ? '↑ ↓ WÄHLEN · SHIFT: STUNDE SPIELEN · B: ZURÜCK' : '↑ ↓ CHOOSE · SHIFT: PLAY HOUR · B: BACK', W / 2, 162, {align: 'center', color: '#6b7190'});
 }
@@ -1293,7 +1307,8 @@ function renderTitle() {
   // In an iframe the keyboard only arrives after a click into the game.
   if (embedded && !document.hasFocus() && (frame >> 5) % 2) txt(lang === 'de' ? 'INS SPIEL KLICKEN' : 'CLICK INTO THE GAME', W / 2, 146, {align: 'center', color: '#9fe0ff'});
   if (embedded) txt(lang === 'de' ? 'L: ENGLISH · M: TON' : 'L: DEUTSCH · M: SOUND', W - 4, H - 20, {align: 'right', color: '#4c5470', font: 'IBM Plex Sans', size: 6, shadow: null});
-  if (!isTouch && (progress > 0 || Object.keys(lot.s).length)) txt(lang === 'de' ? 'B: SCHICHTBUCH' : 'B: SHIFT LOG', W / 2, 146, {align: 'center', color: '#6b7190'});
+  if (!isTouch && (progress > 0 || Object.keys(lot.s).length || CHEAT)) txt(lang === 'de' ? 'B: SCHICHTBUCH' : 'B: SHIFT LOG', W / 2, 146, {align: 'center', color: '#6b7190'});
+  if (CHEAT) txt('CHEAT · N: STUNDE GESCHAFFT · U: UNVERWUNDBAR · O: ALLE RETIKEL · B: JEDE STUNDE', W / 2, 158, {align: 'center', color: '#c9a5ff', max: W - 8});
   if (store.get('odenchip') === '1') {
     ctx.save(); ctx.translate(20, 20); ctx.scale(0.06, 0.06); ctx.translate(-window.SchichtOdenchip.PK.cx, -window.SchichtOdenchip.PK.cy);
     window.SchichtOdenchip.pack({wires: 99, mold: 1, mark: 1}, ctx); ctx.restore();

@@ -457,9 +457,27 @@ function section(t, x, y, w, h, type) {
     }
     case 'deposit': {
       oxide(1); doped(18, 6);
-      holes.forEach(hx => R('#a9cbe6', hx, oxTop + ox * (1 - k), 18, ox * k));
-      const top = oxTop - 22 * k; R('#a9cbe6', bx, top, bw, oxTop - top);
-      rain('#d8ecff', 30, 0, top); break;
+      // Conformal film: it grows equally on every surface, top, walls and floor of the windows, so its surface
+      // traces the steps of the stack below. The windows close from the sides; the dips above them fade out.
+      // Drawn as a thick round line along the surface, clipped to the open space above the stack.
+      // CVD deposits at a constant rate: the film thickens linearly with time.
+      const d = 22 * clamp((t - 20) / 150, 0, 1);
+      if (d > 0.3) {
+        ctx.save(); ctx.beginPath();
+        ctx.moveTo(bx, y); ctx.lineTo(bx + bw, y); ctx.lineTo(bx + bw, oxTop);
+        [...holes].reverse().forEach(hx => { ctx.lineTo(hx + 18, oxTop); ctx.lineTo(hx + 18, si); ctx.lineTo(hx, si); ctx.lineTo(hx, oxTop); });
+        ctx.lineTo(bx, oxTop); ctx.closePath(); ctx.clip();
+        const surface = () => {
+          ctx.beginPath(); ctx.moveTo(bx - 30, oxTop);
+          holes.forEach(hx => { ctx.lineTo(hx, oxTop); ctx.lineTo(hx, si); ctx.lineTo(hx + 18, si); ctx.lineTo(hx + 18, oxTop); });
+          ctx.lineTo(bx + bw + 30, oxTop); ctx.stroke();
+        };
+        ctx.lineJoin = 'round';
+        ctx.strokeStyle = '#d8ecff'; ctx.lineWidth = 2 * d + 2; surface();
+        ctx.strokeStyle = '#a9cbe6'; ctx.lineWidth = 2 * d; surface();
+        ctx.restore();
+      }
+      rain('#d8ecff', 30, 0, oxTop - d); break;
     }
     case 'contacts': {
       oxide(1); doped(18, 6); holes.forEach(hx => R('#a9cbe6', hx, oxTop, 18, ox)); R('#a9cbe6', bx, oxTop - 22, bw, 22);
