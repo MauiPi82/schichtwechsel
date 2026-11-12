@@ -253,25 +253,46 @@ function timeline(shots) { let at = 0; for (const s of shots) { at -= s.xin; s.s
 const TOTAL = timeline(SHOTS);
 
 /* ---------- Epilogue of the normal ending: 05:59 to 06:12 ---------- */
-// The lot goes into the stocker.
+// The lot goes into the stocker: behind the glass a crane takes the FOUP from the input port and puts it into the
+// one empty slot, which then lights green.
 function stockerScene(t) {
   R('#c9ced6', 0, 0, W, H); R('#e6e9ee', 0, 0, W, 60);
   for (let x = 30; x < W; x += 140) { R('#f7f9fc', x, 54, 90, 4); ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.beginPath(); ctx.moveTo(x - 20, 58); ctx.lineTo(x + 110, 58); ctx.lineTo(x + 150, 290); ctx.lineTo(x - 60, 290); ctx.fill(); }
   R('#a9b1bc', 0, 290, W, 70); for (let x = 0; x < W; x += 24) R('#9aa3ae', x, 290, 1, 70);
-  // The stocker: a tall cabinet with FOUPs behind glass, an input port, its display.
-  R('#7c8693', 200, 70, 300, 220); R('#8d97a4', 200, 70, 300, 6); R('#5a6370', 210, 86, 280, 150);
-  for (let r = 0; r < 4; r++) for (let c = 0; c < 7; c++) { R('#d9dde3', 220 + c * 38, 96 + r * 34, 28, 22); R('#e8732a', 224 + c * 38, 102 + r * 34, 20, 3); }
-  R('rgba(200,225,255,.18)', 210, 86, 280, 150);
-  R('#3a4058', 300, 244, 100, 30); R('#9aa6b5', 300, 244, 100, 4);
-  const lift = ease((t - 1.6) / 1.8), gone = t > 3.4;
-  if (!gone) {
-    const fx = 330, fy = 220 - lift * 74;
-    R('#d9dde3', fx, fy, 40, 26); R('#a9b1bc', fx, fy + 22, 40, 4); R('#e8732a', fx + 6, fy + 8, 28, 4); R('#5a6370', fx + 14, fy - 4, 12, 4);
-    R('#d8262a', fx + 36 + Math.round(Math.sin(F / 10)), fy + 6, 8, 12); R('#ffffff', fx + 38 + Math.round(Math.sin(F / 10)), fy + 10, 4, 2);
+  // Cabinet, glass front, shelves full of FOUPs except slot row 2, column 5.
+  R('#7c8693', 196, 66, 308, 226); R('#8d97a4', 196, 66, 308, 6); R('#3a4250', 206, 80, 288, 170);
+  const slot = (r, c) => [220 + c * 38, 92 + r * 34], empty = [1, 4];
+  for (let r = 0; r < 4; r++) for (let c = 0; c < 7; c++) {
+    const [sx, sy] = slot(r, c); R('#2a303a', sx - 2, sy + 22, 32, 3);
+    if (r === empty[0] && c === empty[1]) continue;
+    R('#d9dde3', sx, sy, 28, 22); R('#e8732a', sx + 4, sy + 6, 20, 3); R('#a9b1bc', sx, sy + 19, 28, 3);
   }
-  R('#0b0f18', 420, 244, 64, 24);
-  if (t > 3.6 && (F >> 4) % 2) txt('4471 OK', 452, 252, 8, '#3fe06a');
-  else if (t <= 3.6) txt('4471 >', 452, 252, 8, '#ffcf5a');
+  // Timeline: door of the input port opens, crane comes down, lifts, travels, places.
+  const [ex, ey] = slot(empty[0], empty[1]), portX = 336, portY = 214;
+  const mx0 = 250, my0 = 100, lerp2 = (a, b, k) => a + (b - a) * ease(k);
+  let mx, my, carry = false, placed = false;
+  if (t < 1.4) { mx = lerp2(mx0, portX + 14, (t - 0.4) / 1.0); my = my0; }
+  else if (t < 2.0) { mx = portX + 14; my = lerp2(my0, portY + 4, (t - 1.4) / 0.6); }
+  else if (t < 2.6) { mx = portX + 14; my = lerp2(portY + 4, ey + 4, (t - 2.0) / 0.6); carry = true; }
+  else if (t < 3.6) { mx = lerp2(portX + 14, ex + 14, (t - 2.6) / 1.0); my = ey + 4; carry = true; }
+  else { mx = ex + 14; my = ey + 4; placed = true; }
+  const gotIt = t >= 2.0;
+  // The FOUP: on the port, on the crane, or in its slot. Red HOT LOT tag.
+  const foup = (fx, fy) => { R('#d9dde3', fx, fy, 28, 22); R('#e8732a', fx + 4, fy + 6, 20, 3); R('#a9b1bc', fx, fy + 19, 28, 3); R('#d8262a', fx + 24, fy + 4, 5, 9); };
+  if (!gotIt) foup(portX, portY);
+  else if (placed) foup(ex, ey);
+  // The crane: rail on top, mast, carriage with its fork.
+  R('#5a6370', 210, 84, 280, 4); R('#8d97a4', mx - 2, 84, 4, 160); R('#c9ced6', mx - 10, my - 4, 20, 4);
+  if (carry) foup(mx - 14, my);
+  R('rgba(200,225,255,.12)', 206, 80, 288, 170);
+  // Empty slot blinks green until the lot is in, then stays green.
+  if (!placed) { if ((F >> 4) % 2) { ctx.strokeStyle = '#3fe06a'; ctx.lineWidth = 2; ctx.strokeRect(ex - 1, ey - 1, 30, 24); } }
+  else R('#3fe06a', ex + 30, ey + 8, 3, 6);
+  // Input port and display.
+  R('#3a4058', 300, 240, 100, 30); R('#9aa6b5', 300, 240, 100, 4); const door = clamp((t - 0.1) / 0.5, 0, 1) * (t < 2.4 ? 1 : 1 - clamp((t - 2.4) / 0.4, 0, 1));
+  R('#5a6370', 326, 204 - door * 30, 48, 36 * (1 - door) + 2);
+  R('#0b0f18', 420, 246, 70, 24);
+  txt(placed ? '4471 · OK' : '4471 >', 455, 254, 8, placed ? '#3fe06a' : '#ffcf5a');
   // You beside it, in the suit, seen from the side.
   const x = 120;
   ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x + 14, 292, 18, 4, 0, 0, 7); ctx.fill();
@@ -293,32 +314,6 @@ function dawnScene(t) {
     const age = t - 0.6 - k * 0.7; if (age < 0 || age > 2.4) continue;
     ctx.strokeStyle = `rgba(255,230,190,${0.5 * (1 - age / 2.4)})`; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(cx, cy, 10 + age * 60, 0, 7); ctx.stroke();
   }
-}
-// The time clock at the exit: the card goes through it like through air.
-function timeClockScene(t) {
-  R('#1a1e24', 0, 0, W, H); for (let y = 0; y < H; y += 32) R('#20252c', 0, y, W, 1); for (let x = 0; x < W; x += 48) R('#20252c', x, 0, 1, H);
-  // The card rack beside it: everyone's cards, three of them still in the IN row.
-  R('#3a3226', 450, 80, 120, 200); R('#4a4032', 450, 80, 120, 6);
-  txt('ENTRATA', 480, 90, 8, '#c9b98a'); txt('USCITA', 540, 90, 8, '#c9b98a');
-  for (let r = 0; r < 8; r++) { R('#2a2418', 456, 104 + r * 21, 50, 16); R('#2a2418', 514, 104 + r * 21, 50, 16); }
-  for (const r of [1, 4, 6]) { R('#efe6c8', 456, 98 + r * 21, 50, 20); R('#c9b98a', 456, 98 + r * 21, 50, 4); }
-  txt('ROSSI', 481, 108 + 1 * 21, 8, '#5a4a2a'); txt('COLOMBO', 481, 108 + 4 * 21, 8, '#5a4a2a'); txt('FERRARI', 481, 108 + 6 * 21, 8, '#5a4a2a');
-  // The clock: cream housing, a round dial on top, the display, the slot.
-  R('#d8cfb8', 200, 70, 200, 220); R('#c4bba4', 200, 70, 200, 8); R('#b8ae96', 200, 282, 200, 8);
-  circle('#2a2418', 300, 62, 30); circle('#efe4be', 300, 62, 27); clockFace(300, 62, 25, t > 2.2 ? 6 : 5, t > 2.2 ? 0 : 59);
-  txt('VOGT · TIMBRATRICE', 300, 84, 8, '#7a6e56');
-  R('#0b0f18', 224, 100, 152, 46);
-  const denied = t > 2.2, on = (F >> 4) % 2;
-  if (denied) { txt('USCITA NEGATA', 300, 108, 16, on ? '#ff3a2a' : '#7a1810'); txt('06:00', 300, 128, 8, on ? '#ff3a2a' : '#7a1810'); }
-  else { txt('TIMBRA', 300, 108, 16, '#3fe06a'); txt('05:59', 300, 128, 8, '#3fe06a'); }
-  R('#2a2418', 280, 168, 40, 6); txt('▼', 300, 178, 8, '#7a6e56');
-  // The card slides down into the slot and comes out below, unstamped; the glove lets go.
-  const k = ease((t - 0.6) / 2.2), cy = 40 + k * 230;
-  ctx.globalAlpha = cy > 150 && cy < 290 ? 0.35 : 1;
-  R('#efe6c8', 304, cy, 32, 50); R('#c9b98a', 304, cy, 32, 6); txt('18', 320, cy + 20, 8, '#5a4a2a');
-  ctx.globalAlpha = 1;
-  if (t < 2.8) { R('#8a5cd6', 296, Math.min(cy, 150) - 26, 48, 28); R('#6a40b0', 296, Math.min(cy, 150) - 4, 48, 4); }
-  if (denied) { ctx.fillStyle = `rgba(255,40,30,${0.08 + 0.06 * Math.sin(F / 6)})`; ctx.fillRect(0, 0, W, H); }
 }
 // The fab from the water at dawn: one window still in yellow light, and now four stand in it.
 function windowScene(t) {
@@ -366,30 +361,58 @@ function layersScene(t) {
   txt('LOT 4471', x0 + w / 2, base + 10, 16, '#6b7190');
 }
 /* ---------- Scenes for the Odenchip ending ---------- */
-// 06:00, the time clock takes all four cards, one after another: ROSSI, COLOMBO, FERRARI, then yours.
-function clockOutScene(t) {
+// The time clock by the exit and its card rack. Both endings use it.
+// Odenchip: at six it takes all four cards, ROSSI, COLOMBO, FERRARI and yours; each moves from IN to OUT, stamped.
+// Normal: your card 18 leaves the IN row, goes into the slot, the clock refuses it, it falls through the clock as if
+// through air and is back in the IN row, beside the three.
+function clockScene(t, denied) {
   R('#1a1e24', 0, 0, W, H); for (let y = 0; y < H; y += 32) R('#20252c', 0, y, W, 1); for (let x = 0; x < W; x += 48) R('#20252c', x, 0, 1, H);
-  const names = ['ROSSI', 'COLOMBO', 'FERRARI', '18'], per = 1.3, cur = Math.min(3, Math.floor(Math.max(0, t - 0.4) / per)), k = ((t - 0.4) % per) / per;
-  const done = t < 0.4 ? 0 : Math.min(4, Math.floor((t - 0.4) / per) + (k > 0.75 ? 1 : 0));
-  // The rack: cards move from ENTRATA to USCITA once stamped.
+  const card = (cx, cy, name, stamp, alpha = 1) => {
+    ctx.globalAlpha = alpha; R('#efe6c8', cx, cy, 50, 20); R('#c9b98a', cx, cy, 50, 4); txt(name, cx + 25, cy + 10, 8, '#5a4a2a');
+    if (stamp) R(stamp, cx + 38, cy + 2, 8, 4); ctx.globalAlpha = 1;
+  };
+  // Rack.
   R('#3a3226', 450, 80, 120, 200); R('#4a4032', 450, 80, 120, 6);
   txt('ENTRATA', 480, 90, 8, '#c9b98a'); txt('USCITA', 540, 90, 8, '#c9b98a');
   for (let r = 0; r < 8; r++) { R('#2a2418', 456, 104 + r * 21, 50, 16); R('#2a2418', 514, 104 + r * 21, 50, 16); }
-  names.forEach((n, i) => {
-    const out = i < done, row = [1, 4, 6, 2][i], x = out ? 514 : 456;
-    if (i === cur && !out && t >= 0.4) return;
-    R('#efe6c8', x, 98 + row * 21, 50, 20); R('#c9b98a', x, 98 + row * 21, 50, 4); txt(n, x + 25, 108 + row * 21, 8, '#5a4a2a');
-    if (out) R('#2a8a3a', x + 38, 100 + row * 21, 8, 4);
-  });
-  // The clock: dial at six, the display green this time.
+  // Clock: dial, display, slot low on the front.
   R('#d8cfb8', 200, 70, 200, 220); R('#c4bba4', 200, 70, 200, 8); R('#b8ae96', 200, 282, 200, 8);
-  circle('#2a2418', 300, 62, 30); circle('#efe4be', 300, 62, 27); clockFace(300, 62, 25, 6, 0);
+  circle('#2a2418', 300, 62, 30); circle('#efe4be', 300, 62, 27);
   txt('VOGT · TIMBRATRICE', 300, 96, 8, '#7a6e56');
   R('#0b0f18', 224, 108, 152, 46);
-  if (t >= 0.4) { txt('USCITA 06:00', 300, 116, 16, '#3fe06a'); txt(names[cur], 300, 136, 8, '#3fe06a'); }
-  // The slot low on the front. The card of the moment goes in, the clock stamps it, it comes back out.
   const slot = 236;
   R('#2a2418', 280, slot, 40, 6); txt('▼', 300, slot + 10, 8, '#7a6e56');
+  if (denied) {
+    clockFace(300, 62, 25, t > 1.8 ? 6 : 5, t > 1.8 ? 0 : 59);
+    // The three of shift B stay in the IN row the whole time.
+    [['ROSSI', 1], ['COLOMBO', 4], ['FERRARI', 6]].forEach(([n, r]) => card(456, 98 + r * 21, n, '#2a8a3a'));
+    const on = (F >> 4) % 2, refused = t > 1.8;
+    if (refused) { txt('USCITA NEGATA', 300, 116, 16, on ? '#ff3a2a' : '#7a1810'); txt('18 · 06:00', 300, 136, 8, on ? '#ff3a2a' : '#7a1810'); }
+    else { txt('TIMBRA', 300, 116, 16, '#3fe06a'); txt('05:59', 300, 136, 8, '#3fe06a'); }
+    // Your card: out of the rack, over to the slot, in.
+    if (t < 0.3) card(456, 98 + 2 * 21, '18', '#2a8a3a');
+    else if (t < 1.8) {
+      const k = ease((t - 0.3) / 0.8), cx = 456 + (284 - 456) * k, cyTop = 140 + (slot - 56 - 140) * k;
+      const dip = ease((t - 1.1) / 0.6), vis = 56 - dip * 44, top = slot - vis;
+      if (t < 1.1) { card(cx, cyTop, '18', '#2a8a3a'); R('#8a5cd6', cx + 7, cyTop - 10, 36, 12); }
+      else { R('#efe6c8', 284, top, 32, vis); R('#c9b98a', 284, top, 32, 5); if (vis > 30) txt('18', 300, top + 9, 8, '#5a4a2a'); R('#8a5cd6', 282, top - 12, 36, 14); }
+    } else if (t < 3.2) {
+      // Through the clock like through air: it comes out underneath, pale, and drifts to the floor.
+      const k = ease((t - 1.8) / 1.4);
+      card(275, slot + 10 + k * 40, '18', null, 0.45 * (1 - k * 0.4));
+    } else card(456, 98 + 2 * 21, '18', '#2a8a3a', clamp((t - 3.2) / 0.5, 0, 1));
+    if (refused) { ctx.fillStyle = `rgba(255,40,30,${0.06 + 0.05 * Math.sin(F / 6)})`; ctx.fillRect(0, 0, W, H); }
+    return;
+  }
+  clockFace(300, 62, 25, 6, 0);
+  const names = ['ROSSI', 'COLOMBO', 'FERRARI', '18'], rows = [1, 4, 6, 2], per = 1.3, cur = Math.min(3, Math.floor(Math.max(0, t - 0.4) / per)), k = ((t - 0.4) % per) / per;
+  const done = t < 0.4 ? 0 : Math.min(4, Math.floor((t - 0.4) / per) + (k > 0.75 ? 1 : 0));
+  names.forEach((n, i) => {
+    const out = i < done;
+    if (i === cur && !out && t >= 0.4) return;
+    card(out ? 514 : 456, 98 + rows[i] * 21, n, out ? '#2a8a3a' : null);
+  });
+  if (t >= 0.4) { txt('USCITA 06:00', 300, 116, 16, '#3fe06a'); txt(names[cur], 300, 136, 8, '#3fe06a'); }
   if (t >= 0.4 && done < 4) {
     const dip = k < 0.45 ? ease(k / 0.45) : k < 0.55 ? 1 : 1 - ease((k - 0.55) / 0.3), visible = 56 - dip * 44, top = slot - visible;
     R('#efe6c8', 284, top, 32, visible); R('#c9b98a', 284, top, 32, 5);
@@ -398,6 +421,7 @@ function clockOutScene(t) {
     R('#8a5cd6', 282, top - 12, 36, 14); R('#6a40b0', 282, top - 2, 36, 3);
   }
 }
+const timeClockScene = t => clockScene(t, true), clockOutScene = t => clockScene(t, false);
 // The gate by the lake at first light, the prologue walked backwards: four come out. Three of them, still in
 // the tan suits of shift B, thin into the morning one after the other; the fourth, in a jacket, walks on alone.
 function gateOutScene(t) {

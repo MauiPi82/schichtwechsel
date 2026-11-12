@@ -489,7 +489,7 @@ function pollPad() {
 let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0, shake = 0;
 let progress = clamp(+store.get('level') || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
 const deathsBy = levels.map(() => 0);
-const BUILD = '0.43 · 2026-11-12';
+const BUILD = '0.44 · 2026-11-12';
 // Testers can jump to an hour: ?stunde=3 or ?hour=3 opens the third hour.
 const jump = +(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || 0);
 if (jump >= 1 && jump <= levels.length) progress = jump - 1;
@@ -1443,16 +1443,19 @@ function renderEnding() {
   }
   if (cardT > 280 && Object.keys(lot.s).length) {
     const y = lotYield(), g = window.SchichtMini.grade((y - 26) / 71);
-    txt(`${t().yieldWord} ${y} %`, 254, 128, {align: 'center', color: '#ffcf5a', max: 100});
-    txt(g.word, 254, 137, {align: 'center', color: g.color, max: 100});
+    txt(`${t().yieldWord} ${y} %`, 254, 108, {align: 'center', color: '#ffcf5a', max: 100});
+    txt(g.word, 254, 117, {align: 'center', color: g.color, max: 100});
     const worst = Object.keys(lot.s).filter(p => STEP_NAME[p]).sort((a, b) => lot.s[a] - lot.s[b])[0];
-    if (worst && lossOf(lot.s[worst]) > 0) txt(`${STEP_NAME[worst][lang === 'de' ? 0 : 1]} −${lossOf(lot.s[worst])} %`, 254, 146, {align: 'center', color: '#8a7a5a', font: 'IBM Plex Sans', size: 7, max: 100});
+    if (worst && lossOf(lot.s[worst]) > 0) txt(`${STEP_NAME[worst][lang === 'de' ? 0 : 1]} −${lossOf(lot.s[worst])} %`, 254, 126, {align: 'center', color: '#8a7a5a', font: 'IBM Plex Sans', size: 7, max: 100});
   }
   if (cardT > 300) txt(t().thanks, W / 2, 158, {align: 'center', color: '#c9c2ae'});
   if (cardT > 330) {
-    txt(`${t().reticles} ${found.size}/${LEVELS.length}`, 254, 110, {align: 'center', color: '#6b7190', max: 100});
-    ctx.font = '400 7px "IBM Plex Sans", monospace';
-    wrapLine(t().missing, 112).forEach((l, i) => txt(l, 254, 119 + i * 8, {align: 'center', color: '#8c93a8', font: 'IBM Plex Sans', size: 7, max: 120}));
+    // Below the yield: how many reticles, and what all eight would have done.
+    txt(`${t().reticles} ${found.size}/${LEVELS.length}`, 254, 140, {align: 'center', color: '#6b7190', max: 100});
+    if (found.size < LEVELS.length) {
+      ctx.font = '400 6px "IBM Plex Sans", monospace';
+      wrapLine(t().missing, 116).forEach((l, i) => txt(l, 254, 149 + i * 7, {align: 'center', color: '#8c93a8', font: 'IBM Plex Sans', size: 6, max: 120}));
+    }
   }
   txt(t().credit, W / 2, H - 9, {align: 'center', color: '#4c5470', font: 'IBM Plex Sans', size: 6});
 }
