@@ -777,7 +777,7 @@ function drawReticleFound(t, info) {
 // the clean takes about ten seconds, one bath after another. At the end the picture rests a moment.
 const BASE = 230, HOLD = 150;
 // The measurements only read a number: they run shorter and rest less.
-const DUR = {clockin: 420, intake: 620, clean: 620, inspect: 360, oxidize: 540, nitride: 480, ellipso: 340, rs: 300, measure: 280, reticle: 230};
+const DUR = {clockin: 280, intake: 440, clean: 620, inspect: 360, oxidize: 540, nitride: 480, ellipso: 340, rs: 300, measure: 280, reticle: 230};
 const PASSIVE = new Set(['inspect', 'ellipso', 'rs', 'measure']);
 function duration(type) { return (DUR[type] || 330) + (type === 'reticle' ? 0 : PASSIVE.has(type) ? 90 : HOLD); }
 function draw(c, type, t, language, info) {
@@ -803,7 +803,24 @@ function draw(c, type, t, language, info) {
   if (t > 20) text(language === 'de' ? 'SHIFT: WEITER' : 'SHIFT: CONTINUE', W / 2, y0 + PH + 6, {align: 'center', color: '#8c93a8'});
 }
 
-window.SchichtProcess = {draw, duration, furnace: (c, x, y, w, h, o) => { F = o.t || F; return furnaceView(c, x, y, w, h, o); },
+// A measurement in one line, for the overlay that replaces its window: what is measured and what it found.
+function readout(type, info, language) {
+  lang = language; lotInfo = info && info.lot;
+  const de = lang === 'de', cap = (CAP[type] || CAP.etch)[lang];
+  let value = '', ok = true;
+  if (type === 'inspect') { const n = dustOf().length; value = de ? `Partikel ab 26 nm: ${n}` : `Particles from 26 nm: ${n}`; ok = n <= 8; }
+  else if (type === 'ellipso') {
+    const ox = val('oxide', 50.1), ni = val('nitride', 100.4), nu = val('nitrideU', null);
+    value = `SiO₂ ${fmt(ox)} nm · Si₃N₄ ${fmt(ni)} nm${nu !== null ? ` ±${fmt(nu)} %` : ''}`; ok = Math.abs(ox - 50) < 2 && Math.abs(ni - 100) < 4 && (nu === null || nu < 3);
+  } else if (type === 'measure') { const cd = cdOf(); value = `${de ? 'Linienbreite' : 'Line width'} ${fmt(cd)} nm · ${de ? 'Ziel' : 'target'} 40 nm`; ok = Math.abs(cd - 40) < 3; }
+  else if (type === 'rs') {
+    const al = val('al', 500), rsm = 27000 / Math.max(50, al) * (1 + 0.3 * (1 - val('alQ', 1)));
+    value = `Rs ${Math.round(rsm)} mΩ/□ · Al ${Math.round(al)} nm`; ok = rsm < 62;
+  }
+  return {title: cap[0], text: cap[1], value, ok};
+}
+
+window.SchichtProcess = {draw, duration, readout, passive: type => PASSIVE.has(type), furnace: (c, x, y, w, h, o) => { F = o.t || F; return furnaceView(c, x, y, w, h, o); },
   scanner: (c, x, y, w, h, o, language) => { F = o.t || F; if (language) lang = language; return scannerView(c, x, y, w, h, o); },
   chamber: (c, x, y, w, h, o, language) => { F = o.t || F; if (language) lang = language; return chamberView(c, x, y, w, h, o); }, DURATION: BASE};
 })();

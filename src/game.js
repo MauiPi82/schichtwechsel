@@ -563,7 +563,7 @@ function pollPad() {
 let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0, shake = 0;
 let progress = clamp(parseInt(store.get('level'), 10) || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
 const deathsBy = levels.map(() => 0);
-const BUILD = '0.58 · 2026-11-12';
+const BUILD = '0.59 · 2026-11-12';
 // Testers can jump to an hour: ?stunde=3 or ?hour=3 opens the third hour.
 const jump = parseInt(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || '0', 10) || 0;
 if (jump >= 1 && jump <= levels.length) progress = jump - 1;
@@ -607,6 +607,9 @@ function stickyCheck() {
 }
 /* ---------- Intro: corridor, gowning room, air shower ---------- */
 let introMode = false, suited = false, showerT = 0, showerDone = false, introSeen = new Set(), procT = 0, procType = '', introNote = null, gownT = 0;
+// A measurement read over the room (no window); process animations already seen run at double speed.
+let reading = null, procFast = false, seenProc = new Set();
+try { const v = JSON.parse(store.get('seenproc') || '[]'); if (Array.isArray(v)) seenProc = new Set(v); } catch (_) { /* fresh */ }
 let lockerT = 0, lockerDone = false, noteSrc = null, clockedIn = false;
 // Gowning: six pieces, GOWN_STEP frames each; the suit covers you from the top during the first four.
 const GOWN_STEP = 30, GOWN_REVEAL = [0.24, 0.36, 0.84, 1];
@@ -757,7 +760,9 @@ function updateCinema() {
   if (shot === 2 && t > 0.8 && t < 2.6 && frame % 6 === 0) audio.sfx('zap');
   if (cinemaT >= window.SchichtCinema.TOTAL) { startIntro(); fadeIn(70); }
 }
-function startIntro() {
+// From the second night on, the way in is known: the night starts at the 22:00 card (the test hook can force it).
+function startIntro(force) {
+  if (!force && store.get('intro') === '1') { endIntro(); return; }
   const L = C.parseLevel(INTRO);
   // The door to the air shower opens once you wear the suit.
   L.open = new Set(); L.showerT = 0;
@@ -799,6 +804,7 @@ function introStep() {
 // A process window closes; after the incoming check, the traveller of the lot.
 function endProcess() {
   mode = 'play';
+  if (!introMode && !seenProc.has(procType)) { seenProc.add(procType); store.set('seenproc', JSON.stringify([...seenProc])); }
   if (procType === 'intake' && introMode) toast(INTRO.pickup[lang], 480);
   if (procType === 'clockin' && introMode) { clockedIn = true; toast(INTRO.clock.after[lang], 480); }
 }
@@ -864,7 +870,7 @@ function startLevel(i, resume = false) {
     });
     state.px = state.x; state.py = state.y;
     state.safeUntil = state.step + 14; state.bellFrom = state.step;
-  } else { state = C.newState(levels[i]); hintT = 0; toastT = 0; shiftHintT = 0; paDone = new Set(); paQueue = []; paNow = null; noteRead = false; scareDone = false; }
+  } else { state = C.newState(levels[i]); hintT = 0; toastT = 0; shiftHintT = 0; paDone = new Set(); paQueue = []; paNow = null; noteRead = false; scareDone = false; reading = null; }
   scare = null; freezeT = 0; history = [];
   queuedDir = null; queuedShift = false;
   audio.setLayer(state.layer);
@@ -873,7 +879,7 @@ function startLevel(i, resume = false) {
 function menu() {
   if (mode === 'title' || veilPhase === 'out') return;
   transition(() => {
-    mode = 'title'; introMode = false; mini = null; pendingMode = null; scare = null; paNow = null; paQueue = []; toastT = 0; fromBook = false;
+    mode = 'title'; introMode = false; mini = null; pendingMode = null; scare = null; paNow = null; paQueue = []; toastT = 0; fromBook = false; reading = null;
     audio.rain(0); audio.setLayer(0);
   }, 24, 24);
 }
@@ -929,12 +935,16 @@ function doStep(action) {
   // In the gowning intro the only station is the handover cart: you pick up lot 4471.
   if (state.events.includes('station') && introMode) { procType = 'intake'; procT = 0; mode = 'process'; }
   else if (state.events.includes('station') && state.status === 'play') {
-    checkpoint = C.clone(state); history = []; toast(t().checkpoint, 100);
+    checkpoint = C.clone(state); history = [];
     const step = LEVELS[levelIndex].route && LEVELS[levelIndex].route[state.got - 1];
     // A step plays its minigame (mini names another one, false shows only the process), else its animation.
+    // A measurement only reads a number: it shows over the room and you walk on.
     const game = step && (step.mini === false ? null : step.mini || step.proc);
+    if (!(step && step.proc && window.SchichtProcess && window.SchichtProcess.passive(step.proc))) toast(t().checkpoint, 100);
     if (game && window.SchichtMini && window.SchichtMini.has(game)) startMini(game, step.variant);
-    else if (step && step.proc && window.SchichtProcess) { procType = step.proc; procT = 0; mode = 'process'; }
+    else if (step && step.proc && window.SchichtProcess && window.SchichtProcess.passive(step.proc)) {
+      reading = {...window.SchichtProcess.readout(step.proc, {lot}, lang), t: 0}; audio.sfx('station');
+    } else if (step && step.proc && window.SchichtProcess) { procType = step.proc; procT = 0; procFast = seenProc.has(step.proc); mode = 'process'; }
   }
   if (state.events.includes('bump')) {
     const [dx, dy] = C.DIRS[state.face], o = 1 - state.layer;
@@ -1020,7 +1030,8 @@ function update() {
   if (flashFx && ++flashFx.t > 34) flashFx = null;
   if (mode === 'cinema') updateCinema();
   if (mode === 'epilogue') updateEpilogue();
-  if (mode === 'process' && ++procT > window.SchichtProcess.duration(procType)) endProcess();
+  if (mode === 'process' && (procT += procFast ? 2 : 1) > window.SchichtProcess.duration(procType)) endProcess();
+  if (reading && mode === 'play' && ++reading.t > READING_LEN) reading = null;
   if (mode === 'shower') updateShower();
   if (mode === 'gown') updateGown();
   if (mode === 'locker') updateLocker();
@@ -1213,6 +1224,20 @@ function drawPA() {
   if (paT / 60 >= PA_START) txt(paNow[lang], x + 26, y + 13, {font: 'IBM Plex Sans', size: 8, color: '#c9c2ae', max: w - 32});
   ctx.globalAlpha = 1;
 }
+// A measurement over the room: the instrument, what it does, what it found; green when it is in spec.
+const READING_LEN = 330;
+function drawReading() {
+  if (!reading || introMode || mode === 'rewind') return;
+  const a = clamp(Math.min(reading.t / 12, (READING_LEN - reading.t) / 30), 0, 1), h = 36, w = W - 40;
+  const top = paNow ? FY + 30 : FY + 4, bottom = FY + C.H * T - h - 16;
+  const y = paNow && paY() !== FY + 3 ? top : covers(bottom, h) < covers(top, h) ? bottom : top;
+  ctx.globalAlpha = a;
+  R('rgba(6,8,12,.93)', 20, y, w, h); R(reading.ok ? '#3fe06a' : '#ffcf5a', 20, y, 2, h);
+  txt(reading.title, 28, y + 3, {color: '#9fe0ff', max: w - 16});
+  txt(reading.text, 28, y + 14, {color: '#c9c2ae', font: 'IBM Plex Sans', size: 7, max: w - 16});
+  txt(`${reading.value}  ${reading.ok ? '✓' : '!'}`, 28, y + 24, {color: reading.ok ? '#3fe06a' : '#ffcf5a', font: 'IBM Plex Sans', size: 8, max: w - 16});
+  ctx.globalAlpha = 1;
+}
 // A note from shift B: torn ruled paper, a coffee ring, blue handwriting, the signature.
 function drawNote() {
   const n = introMode ? (noteSrc === 'locker' ? INTRO.locker.note : INTRO.note) : LEVELS[levelIndex].note, a = clamp(noteT / 10, 0, 1);
@@ -1283,6 +1308,7 @@ function renderPlay() {
   bellPreview();
   drawHUD();
   drawPA();
+  drawReading();
   if (mode === 'gown') drawGown();
   if (toastT > 0 && !toastHeld() && !['note', 'gown', 'locker', 'shower'].includes(mode)) {
     ctx.globalAlpha = clamp(toastT / 20, 0, 1);
@@ -1763,7 +1789,7 @@ if (new URLSearchParams(location.search).has('test')) {
     levels, get state() { return state; }, get mode() { return mode; },
     card: i => startCard(i), start: i => startLevel(i), act: a => doStep(a),
     // Like a key press: the action waits for the next step of the real loop.
-    queue: a => { if (a === 'shift') { queuedShift = true; shiftQueuedAt = frame; } else if (a !== 'wait') queuedDir = a; }, get stepFrame() { return stepFrame; }, get pending() { return pendingMode; }, render, update, intro: () => startIntro(), get showerT() { return showerT; }, get gownT() { return gownT; }, get lockerT() { return lockerT; }, get introNote() { return introNote; }, cinema: () => startCinema(), get cinemaT() { return cinemaT; },
+    queue: a => { if (a === 'shift') { queuedShift = true; shiftQueuedAt = frame; } else if (a !== 'wait') queuedDir = a; }, get stepFrame() { return stepFrame; }, get pending() { return pendingMode; }, render, update, intro: () => startIntro(true), get showerT() { return showerT; }, get gownT() { return gownT; }, get lockerT() { return lockerT; }, get introNote() { return introNote; }, cinema: () => startCinema(), get cinemaT() { return cinemaT; },
     finale: () => { mode = 'finale'; finT = 0; }, get finT() { return finT; }, set finT(v) { finT = v; },
     epilogue: () => { mode = 'epilogue'; epiT = 0; }, get epiT() { return epiT; }, set epiT(v) { epiT = v; }, found,
     process: (type, tt) => { procType = type; procT = tt; mode = 'process'; },
