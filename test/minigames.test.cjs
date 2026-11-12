@@ -41,7 +41,17 @@ test('oxidise: stopping at 50 nm is perfetto, waiting too long is not', () => {
 test('coat: hold SHIFT to 2000 rpm, let go, the film dries at 100 nm', () => {
   const m = M.create('coat');
   run(m, 50); run(m, 200, {...idle, held: true}); run(m, 160);
-  assert.equal(m.phase, 'result'); assert.equal(m.values.rpm, 2000); assert.ok(Math.abs(m.values.resist - 100) < 1e-9); assert.equal(m.score, 1);
+  assert.equal(m.phase, 'result'); assert.equal(m.values.rpm, 2000); assert.ok(Math.abs(m.values.resist - 100) < 0.1); assert.ok(m.score > 0.99);
+});
+
+test('coat: the film only gets thinner; slowing down after 4000 rpm leaves it thin', () => {
+  const m = M.create('coat');
+  run(m, 50); run(m, 400, {...idle, held: true}); run(m, 490, {...idle, down: true});
+  // 4000 rpm thinned it to about 71 nm; going back to about 2000 does not bring the resist back.
+  assert.ok(m.rpm < 2000 && m.film < 75, `rpm ${m.rpm}, film ${m.film}`);
+  // A tap of an arrow key moves the speed by 50 rpm.
+  const r0 = m.rpm; M.update(m, {...idle, up: true}); M.update(m, idle); assert.equal(m.rpm, r0 + 50);
+  run(m, 160); assert.equal(m.phase, 'result'); assert.ok(m.values.resist < 75); assert.ok(m.score < 0.0001);
 });
 
 test('skipping with Enter runs the standard recipe: così così', () => {

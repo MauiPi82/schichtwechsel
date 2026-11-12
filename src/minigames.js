@@ -348,26 +348,32 @@ const nitride = {
 /* ---------- 3 Coat: hold SHIFT to spin up; the film thins as 1/sqrt(rpm). Let go and it dries ---------- */
 // For 40 nm lines the resist is thin: 100 nm at 2000 rpm. Thicker resist would make the lines topple.
 const filmOf = rpm => rpm > 200 ? 100 * Math.sqrt(2000 / rpm) : 400;
+// The film only ever gets thinner: what is flung off the edge does not come back. At each speed it thins towards
+// the thickness that speed allows (h ∝ 1/√ω) and stays there; slowing down again leaves it as it is.
 const coat = {
-  init(m) { m.rpm = 0; m.still = 0; m.rot = 0; m.spinning = false; },
+  init(m) { m.rpm = 0; m.still = 0; m.rot = 0; m.spinning = false; m.film = 400; m.prev = {}; },
   update(m, inp) {
     if (m.t < 50) return;
+    const tap = k => inp[k] && !m.prev[k];
     if (inp.held) { m.rpm = Math.min(5000, m.rpm + 10); m.still = 0; m.spinning = true; }
-    else if (inp.down && m.spinning) { m.rpm = Math.max(500, m.rpm - 4); m.still = 0; }
-    else if (inp.up && m.spinning) { m.rpm = Math.min(5000, m.rpm + 4); m.still = 0; }
+    // ↑ ↓: 50 rpm per press, and on while held.
+    else if (m.spinning && (inp.down || inp.up)) { m.rpm = clamp(m.rpm + (inp.up ? 1 : -1) * (tap(inp.up ? 'up' : 'down') ? 50 : 4), 500, 5000); m.still = 0; }
     else if (m.spinning) m.still++;
+    m.prev = {up: inp.up, down: inp.down};
     m.rot += m.rpm / 6000;
+    const eq = filmOf(m.rpm);
+    if (eq < m.film) m.film += (eq - m.film) * 0.05;
     // It dries at any speed; a slow spin just leaves a far too thick film.
     if (m.spinning && m.still >= 150) {
-      const film = filmOf(m.rpm);
+      const film = m.film;
       finish(m, 1 - Math.abs(film - 100) / 20, {resist: film, rpm: m.rpm}, [
         L(`${Math.round(m.rpm)} U/min → Lack ${num(film)} nm`, `${Math.round(m.rpm)} rpm → resist ${num(film)} nm`),
         L('Zu dick oder zu dünn verschiebt später die Linienbreite.', 'Too thick or too thin shifts the line width later.')]);
     }
   },
   draw(m) {
-    const a = frame(m, L('BELACKEN · SPIN-COATING', 'COAT · SPIN COATING'), L('SHIFT HALTEN: SCHNELLER · ↑ ↓ FEIN · DANN TROCKNEN', 'HOLD SHIFT: FASTER · ↑ ↓ FINE · THEN IT DRIES'));
-    const cx = a.x + 62, cy = a.y + a.h / 2 + 2, r = 44, film = filmOf(m.rpm);
+    const a = frame(m, L('BELACKEN · SPIN-COATING', 'COAT · SPIN COATING'), L('SHIFT HALTEN: SCHNELLER · ↑ ↓ FEIN · NUR DÜNNER, NIE DICKER', 'HOLD SHIFT: FASTER · ↑ ↓ FINE · ONLY THINNER, NEVER THICKER'));
+    const cx = a.x + 62, cy = a.y + a.h / 2 + 2, r = 44, film = m.film;
     // Thin-film colours: the hue turns as the thickness changes (about 0.18 µm per order in resist).
     const hue = (film / 180 * 360) % 360;
     // The coater cup around the wafer: resist flung off the edge lands on its wall.
@@ -396,7 +402,10 @@ const coat = {
     // Dial with the green window around 3000 rpm.
     const dx = a.x + a.w - 70, dy = a.y + 54, dr = 34, A0 = Math.PI * 0.8, A1 = Math.PI * 2.2, ang = v => A0 + (A1 - A0) * v / 5000;
     ctx.lineWidth = 5; ctx.strokeStyle = '#1a2030'; ctx.beginPath(); ctx.arc(dx, dy, dr, A0, A1); ctx.stroke();
-    ctx.strokeStyle = '#1f6a36'; ctx.beginPath(); ctx.arc(dx, dy, dr, ang(1920), ang(2080)); ctx.stroke();
+    // The target: a bright green window at 2000 rpm with its number, red beyond (too thin, no way back).
+    ctx.lineWidth = 7; ctx.strokeStyle = '#3fe06a'; ctx.beginPath(); ctx.arc(dx, dy, dr, ang(1900), ang(2100)); ctx.stroke();
+    ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(224,64,42,.6)'; ctx.beginPath(); ctx.arc(dx, dy, dr + 4, ang(2300), A1); ctx.stroke();
+    text('2000', dx + Math.cos(ang(2000)) * (dr - 14), dy + Math.sin(ang(2000)) * (dr - 14) - 4, {align: 'center', color: '#3fe06a'});
     ctx.lineWidth = 2; ctx.strokeStyle = '#ffcf5a'; ctx.beginPath(); ctx.moveTo(dx, dy); ctx.lineTo(dx + Math.cos(ang(m.rpm)) * (dr - 6), dy + Math.sin(ang(m.rpm)) * (dr - 6)); ctx.stroke();
     text(`${Math.round(m.rpm)}`, dx, dy + 8, {align: 'center', color: '#e9e4d6'});
     text(L('U/MIN', 'RPM'), dx, dy + 17, {align: 'center', color: '#6b7190'});
@@ -847,8 +856,8 @@ const BRIEF = {
     de: ['Das Gas strömt von oben ins Rohr und wird unterwegs verbraucht:', 'Die unteren Wafer bekommen weniger. Wärmer wächst es schneller.', '↑↓ Zone · ←→ Temperatur · SHIFT startet die Abscheidung.'],
     en: ['The gas enters the tube at the top and is used up on the way down:', 'the lower wafers get less. Warmer, it grows faster.', '↑↓ zone · ←→ temperature · SHIFT starts the deposition.']},
   coat: {title: ['BELACKEN · SPIN-COATING', 'COAT · SPIN COATING'],
-    de: ['Der Lack wird aufgeschleudert: je schneller, desto dünner.', 'Ziel: 100 nm Lack, das sind 2000 Umdrehungen pro Minute.', 'SHIFT halten: schneller · ↑↓ fein · loslassen: Lack trocknet.'],
-    en: ['The resist is spun on: the faster, the thinner.', 'Target: 100 nm of resist, that is 2000 revolutions per minute.', 'Hold SHIFT: faster · ↑↓ fine · let go: the resist dries.']},
+    de: ['Der Lack wird aufgeschleudert: je schneller, desto dünner. Was abfliegt, kommt nicht zurück.', 'Ziel: 100 nm Lack, das sind 2000 Umdrehungen pro Minute. Taste dich heran, nicht drüber.', 'SHIFT halten: schneller · ↑↓ fein · loslassen: Lack trocknet.'],
+    en: ['The resist is spun on: the faster, the thinner. What flies off does not come back.', 'Target: 100 nm of resist, that is 2000 revolutions per minute. Creep up on it, not past it.', 'Hold SHIFT: faster · ↑↓ fine · let go: the resist dries.']},
   expose: {title: ['BELICHTEN · SCANNER', 'EXPOSE · SCANNER'],
     de: ['Die erste Maske richtet sich nach der Kerbe; ihre Marken tragen alle späteren Ebenen.', 'Die Justagemarken laufen hin und her. Stopp sie, wenn sie decken.', 'SHIFT stoppt X, dann Y. Danach belichtet der Scanner allein.'],
     en: ['The first mask aligns to the notch; its marks carry every later layer.', 'The alignment marks sweep back and forth. Stop them when they meet.', 'SHIFT stops X, then Y. Then the scanner exposes by itself.']},
