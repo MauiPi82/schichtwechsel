@@ -1,4 +1,4 @@
-// The seven playable process steps: physics, scoring and a full play of each. Run: node --test test/
+// The nine playable process steps: physics, scoring and a full play of each. Run: node --test test/
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs');
@@ -127,4 +127,24 @@ test('with a brief, each step first explains itself and starts on SHIFT; Enter s
     press(m); assert.equal(m.phase, 'play', type);
     const s = M.create(type, {brief: true}); run(s, 40); M.skip(s); assert.equal(s.phase, 'result', `${type} skips from the brief`);
   }
+});
+
+test('sputter: argon held in the band gives a dense 500 nm film; no argon, no plasma, no film', () => {
+  // A player who opens the valve below 4.5 µbar and closes it above keeps the pressure in the band.
+  const m = M.create('sputter');
+  let g = 0;
+  while (m.phase === 'play' && g++ < 2000) M.update(m, {...idle, held: m.p !== undefined && m.p < 4.5});
+  assert.equal(m.phase, 'result');
+  assert.ok(Math.abs(m.values.al - 500) < 0.01, `film ${m.values.al}`);
+  assert.equal(M.grade(m.score).word, 'PERFETTO', `score ${m.score}`);
+  // Holding the valve open the whole time: too much argon, scattered atoms, a porous film.
+  const open = M.create('sputter');
+  g = 0;
+  while (open.phase === 'play' && g++ < 2000) M.update(open, {...idle, held: true});
+  assert.ok(open.score < 0.5, `open valve ${open.score}`);
+  // Never letting argon in: the plasma never strikes, nothing grows.
+  const shut = M.create('sputter');
+  g = 0;
+  while (shut.phase === 'play' && g++ < 2000) M.update(shut, idle);
+  assert.equal(shut.values.al, 0); assert.equal(M.grade(shut.score).word, 'SCARTO');
 });

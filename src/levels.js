@@ -158,7 +158,7 @@
       scare: {type: 'blackout', at: 14, layer: 'night'},
       // The litho bay works under yellow light, also in your shift: no short waves to expose the resist.
       yellowLight: true,
-      route: [{de: 'Belacken', en: 'Coat', proc: 'coat'}, {de: 'Belichten', en: 'Expose', proc: 'expose'}, {de: 'Entwickeln', en: 'Develop', proc: 'develop'}, {de: 'Linien messen', en: 'Measure lines', proc: 'measure'}],
+      route: [{de: 'Belacken', en: 'Coat', proc: 'coat'}, {de: 'Belichten', en: 'Expose', proc: 'expose', mini: false}, {de: 'Entwickeln', en: 'Develop', proc: 'develop'}, {de: 'Linien messen', en: 'Measure lines', proc: 'measure'}],
       enemyEvery: 6,
       tools: [
         {x0: 2, y0: 2, type: 'track', name: 'KENSEI CT-7'},
@@ -402,7 +402,7 @@
         en: ['ROSSI_01_final_v2 is my recipe. DO NOT USE.', 'I did not start it.', 'I cannot start anything any more.', 'I cannot touch anything any more.'],
       }},
       scare: {type: 'blackout', at: 22, layer: 'night'},
-      route: [{de: 'Oxid abscheiden', en: 'Deposit oxide', proc: 'deposit'}, {de: 'Kontakte belichten', en: 'Expose contacts', proc: 'cexpose'}, {de: 'Kontakte ätzen', en: 'Etch contacts', proc: 'contacts'}],
+      route: [{de: 'Oxid abscheiden', en: 'Deposit oxide', proc: 'deposit'}, {de: 'Kontakte belichten', en: 'Expose contacts', proc: 'cexpose', mini: 'expose', variant: 'contacts'}, {de: 'Kontakte ätzen', en: 'Etch contacts', proc: 'contacts'}],
       enemyEvery: 6,
       // Plasma only where plasma chambers stand: the PECVD chamber on the left and the etcher on the right fire
       // into the corridor in turn, by day. In the shift before the floor under both has caved in, so you pass them

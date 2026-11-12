@@ -1,4 +1,4 @@
-/* Schichtwechsel - eight process steps you play yourself. Nothing can be lost here: how well you hit a step
+/* Schichtwechsel - nine process steps you play yourself. Nothing can be lost here: how well you hit a step
  * only changes the quality of lot 4471, which the measuring stations judge later and which ends up as the yield.
  * Controls are those of the game: SHIFT (press or hold) and the arrow keys. Drawn in interface coordinates (320 x 180). */
 (() => {
@@ -26,7 +26,7 @@ function grade(s) {
   return {word: 'SCARTO', color: '#e0402a'};
 }
 // Yield of lot 4471: every played step keeps 80 to 100 % of the chips, the rest of the flow costs 3 %.
-const STEPS = ['clean', 'oxidize', 'nitride', 'coat', 'expose', 'develop', 'etch', 'implant'];
+const STEPS = ['clean', 'oxidize', 'nitride', 'coat', 'expose', 'develop', 'etch', 'implant', 'sputter'];
 function yieldOf(lot) {
   let y = 0.97;
   for (const k of STEPS) if (lot && lot.s && lot.s[k] !== undefined) y *= 0.8 + 0.2 * lot.s[k];
@@ -758,7 +758,77 @@ const develop = {
   },
 };
 
-const GAMES = {clean, oxidize, nitride, coat, expose, develop, etch, implant};
+/* ---------- 9 Sputter: hold SHIFT to let argon in, the pump draws it off. Keep the pressure in the band ----------
+ * DC magnetron, Al with 0.5 % Cu. Below about 1.5 µbar the plasma goes out; above 6 µbar the sputtered atoms
+ * scatter on the argon and the film grows slower and porous (higher resistivity). 500 nm is the target. */
+const SP_PUMP = 1 / 60, SP_FLOW = 10 / 60, SP_BAND = [3, 6], SP_OFF = 1.5, SP_ON = 2.2, SP_TARGET = 500, SP_MAX = 900;
+const spQuality = p => p >= SP_BAND[0] && p <= SP_BAND[1] ? 1 : p >= SP_OFF && p <= 7.5 ? 0.55 : 0.2;
+const sputter = {
+  init(m) { m.st = 'pump'; m.bt = 0; m.p = 0.4; m.flow = 0; m.lit = false; m.al = 0; m.q = 0; m.hist = []; },
+  update(m, inp) {
+    m.bt++;
+    if (m.st === 'pump') { if (m.bt > 70) { m.st = 'run'; m.bt = 0; } return; }
+    // The valve follows the key with a little lag; the gas line wobbles; the pump draws in proportion.
+    m.flow += ((inp.held ? 1 : 0) - m.flow) * 0.12;
+    const k = SP_FLOW * (1 + 0.15 * Math.sin(m.bt / 70));
+    m.p = clamp(m.p + m.flow * k - SP_PUMP * m.p, 0, 12);
+    if (!m.lit && m.p >= SP_ON) { m.lit = true; m.sfx('click'); }
+    if (m.lit && m.p < SP_OFF) { m.lit = false; m.sfx('click'); }
+    if (m.lit) {
+      const rate = 1.5 * clamp(1 - Math.abs(m.p - 4.5) / 6, 0.3, 1), d = Math.min(rate, SP_TARGET - m.al);
+      m.q += d * spQuality(m.p); m.al += d;
+    }
+    m.hist.push(m.p); if (m.hist.length > 116) m.hist.shift();
+    if (m.al >= SP_TARGET || m.bt >= SP_MAX) {
+      const q = m.al ? m.q / m.al : 0, score = q * (m.al / SP_TARGET);
+      finish(m, score, {al: m.al, alQ: q}, [
+        L(`Al ${Math.round(m.al)} nm · ${Math.round(q * 100)} % im Band`, `Al ${Math.round(m.al)} nm · ${Math.round(q * 100)} % in the band`),
+        q > 0.8 ? L('Dichte, glatte Schicht. Der Vierspitzer misst gleich nach.', 'A dense, smooth film. The four-point probe checks it next.')
+          : L('Gestreute Atome: Die Schicht ist porös, ihr Widerstand höher.', 'Scattered atoms: the film is porous, its resistance higher.')]);
+    }
+  },
+  draw(m) {
+    const help = m.st === 'pump' ? L('DIE KAMMER WIRD AUSGEPUMPT', 'PUMPING THE CHAMBER DOWN') : L('SHIFT HALTEN: ARGON AUF · LOSLASSEN: DIE PUMPE ZIEHT AB', 'HOLD SHIFT: ARGON IN · RELEASE: THE PUMP DRAWS IT OFF');
+    const a = frame(m, L('SPUTTERN · AL, DC-MAGNETRON', 'SPUTTER · AL, DC MAGNETRON'), help);
+    // Left: the chamber. Magnets behind the target, the racetrack plasma under it, the wafer with its film below.
+    const cx = a.x + 4, cy = a.y + 4, cw = 112, ch = a.h - 8, glow = m.lit ? clamp(0.35 + m.p / 8, 0.35, 1) * (0.85 + 0.15 * Math.sin(F / 3)) : 0;
+    R('#3a4058', cx, cy, cw, ch); R('#141a28', cx + 4, cy + 4, cw - 8, ch - 8);
+    R('#2a3040', cx + 10, cy + 6, cw - 20, 6); for (let i = 0; i < 4; i++) R(i % 2 ? '#d8262a' : '#2c6fb5', cx + 14 + i * ((cw - 32) / 3), cy + 7, 6, 4);
+    R('#c9ced6', cx + 10, cy + 12, cw - 20, 5);
+    text(L('AL-TARGET', 'AL TARGET'), cx + cw / 2, cy + 12, {align: 'center', color: '#3a4058', font: 'IBM Plex Sans', size: 6, max: cw});
+    if (glow > 0) {
+      ctx.fillStyle = `rgba(255,120,200,${0.6 * glow})`; ctx.beginPath(); ctx.ellipse(cx + cw / 2, cy + 24, cw / 2 - 14, 6, 0, 0, 7); ctx.fill();
+      ctx.fillStyle = `rgba(255,170,230,${0.3 * glow})`; ctx.fillRect(cx + 8, cy + 18, cw - 16, 30);
+      // Aluminium atoms on their way down; above the band they zigzag (scattered on the argon).
+      const scat = m.p > SP_BAND[1];
+      for (let i = 0; i < 12; i++) {
+        const yy = cy + 24 + ((F * 1.4 + i * 11) % (ch - 54)), xx = cx + 14 + ((i * 29) % (cw - 28)) + (scat ? Math.sin(F / 3 + i) * 5 : 0);
+        R('#e6e9ee', Math.round(xx), Math.round(yy), 1, 2);
+      }
+    }
+    // Argon in the chamber: more dots, more pressure.
+    for (let i = 0; i < Math.round(m.p * 3); i++) R('rgba(160,190,255,.6)', cx + 8 + ((i * 37 + (F >> 2)) % (cw - 16)), cy + 20 + ((i * 53) % (ch - 46)), 1, 1);
+    const film = Math.round(6 * m.al / SP_TARGET);
+    R('#5a6270', cx + 12, cy + ch - 22, cw - 24, 8); R('#c9ced6', cx + 16, cy + ch - 24 - film, cw - 32, 2 + film);
+    text(m.lit ? L('PLASMA AN', 'PLASMA ON') : L('PLASMA AUS', 'PLASMA OFF'), cx + cw / 2, cy + ch - 12, {align: 'center', color: m.lit ? '#ff9ad8' : '#6b7190', font: 'IBM Plex Sans', size: 7});
+    // Right: the pressure gauge with its green band and the last seconds as a trace; the film thickness below.
+    const gx = a.x + 124, gy = a.y + 4, gw = a.w - 128, gh = 62, toY = p => gy + gh - 2 - clamp(p / 10, 0, 1) * (gh - 4);
+    R('#0b0f18', gx, gy, gw, gh);
+    ctx.globalAlpha = 0.35; R('#3fe06a', gx, toY(SP_BAND[1]), gw, toY(SP_BAND[0]) - toY(SP_BAND[1])); ctx.globalAlpha = 1;
+    R('#5a2a20', gx, toY(SP_OFF), gw, 1);
+    text(L('PLASMA ERLISCHT', 'PLASMA GOES OUT'), gx + 3, toY(SP_OFF) + 1, {color: '#8a4a3a', font: 'IBM Plex Sans', size: 6});
+    ctx.strokeStyle = '#9fe0ff'; ctx.lineWidth = 1; ctx.beginPath();
+    m.hist.forEach((p, i) => ctx[i ? 'lineTo' : 'moveTo'](gx + gw - m.hist.length + i, toY(p))); ctx.stroke();
+    const inBand = m.p >= SP_BAND[0] && m.p <= SP_BAND[1];
+    text(`Ar ${num(m.p)} µbar`, gx + gw - 3, gy + 2, {align: 'right', color: inBand ? '#3fe06a' : m.p > SP_BAND[1] ? '#ff8a5a' : '#ffcf5a', max: gw - 4});
+    const ty = gy + gh + 8;
+    text(`Al ${Math.round(m.al)} / ${SP_TARGET} nm`, gx + gw / 2, ty, {align: 'center', color: '#e9e4d6', max: gw});
+    R('#141a28', gx + 4, ty + 12, gw - 8, 6); R('#c9ced6', gx + 4, ty + 12, Math.round((gw - 8) * m.al / SP_TARGET), 6);
+    ctx.restore(); result(m, a);
+  },
+};
+
+const GAMES = {clean, oxidize, nitride, coat, expose, develop, etch, implant, sputter};
 // Before each step: what it is for and how to play it, then SHIFT starts it. The last line is the controls.
 const BRIEF = {
   clean: {title: ['REINIGEN · RCA', 'CLEAN · RCA'],
@@ -776,6 +846,13 @@ const BRIEF = {
   expose: {title: ['BELICHTEN · SCANNER', 'EXPOSE · SCANNER'],
     de: ['Das Retikel muss genau auf den Nullmarken des Wafers sitzen: Alle späteren Ebenen richten sich danach.', 'Die Justagemarken laufen hin und her. Stopp sie, wenn sie decken.', 'SHIFT stoppt X, dann Y. Danach belichtet der Scanner allein.'],
     en: ['The reticle must sit exactly on the wafer\'s zero marks: every later layer aligns to this one.', 'The alignment marks sweep back and forth. Stop them when they meet.', 'SHIFT stops X, then Y. Then the scanner exposes by itself.']},
+  // The same scanner at 04:00: the contact holes must land on the doped areas of the first layer.
+  'expose:contacts': {title: ['KONTAKTE BELICHTEN · SCANNER', 'EXPOSE CONTACTS · SCANNER'],
+    de: ['Die Kontaktlöcher müssen genau auf den dotierten Gebieten landen,', 'also justiert der Scanner auf die Marken der ersten Ebene. Stopp die Marken, wenn sie decken.', 'SHIFT stoppt X, dann Y. Danach belichtet der Scanner allein.'],
+    en: ['The contact holes must land exactly on the doped areas,', 'so the scanner aligns to the marks of the first layer. Stop the marks when they meet.', 'SHIFT stops X, then Y. Then the scanner exposes by itself.']},
+  sputter: {title: ['SPUTTERN · ALUMINIUM', 'SPUTTER · ALUMINIUM'],
+    de: ['Argon-Ionen schlagen Aluminium aus dem Target, es setzt sich auf dem Wafer ab.', 'Zu wenig Argon: Das Plasma geht aus. Zu viel: Die Atome streuen, die Schicht wird porös.', 'SHIFT halten lässt Argon ein. Halte den Druck im grünen Band, bis 500 nm liegen.'],
+    en: ['Argon ions knock aluminium out of the target; it settles on the wafer.', 'Too little argon: the plasma goes out. Too much: the atoms scatter, the film turns porous.', 'Hold SHIFT to let argon in. Keep the pressure in the green band until 500 nm are down.']},
   develop: {title: ['ENTWICKELN · TMAH', 'DEVELOP · TMAH'],
     de: ['Nach dem Backen (PEB, 100 °C) löst der Entwickler den belichteten Lack:', 'erst öffnen sich die Gräben, dann werden die Linien schmaler. Ziel: 40 nm.', 'SHIFT spült mit Wasser. Es wirkt erst 2 s später, also bei knapp 41 nm drücken.'],
     en: ['After the bake (PEB, 100 °C) the developer dissolves the exposed resist:', 'first the trenches open, then the lines slim down. Target: 40 nm.', 'SHIFT rinses with water. It takes 2 s, so press at just under 41 nm.']},
@@ -787,7 +864,7 @@ const BRIEF = {
     en: ['The magnet separates the ions by their mass.', 'Only arsenic (As⁺) may pass the slit until the dose is full.', '↑↓ magnetic field · SHIFT opens the beam · the field drifts.']},
 };
 function drawBrief(m) {
-  const b = BRIEF[m.type], de = lang === 'de';
+  const b = (m.variant && BRIEF[`${m.type}:${m.variant}`]) || BRIEF[m.type], de = lang === 'de';
   const a = frame(m, b.title[de ? 0 : 1], (m.ft >> 5) % 2 ? L('SHIFT: STARTEN', 'SHIFT: START') : '');
   text(L('AUFGABE', 'YOUR TASK'), a.x + a.w / 2, a.y + 12, {align: 'center', size: 16, font: 'Pixelify Sans', weight: 700, color: '#ffcf5a'});
   const lines = b[de ? 'de' : 'en'];
@@ -798,14 +875,14 @@ function drawBrief(m) {
   ctx.restore();
 }
 // Skipped with Enter: the tool runs its standard recipe, which is never quite tuned for this lot.
-const SKIP = {clean: {particles: 12}, oxidize: {oxide: 52.4}, nitride: {nitride: 100.2, nitrideU: 2.4}, coat: {resist: 104, rpm: 1850}, expose: {overlay: 8}, develop: {cd: 43.2, dev: 60}, etch: {overEtch: 8}, implant: {dose: 0.8, purity: 1}};
+const SKIP = {clean: {particles: 12}, oxidize: {oxide: 52.4}, nitride: {nitride: 100.2, nitrideU: 2.4}, coat: {resist: 104, rpm: 1850}, expose: {overlay: 8}, develop: {cd: 43.2, dev: 60}, etch: {overEtch: 8}, implant: {dose: 0.8, purity: 1}, sputter: {al: 500, alQ: 0.6}};
 function skip(m) {
   if (m.phase === 'result') return;
   finish(m, 0.45, SKIP[m.type], [L('Übersprungen: Die Anlage fährt ihr Standardrezept.', 'Skipped: the tool runs its standard recipe.')]);
 }
 function create(type, o = {}) {
   // With brief, the step first explains itself and starts on SHIFT.
-  const m = {type, t: 0, ft: 0, phase: o.brief ? 'brief' : 'play', score: 0, values: {}, closed: false, resultT: 0, sfx: o.sfx || (() => {})};
+  const m = {type, variant: o.variant || null, t: 0, ft: 0, phase: o.brief ? 'brief' : 'play', score: 0, values: {}, closed: false, resultT: 0, sfx: o.sfx || (() => {})};
   GAMES[type].init(m, o);
   return m;
 }

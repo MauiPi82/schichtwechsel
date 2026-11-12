@@ -395,6 +395,8 @@ function ellipso(t, x, y, w, h) {
 function rs(t, x, y, w, h) {
   const st = stackView(x + 10, y + h - 36, w - 20, 34, [[4, '#cfe8ff'], [3, '#9fc4a8'], [8, '#a9cbe6'], [7, '#c9ced6']], []);
   const cx = x + w / 2 - 30, down = ease(t / 50), top = y + 22, tip = st.top - 1;
+  // Rs = ρ / t with ρ(AlCu) ≈ 2.7 µΩ·cm; a porous film from the sputter step conducts worse.
+  const al = val('al', 500), rsm = 27000 / Math.max(50, al) * (1 + 0.3 * (1 - val('alQ', 1)));
   R('#5a6270', cx - 40, y + 8, 80, 12); text(lang === 'de' ? 'MESSKOPF' : 'PROBE HEAD', cx, y + 10, {align: 'center', color: '#1a1e24'});
   [-27, -9, 9, 27].forEach(dx => {
     R('#9aa3ad', cx + dx, top - 2, 1, 2 + down * (tip - top)); circle('#e9eef5', cx + dx + 0.5, top + down * (tip - top), 1.2);
@@ -403,13 +405,13 @@ function rs(t, x, y, w, h) {
     for (let i = 0; i < 8; i++) circle('#ffcf5a', cx - 27 + ((F * 0.8 + i * 7) % 54), tip + 2, 0.9);
     const k = clamp((t - 60) / 80, 0, 1);
     text(`I = ${fmt(1.0, 3)} mA`, x + w - 8, y + 10, {align: 'right', color: '#ffcf5a'});
-    text(`V = ${fmt(11.9 * k)} µV`, x + w - 8, y + 21, {align: 'right', color: '#9fe0ff'});
+    text(`V = ${fmt(rsm / 4.53 * k)} µV`, x + w - 8, y + 21, {align: 'right', color: '#9fe0ff'});
     if (k >= 1) {
       text('Rs = 4,53 · V/I', x + w - 8, y + 36, {align: 'right', color: '#9aa6b5', font: 'IBM Plex Sans', size: 8});
-      text('= 54 mΩ/□', x + w - 8, y + 46, {align: 'right', color: '#3fe06a', font: 'IBM Plex Sans', size: 9});
+      text(`= ${Math.round(rsm)} mΩ/□`, x + w - 8, y + 46, {align: 'right', color: rsm < 62 ? '#3fe06a' : '#ffcf5a', font: 'IBM Plex Sans', size: 9});
     }
   }
-  text(lang === 'de' ? 'Al 500 nm' : 'Al 500 nm', x + 14, st.top - 10, {color: '#c9ced6'});
+  text(`Al ${Math.round(val('al', 500))} nm`, x + 14, st.top - 10, {color: '#c9ced6'});
 }
 
 /* ---------- Lithography from the top ---------- */
