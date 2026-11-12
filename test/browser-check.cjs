@@ -31,7 +31,9 @@ if (!url) throw new Error('Pass the URL of the served repository root.');
       // A fresh night (no stored progress) starts with the gowning intro.
       await page.evaluate(() => { try { localStorage.clear(); } catch (_) { /* blocked */ } });
       await page.reload(); await page.keyboard.press('Shift'); await page.waitForTimeout(600);
-      assert.equal(await page.evaluate(() => __schicht.mode), 'play', 'a fresh night starts with the gowning intro');
+      assert.equal(await page.evaluate(() => __schicht.mode), 'cinema', 'a fresh night starts with the prologue');
+      await page.keyboard.press('Enter'); await page.waitForTimeout(300);
+      assert.equal(await page.evaluate(() => __schicht.mode), 'play', 'the prologue skips to the gowning intro');
       await page.keyboard.press('Enter'); await page.waitForTimeout(300);
       assert.equal(await page.evaluate(() => __schicht.mode), 'card', 'Enter skips the intro');
       await page.waitForTimeout(500); await page.keyboard.press('Enter'); await page.waitForTimeout(100);

@@ -161,6 +161,17 @@ const audio = {
       o.connect(g); g.connect(lp); o.start(t0); o.stop(t0 + 3.5);
     }
   },
+  // Rain: a looped band of noise; louder outdoors, a murmur through the walls.
+  rain(level) {
+    if (!this.ctx) return;
+    if (!this.rainGain) {
+      const src = this.ctx.createBufferSource(); src.buffer = this.noise; src.loop = true;
+      const bp = this.ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1600; bp.Q.value = 0.4;
+      this.rainGain = this.ctx.createGain(); this.rainGain.gain.value = 0;
+      src.connect(bp); bp.connect(this.rainGain); this.rainGain.connect(this.master); src.start();
+    }
+    this.rainGain.gain.setTargetAtTime(level, this.ctx.currentTime, 0.4);
+  },
   sfx(name, o = {}) {
     if (!this.ctx) return;
     const t0 = this.ctx.currentTime;
@@ -187,6 +198,12 @@ const audio = {
         this.tone('sawtooth', 160, t0, 0.8, 0.25, null, 30);
         break;
       case 'won': this.burst(t0, 1.2, 0.16, 'highpass', 1200); this.tone('square', 70, t0 + 1.1, 0.12, 0.12); break;
+      case 'zap': this.tone('sawtooth', 1800, t0, 0.05, 0.03, null, 900); break;
+      case 'error': this.tone('square', 880, t0, 0.15, 0.08); this.tone('square', 880, t0 + 0.25, 0.15, 0.08); this.tone('sine', 300, t0, 1.8, 0.05, null, 2400); break;
+      case 'click': this.tone('square', 160, t0, 0.03, 0.2); this.burst(t0, 0.05, 0.2, 'highpass', 3000); break;
+      case 'powerdown': this.tone('sawtooth', 120, t0, 2.2, 0.12, null, 18); this.tone('sine', 60, t0, 2.2, 0.15, null, 12); break;
+      case 'hum': this.tone('sawtooth', 50, t0, 5.5, 0.04); this.tone('sine', 100, t0, 5.5, 0.03); break;
+      case 'eyes': this.tone('sine', 1250, t0, 0.9, 0.03); this.tone('sine', 1257, t0, 0.9, 0.03); break;
       case 'shower': this.burst(t0, 2.8, 0.14, 'highpass', 700); this.burst(t0, 2.8, 0.08, 'lowpass', 300); break;
       case 'rustle': for (let i = 0; i < 4; i++) this.burst(t0 + i * 0.12, 0.1, 0.06, 'bandpass', 2500, 1.5); break;
       case 'door': this.burst(t0, 0.35, 0.1, 'lowpass', 600); this.tone('square', 55, t0 + 0.3, 0.1, 0.08); break;
@@ -250,15 +267,16 @@ addEventListener('keydown', e => {
   if (e.code === 'KeyP' || e.code === 'Escape') { togglePause(); return; }
   if (e.code === 'KeyM') { audio.toggle(); return; }
   if (e.code === 'KeyR' && (mode === 'play' || mode === 'paused')) { checkpoint = null; startLevel(levelIndex); return; }
-  if (e.code === 'KeyN' && mode === 'title') { progress = 0; store.set('level', 0); audio.unlock(); startIntro(); }
+  if (e.code === 'KeyN' && mode === 'title') { progress = 0; store.set('level', 0); audio.unlock(); startCinema(); }
 });
 addEventListener('keyup', e => { const d = KEYDIR[e.code]; if (d) held.delete(d); });
 addEventListener('blur', () => held.clear());
 function press(what) {
+  if (mode === 'cinema') { if (cinemaT > 0.4) startIntro(); return; }
   if (introMode && (mode === 'play' || mode === 'shower')) { if (what === 'enter') endIntro(); return; }
   if (mode === 'process') { if (procT > 40) mode = 'play'; return; }
   if (mode === 'play') { if (what === 'shift') queuedShift = true; return; }
-  if (mode === 'title') { audio.unlock(); if (progress === 0) startIntro(); else startCard(progress); return; }
+  if (mode === 'title') { audio.unlock(); if (progress === 0) startCinema(); else startCard(progress); return; }
   if (mode === 'card' && cardT > 20) { checkpoint = null; startLevel(levelIndex); return; }
   if (mode === 'ending' && cardT > 120) { mode = 'title'; audio.setLayer(0); }
 }
@@ -296,7 +314,7 @@ function pollPad() {
 let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0, shake = 0;
 let progress = clamp(+store.get('level') || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
 const deathsBy = levels.map(() => 0);
-const BUILD = '0.6 · 2026-11-12';
+const BUILD = '0.7 · 2026-11-12';
 // Testers can jump to an hour: ?stunde=3 or ?hour=3 opens the third hour.
 const jump = +(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || 0);
 if (jump >= 1 && jump <= levels.length) progress = jump - 1;
@@ -316,6 +334,24 @@ function stickyCheck() {
 let introMode = false, suited = false, showerT = 0, showerDone = false, introSeen = new Set(), procT = 0, procType = '';
 const idx = (x, y) => y * C.W + x;
 function introDoors(L) { const d = []; for (let i = 0; i < L.layers[0].length; i++) if (L.layers[0][i] === 'D') d.push(i); return d.sort((a, b) => a - b); }
+/* ---------- Prologue (no words) ---------- */
+let cinemaT = 0;
+function startCinema() { mode = 'cinema'; cinemaT = 0; audio.setLayer(0); audio.rain(0.09); }
+// Sound cues per shot: [shot, second, cue].
+const CUES = [[0, 0.8, 'bell'], [0, 2.9, 'bell'], [1, 0.1, 'hum'], [1, 3.6, 'click'], [2, 2.6, 'error'], [3, 2.3, 'click'], [3, 2.4, 'powerdown'],
+  [4, 0.6, 'heart'], [4, 1.2, 'eyes'], [4, 1.6, 'heart'], [4, 2.0, 'eyes'], [4, 2.6, 'heart'], [4, 2.8, 'eyes'], [5, 3.0, 'horn']];
+function updateCinema() {
+  const before = window.SchichtCinema.shotAt(cinemaT);
+  cinemaT += 1 / 60;
+  const [shot, t] = window.SchichtCinema.shotAt(cinemaT);
+  if (shot !== before[0]) audio.rain(shot === 0 || shot === 5 ? 0.09 : shot === 4 ? 0 : 0.02);
+  for (const [s, at, cue] of CUES) {
+    if (shot !== s || t < at || (before[0] === s && before[1] >= at)) continue;
+    if (cue === 'bell') audio.bell(0.3); else if (cue === 'horn') audio.horn(); else audio.sfx(cue, {gain: 0.25});
+  }
+  if (shot === 2 && t < 2.6 && frame % 6 === 0) audio.sfx('zap');
+  if (cinemaT >= window.SchichtCinema.TOTAL) startIntro();
+}
 function startIntro() {
   const L = C.parseLevel(INTRO);
   const [entry] = introDoors(L);
@@ -352,7 +388,7 @@ function updateShower() {
 
 // After a death the hour resumes at the last process step; the previous shift returns to its posts.
 function startLevel(i, resume = false) {
-  introMode = false;
+  introMode = false; audio.rain(0);
   levelIndex = i; mode = 'play'; stepFrame = 0; fx = 0; deadT = 0;
   if (resume && checkpoint) {
     state = C.clone(checkpoint);
@@ -432,6 +468,7 @@ function update() {
   if (shake > 0) shake--;
   if (toastT > 0) toastT--;
   if (shiftHintT > 0) shiftHintT--;
+  if (mode === 'cinema') updateCinema();
   if (mode === 'process' && ++procT > window.SchichtProcess.DURATION) mode = 'play';
   if (mode === 'shower') updateShower();
   if (mode === 'dead' && ++deadT > 70) startLevel(levelIndex, true);
@@ -669,6 +706,12 @@ function renderEnding() {
 function render() {
   ctx.setTransform(Z, 0, 0, Z, 0, 0);
   ctx.imageSmoothingEnabled = false;
+  if (mode === 'cinema') {
+    ctx.setTransform(Z / 2, 0, 0, Z / 2, 0, 0); window.SchichtCinema.draw(ctx, cinemaT, frame);
+    ctx.setTransform(Z, 0, 0, Z, 0, 0);
+    if (cinemaT > 1) txt(lang === 'de' ? 'SHIFT: ÜBERSPRINGEN' : 'SHIFT: SKIP', W - 6, H - 12, {align: 'right', color: '#3a4058', shadow: null});
+    return;
+  }
   if (mode === 'title') return renderTitle();
   if (mode === 'card') return renderCard();
   if (mode === 'ending') return renderEnding();
@@ -718,7 +761,7 @@ if (new URLSearchParams(location.search).has('test')) {
   // Test hook: deterministic control for the browser check, only with ?test in the URL.
   window.__schicht = {
     levels, get state() { return state; }, get mode() { return mode; },
-    card: i => startCard(i), start: i => startLevel(i), act: a => doStep(a), render, update, intro: () => startIntro(),
+    card: i => startCard(i), start: i => startLevel(i), act: a => doStep(a), render, update, intro: () => startIntro(), cinema: () => startCinema(), get cinemaT() { return cinemaT; },
     process: (type, tt) => { procType = type; procT = tt; mode = 'process'; },
     setLayer: l => audio.setLayer(l), lang: l => { lang = l; applyLanguage(); },
   };
