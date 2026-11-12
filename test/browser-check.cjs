@@ -27,6 +27,21 @@ if (!url) throw new Error('Pass the URL of the served repository root.');
         }, {i, solution});
         assert.equal(result.status, 'won', `${LEVELS[i].time} in ${locale}`);
       }
+      // The night goes on hour by hour: after the second-to-last hour the card of the last one, after the last the
+      // ending (the normal one, or the Odenchip with all eight reticles). Played through the real end-of-hour flow.
+      if (locale === 'de-DE') {
+        const finish = i => core.solve(core.parseLevel(LEVELS[i]));
+        const r = await page.evaluate(({a, b}) => {
+          const S = __schicht, run = (i, sol) => { S.start(i); for (const x of sol) S.act(x); for (let f = 0; f < 90; f++) S.update(); return S.mode; };
+          S.found.clear();
+          const afterSecondLast = run(6, a), afterLast = run(7, b);
+          for (const id of ['si', 'ox', 'pr', 'st', 'im', 'an', 'ct', 'me']) S.found.add(id);
+          const withAll = run(7, b);
+          S.found.clear();
+          return [afterSecondLast, afterLast, withAll];
+        }, {a: finish(6), b: finish(7)});
+        assert.deepEqual(r, ['card', 'epilogue', 'finale'], 'the last hour is played, then the ending');
+      }
       // A death after a process step rewinds to that step, also in hours where the shift before walks rounds.
       for (const i of [1, 2, 5]) {
         const solution = core.solve(core.parseLevel(LEVELS[i]));
@@ -123,6 +138,6 @@ if (!url) throw new Error('Pass the URL of the served repository root.');
       assert.deepEqual(errors, [], `no page errors in ${locale}`);
       await page.close();
     }
-    console.log('PASS: all levels won in the browser (DE and EN), rewind to the last process step, the gowning intro, keyboard input, a minigame with the keyboard, the way to the main menu, reload with saved states, no page errors.');
+    console.log('PASS: all levels won in the browser (DE and EN), the last hour and both endings, rewind to the last process step, the gowning intro, keyboard input, a minigame with the keyboard, the way to the main menu, reload with saved states, no page errors.');
   } finally { await browser.close(); }
 })().catch(e => { console.error(e); process.exit(1); });

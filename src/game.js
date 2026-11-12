@@ -489,7 +489,7 @@ function pollPad() {
 let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0, shake = 0;
 let progress = clamp(+store.get('level') || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
 const deathsBy = levels.map(() => 0);
-const BUILD = '0.44 · 2026-11-12';
+const BUILD = '0.45 · 2026-11-12';
 // Testers can jump to an hour: ?stunde=3 or ?hour=3 opens the third hour.
 const jump = +(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || 0);
 if (jump >= 1 && jump <= levels.length) progress = jump - 1;
@@ -915,11 +915,16 @@ function update() {
   if (mode === 'rewind') updateRewind();
   if (mode === 'clear' && ++deadT > 60) {
     checkpoint = null;
-    if (levelIndex + 1 < levels.length) startCard(levelIndex + 1);
-    else if (Object.keys(lot.s).length) store.set('best', String(Math.max(+(store.get('best') || 0), lotYield())));
-    if (levelIndex + 1 >= levels.length && found.size >= LEVELS.length) { mode = 'finale'; finT = 0; store.set('odenchip', '1'); audio.setLayer(0); audio.bell(0.25); fadeIn(40); }
-    else if (levelIndex + 1 >= levels.length) { mode = 'epilogue'; epiT = 0; audio.setLayer(0); audio.rain(0); fadeIn(40); }
+    // Decide before the next card changes levelIndex: only after the last hour does the night end.
+    const last = levelIndex + 1 >= levels.length;
+    if (!last) startCard(levelIndex + 1);
+    else {
+      if (Object.keys(lot.s).length) store.set('best', String(Math.max(+(store.get('best') || 0), lotYield())));
+      if (found.size >= LEVELS.length) { mode = 'finale'; finT = 0; store.set('odenchip', '1'); audio.setLayer(0); audio.bell(0.25); fadeIn(40); }
+      else { mode = 'epilogue'; epiT = 0; audio.setLayer(0); audio.rain(0); fadeIn(40); }
+    }
   }
+}
 }
 
 /* ---------- World ---------- */
@@ -1550,7 +1555,9 @@ if (new URLSearchParams(location.search).has('test')) {
   // Test hook: deterministic control for the browser check, only with ?test in the URL.
   window.__schicht = {
     levels, get state() { return state; }, get mode() { return mode; },
-    card: i => startCard(i), start: i => startLevel(i), act: a => doStep(a), render, update, intro: () => startIntro(), get showerT() { return showerT; }, get gownT() { return gownT; }, get lockerT() { return lockerT; }, get introNote() { return introNote; }, cinema: () => startCinema(), get cinemaT() { return cinemaT; },
+    card: i => startCard(i), start: i => startLevel(i), act: a => doStep(a),
+    // Like a key press: the action waits for the next step of the real loop.
+    queue: a => { if (a === 'shift') { queuedShift = true; shiftQueuedAt = frame; } else if (a !== 'wait') queuedDir = a; }, get stepFrame() { return stepFrame; }, get pending() { return pendingMode; }, render, update, intro: () => startIntro(), get showerT() { return showerT; }, get gownT() { return gownT; }, get lockerT() { return lockerT; }, get introNote() { return introNote; }, cinema: () => startCinema(), get cinemaT() { return cinemaT; },
     finale: () => { mode = 'finale'; finT = 0; }, get finT() { return finT; }, set finT(v) { finT = v; },
     epilogue: () => { mode = 'epilogue'; epiT = 0; }, get epiT() { return epiT; }, set epiT(v) { epiT = v; }, found,
     process: (type, tt) => { procType = type; procT = tt; mode = 'process'; },
