@@ -45,6 +45,8 @@ const CAP = {
     en: ['ETCH CONTACTS', 'Through the contact mask: straight holes down to the doped silicon.']},
   sputter: {de: ['SPUTTERN · ALUMINIUM', 'Argon schlägt Atome aus dem Target. Im Vakuum fliegen sie geradeaus.'],
     en: ['SPUTTER · ALUMINIUM', 'Argon knocks atoms out of the target. In vacuum they fly straight.']},
+  cexpose: {de: ['KONTAKTE BELICHTEN · KONTAKTMASKE', 'Die zweite Maske: Löcher im Lack genau über der Dotierung.'],
+    en: ['EXPOSE CONTACTS · CONTACT MASK', 'The second mask: holes in the resist right above the doping.']},
   rs: {de: ['SCHICHTWIDERSTAND · VIERSPITZE', 'Rs = 4,53 · V/I = 54 mΩ/□. Das sind 500 nm Aluminium.'],
     en: ['SHEET RESISTANCE · FOUR-POINT PROBE', 'Rs = 4.53 · V/I = 54 mΩ/□. That is 500 nm of aluminium.']},
   measure: {de: ['MESSEN · CD-SEM', 'Der Elektronenstrahl rastert die Linien ab. Ziel: 40 nm Breite.'],
@@ -68,8 +70,9 @@ const val = (k, d) => lotInfo && lotInfo.v && lotInfo.v[k] !== undefined ? lotIn
 const fmt = (v, d = 1) => v.toFixed(d).replace('.', lang === 'de' ? ',' : '.');
 function verdict(s, x, y) {
   if (s === null || !window.SchichtMini) return;
-  const g = window.SchichtMini.grade(s);
+  const g = window.SchichtMini.grade(s), loss = Math.round((1 - (0.8 + 0.2 * clamp(s, 0, 1))) * 100);
   text(g.word, x, y, {align: 'center', color: g.color, size: 8});
+  text(lang === 'de' ? `AUSBEUTE −${loss} %` : `YIELD −${loss} %`, x, y + 9, {align: 'center', color: loss ? '#c9a15a' : '#3fe06a', size: 8});
 }
 function cdOf() {
   const e = sc('expose'), c = sc('coat'), t = sc('etch');
@@ -220,6 +223,15 @@ function ellipso(t, x, y, w, h) {
     const ox = val('oxide', 50.1);
     text(`SiO₂ ${fmt(ox)} nm · Si₃N₄ ${fmt(100.4)} nm`, x + w / 2, y + 15, {align: 'center', color: '#e9e4d6', font: 'IBM Plex Sans', size: 8});
     verdict(sc('oxidize'), x + w / 2, y + 26);
+    // The SPC chart of this tool: the last seven lots all above the centre line. By the rules: out of control.
+    const cx0 = x + 10, cy0 = y + 40, cw = 70, ch = 22;
+    R('#0b0f18', cx0, cy0, cw, ch); R('#3a4058', cx0, cy0 + ch / 2, cw, 1); R('#5a2a20', cx0, cy0 + 2, cw, 1); R('#5a2a20', cx0, cy0 + ch - 3, cw, 1);
+    for (let i = 0; i < 12; i++) {
+      const v = i < 5 ? Math.sin(i * 2.1) * 5 : -3 - (i % 3), px = cx0 + 4 + i * 5.5, py = cy0 + ch / 2 + v;
+      R(i >= 5 ? '#ff5a3a' : '#9fe0ff', px, py - 1, 2, 2);
+    }
+    if ((F >> 4) % 2) text('OOC', cx0 + cw + 4, cy0 + 2, {color: '#ff5a3a'});
+    text(lang === 'de' ? '7 ÜBER MITTE' : '7 ABOVE MEAN', cx0 + cw + 4, cy0 + 12, {color: '#8a5a4a', max: 70});
   }
 }
 
@@ -464,7 +476,7 @@ function draw(c, type, t, language, info) {
   text('LOT 4471', PX + PW - 6, y0 + 2, {align: 'right', color: '#ffcf5a'});
   ctx.save(); ctx.beginPath(); ctx.rect(PX, y0 + 12, PW, PH - 28); ctx.clip();
   R('#0d111a', PX, y0 + 12, PW, PH - 28);
-  const fn = {clean, inspect, oxidize, nitride, ellipso, rs, coat, expose, develop, measure}[type];
+  const fn = {clean, inspect, oxidize, nitride, ellipso, rs, coat, expose, cexpose: expose, develop, measure}[type];
   const tp = Math.min(tt, BASE + 10);
   if (fn) fn(tp, PX, y0 + 12, PW, PH - 28); else section(tp, PX, y0 + 12, PW, PH - 28, type);
   ctx.restore();

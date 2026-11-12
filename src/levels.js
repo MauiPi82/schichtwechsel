@@ -252,8 +252,8 @@
       layer: {de: 'Dotierung', en: 'Doping'}, stack: {de: 'Arsen · 2·10¹⁵ cm⁻²', en: 'Arsenic · 2·10¹⁵ cm⁻²'},
       title: {de: 'Implanter', en: 'Implanter'},
       log: {
-        de: ['Der Implanter fährt sein Rezept: Bor, Phosphor, Arsen.', 'Er hätte um 22:00 stehen sollen.'],
-        en: ['The implanter runs its recipe: boron, phosphorus, arsenic.', 'It should have stopped at 22:00.'],
+        de: ['Der Implanter fährt sein Rezept: Bor, Phosphor, Arsen.', 'Er hätte um 22:00 stehen sollen.', 'Q-Zeit überschritten: Los 4471 auf HOLD.', 'Freigegeben von: TURNO B.'],
+        en: ['The implanter runs its recipe: boron, phosphorus, arsenic.', 'It should have stopped at 22:00.', 'Q-time exceeded: lot 4471 on HOLD.', 'Released by: TURNO B.'],
       },
       fact: {
         de: ['Im Magnet fliegt jedes Ion auf einem Kreis: r = √(2mE) / (qB).', 'Bei 40 keV und 0,25 T: Bor 0,38 m, Phosphor 0,64 m, Arsen 1,00 m.', 'So trennt die Anlage die Sorten. Der Strahl ist tödlich.'],
@@ -393,7 +393,7 @@
         en: ['ROSSI_01_final_v2 is my recipe. DO NOT USE.', 'I did not start it.', 'I cannot start anything any more.', 'I cannot touch anything any more.'],
       }},
       scare: {type: 'blackout', at: 22, layer: 'night'},
-      route: [{de: 'Oxid abscheiden', en: 'Deposit oxide', proc: 'deposit'}, {de: 'Kontakte ätzen', en: 'Etch contacts', proc: 'contacts'}],
+      route: [{de: 'Oxid abscheiden', en: 'Deposit oxide', proc: 'deposit'}, {de: 'Kontakte belichten', en: 'Expose contacts', proc: 'cexpose'}, {de: 'Kontakte ätzen', en: 'Etch contacts', proc: 'contacts'}],
       enemyEvery: 6,
       // Day: the plasma fires along the corridor in thirds. The middle is walled by day; in the shift before
       // the plasma burns there too, in between. Wait for the gaps, or stop a chamber with its emergency button.
@@ -408,7 +408,7 @@
         {x0: 1, y0: 6, type: 'chamber', kind: 'cvd', name: 'VALENTA D-2'},
         {x0: 15, y0: 6, type: 'chamber', kind: 'etch', name: 'VALENTA E-1'},
         {x0: 4, y0: 1, type: 'chamber', kind: 'cvd', name: 'VALENTA D-2'},
-        {x0: 10, y0: 1, type: 'chamber', kind: 'etch', name: 'VALENTA E-1'},
+        {x0: 10, y0: 1, type: 'scanner', name: 'LUMENA S193i'},
         {x0: 16, y0: 1, type: 'chamber', kind: 'etch', name: 'VALENTA E-1'},
       ],
       lamps: [[2, 3], [9, 7], [16, 6]],
@@ -417,12 +417,12 @@
         '####################',
         '#P..MM....MM....MM.#',
         '#...MM....MM....MM.#',
-        '#........##........#',
+        '#........##2.......#',
         '#........##........#',
         '####.####.####.#####',
         '#MMM.....#.....MMM.#',
         '#MMM.....#.....MMM.#',
-        '#.1......#......2.X#',
+        '#.1......#......3.X#',
         '####################',
       ],
       night: [
@@ -541,7 +541,7 @@
       die: {de: 'Der Odenchip. Zwischen den Bondpads steht etwas in der obersten Metallebene.', en: 'The Odenchip. Between the bond pads, something is written in the top metal.'},
       bond: {de: 'Gesägt, aufgeklebt, gebondet: Golddrähte, dünner als ein Haar.', en: 'Sawn, attached, bonded: gold wires thinner than a hair.'},
       mold: {de: 'Vergossen. Der Laser schreibt den Namen.', en: 'Moulded. The laser writes its name.'},
-      board: {de: 'Acht LEDs. Eine für jede Schicht.', en: 'Eight LEDs. One for every layer.'},
+      board: {de: 'Acht LEDs, eine je Schicht. Wie viele leuchten, entscheidet die Ausbeute.', en: 'Eight LEDs, one per layer. The yield decides how many light up.'},
     },
     log: {
       de: ['06:00. Über dem See wird es hell.', '', 'Schichtbuch, 06:00:', 'Turno B ausgestempelt: Rossi, Colombo, Ferrari.', 'Los 4471 fertig. Odenchip, Revision A.'],

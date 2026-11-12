@@ -97,6 +97,7 @@ function pack(o, c) {
     if (o.mark < 1) { const x = PK.cx - 90 + 180 * o.mark; dot(x, PK.cy, 7, 'rgba(255,240,220,.3)'); dot(x, PK.cy, 2.5, '#fff'); }
   }
 }
+let ledMax = 8;
 const LEDC = ['#ff4d4d', '#ff8c3a', '#ffd23a', '#7be05a', '#3ad6c8', '#4aa8ff', '#8a6bff', '#ff5ad6'];
 function board(u) {
   R('#0f3a22', 40, 50, 560, 260); R('#14482a', 46, 56, 548, 248);
@@ -104,7 +105,7 @@ function board(u) {
   // The chip at the left, small.
   ctx.save(); ctx.translate(170, 180); ctx.scale(0.42, 0.42); ctx.translate(-PK.cx, -PK.cy); pack({wires: 99, mold: 1, mark: 1}); ctx.restore();
   for (let k = 0; k < 8; k++) {
-    const y = 78 + k * 28, on = u * 9 > k + 0.5;
+    const y = 78 + k * 28, on = u * 9 > k + 0.5 && k < ledMax;
     line([220, 140 + k * 10], [300, y], 2, '#c8a050'); line([300, y], [480, y], 2, '#c8a050');
     R('#c8b48a', 430, y - 4, 22, 8); R('#7a5a2a', 436, y - 4, 2, 8); R('#7a5a2a', 442, y - 4, 2, 8);
     dot(510, y, 9, on ? LEDC[k] : '#3a3a3a'); dot(507, y - 3, 3, on ? '#ffffff' : '#555');
@@ -123,6 +124,7 @@ function phaseAt(t) {
 }
 
 function draw(c, t, frame, lang, texts) {
+  ledMax = texts && texts.leds !== undefined ? texts.leds : 8;
   ctx = c; F = frame;
   const [id, u, d] = phaseAt(t), k = clamp(u / Math.min(d, 99), 0, 1);
   R('#05070c', 0, 0, W, H);
