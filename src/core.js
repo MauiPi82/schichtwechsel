@@ -117,8 +117,10 @@
     level.pulses = (def.pulses || []).map(p => {
       const cells = new Uint8Array(N);
       for (let y = p.y0; y <= p.y1; y++) for (let x = p.x0; x <= p.x1; x++) cells[idx(x, y)] = 1;
-      return {...p, layer: p.layer || DAY, cells};
+      // In an hour with a trial bell the plasma that keeps time with the bell sleeps through the first round.
+      return {...p, layer: p.layer || DAY, cells, quietFirst: !!def.bellTrial && p.sync === 'bell'};
     });
+    level.bellTrial = !!def.bellTrial;
     return level;
   }
 
@@ -189,6 +191,7 @@
 
   // A pulse with sync: 'bell' keeps its rhythm with the bell, also after a rewind restarts the bell (from).
   function pulseOn(p, step, from = 0) {
+    if (p.quietFirst && step - from < p.period) return false;
     const ph = ((step - (p.sync ? from : 0)) % p.period + p.period) % p.period;
     return ph >= p.on[0] && ph < p.on[1];
   }
@@ -367,8 +370,11 @@
       if (bs % L.bell === 0) {
         const other = 1 - state.layer;
         state.events.push('bell');
+        // The first strike of an hour with a trial bell shows what the bell does, but cannot wall you in.
+        const trial = L.bellTrial && bs === L.bell;
+        if (trial) state.events.push('bell-trial');
         if (!walkable(L, other, state.x, state.y)) {
-          if (state.step >= state.safeUntil) return lose(state, 'crushed');
+          if (state.step >= state.safeUntil && !trial) return lose(state, 'crushed');
         } else { state.layer = other; state.lastShift = state.step; state.events.push('shift'); }
       }
     }
@@ -399,6 +405,7 @@
     L.pulses.forEach((p, n) => {
       if (pulseStopped(state, n)) return;
       const ph = state.step - (p.sync ? state.bellFrom || 0 : 0);
+      if (p.quietFirst && ph + PULSE_WARN < p.period + p.on[0] && ph < p.period) return;
       if (((ph + PULSE_WARN) % p.period + p.period) % p.period === p.on[0]) state.events.push('pulse-warning');
       if ((ph % p.period + p.period) % p.period === p.on[0]) state.events.push('pulse');
     });

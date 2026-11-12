@@ -222,7 +222,7 @@
       scare: {type: 'shadow', at: 10, n: 1},
       route: [{de: 'Ätzen', en: 'Etch', proc: 'etch'}, {de: 'Lack entfernen', en: 'Strip resist', proc: 'strip'}],
       enemyEvery: 6,
-      bell: 30,
+      bell: 30, bellTrial: true,
       // In the shift before, the asher's O₂ plasma fills its room for the last steps before every bell:
       // whoever only waits for the bell to carry them over burns. SHIFT yourself, or stop it at a plasma tool.
       pulses: [{layer: 1, x0: 13, y0: 3, x1: 18, y1: 7, period: 30, on: [24, 30], sync: 'bell'}],
@@ -428,7 +428,8 @@
         {x0: 16, y0: 1, type: 'chamber', kind: 'etch', name: 'VALENTA E-1'},
       ],
       lamps: [[2, 3], [9, 7], [16, 6]],
-      patrols: [{path: [[6, 3], [13, 3], [13, 4], [6, 4]], every: 1}, {path: [[6, 3], [13, 3], [13, 4], [6, 4]], every: 1, start: 8}],
+      // Two of them on one loop, half your pace, opposite each other: walk with them, never against them.
+      patrols: [{path: [[6, 3], [13, 3], [13, 4], [6, 4]], every: 2}, {path: [[6, 3], [13, 3], [13, 4], [6, 4]], every: 2, start: 8}],
       day: [
         '####################',
         '#P..MM....MM....MM.#',
@@ -480,16 +481,16 @@
       scare: {type: 'shadow', afterPa: 1, n: 3},
       route: [{de: 'Sputtern', en: 'Sputter', proc: 'sputter'}, {de: 'Schichtwiderstand', en: 'Sheet resistance', proc: 'rs'}],
       enemyEvery: 6,
-      bell: 18,
+      bell: 24,
       // Three rooms by day, joined only through narrow passages in the shift before. When the bell warns,
       // the passages fill with plasma: you cross by your own SHIFT, between two strikes, or stop it at a tool.
       // They wait at the airlock: one of shift B walks up and down before it.
       patrols: [{path: [[18, 5], [18, 8]], every: 2}],
       pulses: [
-        {x0: 8, y0: 2, x1: 11, y1: 7, period: 36, on: [0, 12], sync: 'bell'},
-        {layer: 1, x0: 5, y0: 1, x1: 6, y1: 8, period: 18, on: [12, 18], sync: 'bell'},
-        {layer: 1, x0: 12, y0: 1, x1: 13, y1: 8, period: 18, on: [12, 18], sync: 'bell'},
-        {layer: 1, x0: 15, y0: 1, x1: 18, y1: 8, period: 18, on: [12, 18], sync: 'bell'},
+        {x0: 8, y0: 2, x1: 11, y1: 7, period: 48, on: [0, 16], sync: 'bell'},
+        {layer: 1, x0: 5, y0: 1, x1: 6, y1: 8, period: 24, on: [16, 24], sync: 'bell'},
+        {layer: 1, x0: 12, y0: 1, x1: 13, y1: 8, period: 24, on: [16, 24], sync: 'bell'},
+        {layer: 1, x0: 15, y0: 1, x1: 18, y1: 8, period: 24, on: [16, 24], sync: 'bell'},
       ],
       tools: [
         {x0: 8, y0: 1, type: 'cluster', kind: 'pvd', name: 'VALENTA S-4', chambers: 3},

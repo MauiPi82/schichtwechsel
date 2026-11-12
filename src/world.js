@@ -854,6 +854,25 @@ function alertMark(px, py, big) {
 // One silhouette per facing, drawn once from the figure itself in a single dark colour (violet when set by light).
 const shadowSprites = {};
 let trails = [], trailLevel = null;
+// Chevrons along a round: each tile points to the next. near(cell) scales the strength (1 by day).
+function routeMarks(routes, enemies, near, rgb, strength) {
+  if (!routes) return;
+  ctx.lineWidth = 2; ctx.lineCap = 'round';
+  routes.forEach((r, i) => {
+    if (!r) return;
+    const from = enemies[i];
+    r.forEach(([x, y], k) => {
+      const [px, py] = k ? r[k - 1] : from.map(Math.round), dx = Math.sign(x - px), dy = Math.sign(y - py);
+      if (!dx && !dy) return;
+      const a = strength * (1 - k * 0.28) * Math.min(1, near([x, y]));
+      if (a <= 0.02) return;
+      const cx = x * T + 16, cy = FY + y * T + 18, ux = dx * 4, uy = dy * 4, vx = -dy * 4, vy = dx * 4;
+      ctx.strokeStyle = rgb + a + ')'; ctx.beginPath();
+      ctx.moveTo(cx - ux + vx, cy - uy + vy); ctx.lineTo(cx + ux, cy + uy); ctx.lineTo(cx - ux - vx, cy - uy - vy); ctx.stroke();
+    });
+  });
+  ctx.lineCap = 'butt';
+}
 function shadowSprite(face, set) {
   const key = face + (set ? ':set' : '');
   if (shadowSprites[key]) return shadowSprites[key];
@@ -1004,6 +1023,8 @@ function draw(c, s, o) {
   if (o.phone) phone(o.phone, o.phone.ringing);
   if (o.windowFace && !night) windowFace(o.windowFace);
   if (L.showerT > 0) showerAir(L);
+  // The way a round goes on: three small chevrons on the floor ahead of it, fading with distance.
+  if (!night) routeMarks(o.routes, o.enemies, () => 1, 'rgba(70,90,130,', 0.5);
   // Shadows of the previous shift on your floor: their silhouette, cast in from the other shift, fraying in
   // thin bands, with a faint glint of eyes; where they were a moment ago, an after-image fades.
   if (!night) {
@@ -1074,6 +1095,8 @@ function draw(c, s, o) {
       const gx = o.note.x * T + 14, gy = FY + o.note.y * T + 15;
       ctx.globalAlpha = Math.sin((F % 90) / 30 * Math.PI) * 0.7; R('#fff6dc', gx, gy, 3, 2); ctx.globalAlpha = 1;
     }
+    // In the dark the chevrons glow faintly amber, close to the helmet lamp a little more.
+    routeMarks(o.routes, o.enemies, ([x, y]) => clamp((9 - Math.hypot(x - s.x, y - s.y)) / 5, 0, 1), 'rgba(255,180,58,', 0.45);
     // The set ones glow faintly violet in the dark, so you can see that they are stuck.
     o.enemies.forEach(([ex, ey], i) => {
       if (!isSet(i)) return;

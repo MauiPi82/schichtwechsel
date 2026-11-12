@@ -22,14 +22,17 @@ const UI = {
     sticky: 'Tipp: Die Leertaste wechselt auch die Schicht (Windows-Einrastfunktion).',
     resume: 'Weiter ab', fresh: 'N: neue Nacht ab 22:00', physics: 'PHYSIK DER SCHICHT',
     caught: 'ERWISCHT', noticed: 'BEMERKT', crushed: 'EINGEMAUERT', robot: 'ÜBERFAHREN', beam: 'IM STRAHL', heat: 'VERBRANNT', plasma: 'IM PLASMA',
+    trialWarn: 'Die Glocke! Beim Schlag trägt sie dich in die andere Schicht. Grüner Rahmen: Dort kannst du stehen. Roter Rahmen: Dort ist Wand, geh weiter. Der erste Schlag ist ein Probeschlag.',
+    trialShift: l => l ? 'Probeschlag: Die Glocke hat dich in die Vorschicht getragen. Ab jetzt zählt jeder Schlag. Vor jedem zündet hinten im Verascher das Plasma.' : 'Probeschlag: Die Glocke hat dich in deine Schicht getragen. Ab jetzt zählt jeder Schlag.',
+    trialStay: 'Probeschlag: Drüben wäre hier Wand gewesen. Ab dem nächsten Schlag mauert sie dich ein. Stell dich vorher auf ein grün umrahmtes Feld.',
     paused: 'PAUSE', pausedHint: 'P oder ESC: weiter', bell: 'GLOCKE', ion: 'IONEN', retry: 'R: neu versuchen',
     stats: (d, s) => `Erwischt: ${d}   Schichtwechsel: ${s}`, perHour: 'Je Stunde:', thanks: 'Danke fürs Spielen.',
     sub: 'TURNO DI NOTTE · LUINO', credit: 'Ein Spiel von Maurizio Odenwaeller für Game Off 2026 · entwickelt mit Claude',
     sound: on => 'Ton: ' + (on ? 'an' : 'aus'), pause: 'Pause', full: 'Vollbild', menu: 'Menü', home: 'H: Hauptmenü',
     noteHead: 'VOGT MICROELETTRONICA · BAY 7 · TURNO B', q: ['„', '“'],
-    useLight: 'ANLAUFEN: LICHT', useStop: 'ANLAUFEN: NOT-AUS', charging: 'LÄDT',
-    yieldWord: 'AUSBEUTE', best: 'BESTE AUSBEUTE', rewind: 'SHIFT: ZURÜCKSPULEN', slots: 'LOADPORT 1: 26 WAFER GEZÄHLT. DER FOUP HAT 25 PLÄTZE.', lightTip: 'LAUF GEGEN DIE ANLAGE: IHR LICHT HÄLT SIE AUF', graceTip: 'DER RING: SOLANGE ER LÄUFT, GREIFEN SIE DICH NICHT. ABER LAUF NIE IN SIE HINEIN.', alertTip: 'BEMERKT! ER FOLGT DIR EIN PAAR SCHRITTE. WECHSLE DIE SCHICHT ODER GEH AUF ABSTAND.',
-    causeTip: {noticed: 'Er hatte dich bemerkt: Wer zu lange in ihrer Nähe bleibt, wird verfolgt. Wechsle die Schicht oder halte Abstand.', caught: 'Im Ring greifen sie nicht. Wer selbst in sie hineinläuft, ist erwischt.', crushed: 'Vor der Glocke auf ein grün umrandetes Feld stellen.', plasma: 'Das Plasma zündet im Takt. Warten, oder eine Plasmaanlage anlaufen: Not-Aus.', heat: 'In einer Kühlnische warten, bis die Hitze zurückweicht.', beam: 'Gestrichelt: der nächste Weg des Strahls. Die Anlage anlaufen stoppt ihn.', robot: 'Die Roboter fahren ihre feste Bahn. Warten, bis sie vorbei sind.'},
+    useLight: 'REINLAUFEN: LICHT AN', useStop: 'REINLAUFEN: NOT-AUS', charging: 'LÄDT',
+    yieldWord: 'AUSBEUTE', best: 'BESTE AUSBEUTE', rewind: 'SHIFT: ZURÜCKSPULEN', slots: 'LOADPORT 1: 26 WAFER GEZÄHLT. DER FOUP HAT 25 PLÄTZE.', lightTip: 'LAUF IN DIE ANLAGE HINEIN: SIE MACHT LICHT, UND DAS LICHT HÄLT DIE VORSCHICHT AUF', graceTip: 'DER RING: SOLANGE ER LÄUFT, GREIFEN SIE DICH NICHT. ABER LAUF NIE IN SIE HINEIN.', alertTip: 'BEMERKT! ER FOLGT DIR EIN PAAR SCHRITTE. BLEIB IN BEWEGUNG ODER WECHSLE DIE SCHICHT.',
+    causeTip: {noticed: 'Er hatte dich bemerkt: Wer zu lange in ihrer Nähe bleibt, wird verfolgt. Bleib in Bewegung, geh auf Abstand oder wechsle die Schicht.', caught: 'Im Ring greifen sie nicht. Wer selbst in sie hineinläuft, ist erwischt.', crushed: 'Vor der Glocke auf ein grün umrandetes Feld stellen.', plasma: 'Das Plasma zündet im Takt. Warten, oder eine Plasmaanlage anlaufen: Not-Aus.', heat: 'In einer Kühlnische warten, bis die Hitze zurückweicht.', beam: 'Gestrichelt: der nächste Weg des Strahls. Die Anlage anlaufen stoppt ihn.', robot: 'Die Roboter fahren ihre feste Bahn. Warten, bis sie vorbei sind.'},
     yieldLog: y => `Ausbeute Los 4471: ${y} %`,
     // Why a shift was refused: what stands on this spot in the other shift.
     blocked: (to, what) => what === 'o' ? 'IN DER VORSCHICHT FEHLT HIER DER BODEN'
@@ -42,14 +45,17 @@ const UI = {
     sticky: 'Tip: Space changes the shift too (Windows Sticky Keys).',
     resume: 'Continue from', fresh: 'N: new night from 22:00', physics: 'PHYSICS OF THE SHIFT',
     caught: 'CAUGHT', noticed: 'NOTICED', crushed: 'WALLED IN', robot: 'RUN OVER', beam: 'IN THE BEAM', heat: 'BURNED', plasma: 'IN THE PLASMA',
+    trialWarn: 'The bell! When it strikes it carries you into the other shift. Green frame: you can stand there. Red frame: there is a wall, move on. The first strike is a trial.',
+    trialShift: l => l ? 'Trial strike: the bell carried you into the shift before. From now on every strike counts. Before each one the asher at the back fires its plasma.' : 'Trial strike: the bell carried you into your shift. From now on every strike counts.',
+    trialStay: 'Trial strike: over there this was a wall. From the next strike on it walls you in. Stand on a tile framed in green before it.',
     paused: 'PAUSED', pausedHint: 'P or ESC: resume', bell: 'BELL', ion: 'IONS', retry: 'R: try again',
     stats: (d, s) => `Caught: ${d}   Shift changes: ${s}`, perHour: 'Per hour:', thanks: 'Thank you for playing.',
     sub: 'TURNO DI NOTTE · LUINO', credit: 'A game by Maurizio Odenwaeller for Game Off 2026 · made with Claude',
     sound: on => 'Sound: ' + (on ? 'on' : 'off'), pause: 'Pause', full: 'Fullscreen', menu: 'Menu', home: 'H: main menu',
     noteHead: 'VOGT MICROELETTRONICA · BAY 7 · TURNO B', q: ['“', '”'],
-    useLight: 'WALK INTO: LIGHT', useStop: 'WALK INTO: STOP', charging: 'CHARGING',
-    yieldWord: 'YIELD', best: 'BEST YIELD', rewind: 'SHIFT: REWIND', slots: 'LOADPORT 1: 26 WAFERS COUNTED. THE FOUP HAS 25 SLOTS.', lightTip: 'WALK INTO THE TOOL: ITS LIGHT STOPS THEM', graceTip: 'THE RING: WHILE IT RUNS THEY CANNOT CATCH YOU. BUT NEVER WALK INTO THEM.', alertTip: 'NOTICED! HE FOLLOWS YOU FOR A FEW STEPS. SHIFT, OR KEEP YOUR DISTANCE.',
-    causeTip: {noticed: 'He had noticed you: linger near them and they follow. Shift, or keep your distance.', caught: 'In the ring they cannot catch you. Walking into them yourself, you are caught.', crushed: 'Before the bell, stand on a tile framed in green.', plasma: 'The plasma fires in rhythm. Wait, or walk into a plasma tool: emergency stop.', heat: 'Wait in a cooled niche until the heat falls back.', beam: 'Dashed: the beam\'s next path. Walking into the implanter stops it.', robot: 'The robots drive a fixed track. Wait until they have passed.'},
+    useLight: 'WALK IN: LIGHT ON', useStop: 'WALK IN: E-STOP', charging: 'CHARGING',
+    yieldWord: 'YIELD', best: 'BEST YIELD', rewind: 'SHIFT: REWIND', slots: 'LOADPORT 1: 26 WAFERS COUNTED. THE FOUP HAS 25 SLOTS.', lightTip: 'WALK INTO THE TOOL: IT LIGHTS UP, AND ITS LIGHT HOLDS THE SHIFT BEFORE', graceTip: 'THE RING: WHILE IT RUNS THEY CANNOT CATCH YOU. BUT NEVER WALK INTO THEM.', alertTip: 'NOTICED! HE FOLLOWS YOU FOR A FEW STEPS. KEEP MOVING, OR SHIFT.',
+    causeTip: {noticed: 'He had noticed you: linger near them and they follow. Keep moving, keep your distance, or shift.', caught: 'In the ring they cannot catch you. Walking into them yourself, you are caught.', crushed: 'Before the bell, stand on a tile framed in green.', plasma: 'The plasma fires in rhythm. Wait, or walk into a plasma tool: emergency stop.', heat: 'Wait in a cooled niche until the heat falls back.', beam: 'Dashed: the beam\'s next path. Walking into the implanter stops it.', robot: 'The robots drive a fixed track. Wait until they have passed.'},
     yieldLog: y => `Yield of lot 4471: ${y} %`,
     blocked: (to, what) => what === 'o' ? 'NO FLOOR HERE IN THE SHIFT BEFORE'
       : `${what === 'M' ? 'A TOOL' : 'A WALL'} STANDS HERE IN ${to ? 'THE SHIFT BEFORE' : 'YOUR SHIFT'}`,
@@ -978,6 +984,11 @@ function doStep(action) {
   if (state.events.includes('shift') && state.layer === 1 && state.enemies.length && !introMode && store.get('gracetip') !== '1') { store.set('gracetip', '1'); toast(t().graceTip, 360); }
   // Noticed: a sting, and the first time what it means.
   if (state.events.includes('alert')) { audio.sfx('alert'); if (store.get('alerttip') !== '1') { store.set('alerttip', '1'); toast(t().alertTip, 300); } }
+  // An hour with a trial bell: before its first strike what the frame means, after it what has changed.
+  if (state.level.bellTrial && !introMode && !trialTold.has(levelIndex)) {
+    if (state.events.includes('bell-warning') && C.bellIn(state) > C.bellWarning(state.level.bell) / 2) toast(t().trialWarn, 420);
+    if (state.events.includes('bell-trial')) { trialTold.add(levelIndex); toast(state.layer !== before ? t().trialShift(state.layer) : t().trialStay, 480); }
+  }
   if (state.events.includes('freeze')) audio.sfx('freeze');
   if (state.events.includes('flash')) flashFx = {...state.used, t: 0};
   if (state.events.includes('blocked') && !introMode) {
@@ -997,6 +1008,7 @@ function doStep(action) {
 
 // The SHIFT that closes a window must not also shift the layer: for a moment after it, SHIFT is ignored.
 let lastMode = null, windowClosedAt = -99, waitKey = false, bellAt = -99;
+const trialTold = new Set();
 const CLOSERS = new Set(['mini', 'process', 'note', 'locker', 'gown', 'shower', 'card', 'paused']);
 function update() {
   frame++; pollPad();
@@ -1172,9 +1184,9 @@ function drawHUD() {
     txt(name, 4, by + 2, {color: night ? '#ffcf5a' : '#9fe0ff', max: 64});
     ctx.font = '400 8px "Silkscreen", monospace';
     const nw = Math.min(64, ctx.measureText(name).width), act = ready ? (use.stops ? t().useStop : t().useLight) : t().charging;
-    const aw = Math.min(84, ctx.measureText(act).width);
+    const aw = Math.min(100, ctx.measureText(act).width);
     txt(info, 10 + nw, by + 2, {font: 'IBM Plex Sans', size: 8, color: '#e9e4d6', max: W - 4 - aw - 8 - (10 + nw)});
-    txt(act, W - 4, by + 2, {align: 'right', color: ready ? '#c9a5ff' : '#6b7190', max: 84});
+    txt(act, W - 4, by + 2, {align: 'right', color: ready ? '#c9a5ff' : '#6b7190', max: 100});
   } else if (L.beams.length && (hintT >= 300 || !def2.hint)) {
     const b = L.beams[0], ph = b.phases[C.beamPhase(b, state.step)], next = b.phases[(C.beamPhase(b, state.step) + 1) % b.phases.length];
     R('rgba(0,0,0,.55)', 0, FY + C.H * T - 13, W, 13);
@@ -1308,6 +1320,12 @@ function renderPlay() {
     locker: introMode && (mode === 'locker' || (mode === 'note' && noteSrc === 'locker')) ? {no: INTRO.locker.no, t: mode === 'locker' ? lockerT : 99} : null,
     extraShadow: extra && !introMode ? {x: extra.x, y: extra.y, a: Math.sin(Math.PI * extra.t / 120)} : null,
     selfShadow: !introMode && levelIndex >= 6 && state.layer === 0 && selfTrail.length > 12 ? selfTrail[selfTrail.length - 12] : null,
+    routes: introMode ? null : state.enemies.map(e => {
+      // Where a round goes next: the next tiles of its loop, so you can tell its direction before you shift.
+      if (e.pt === undefined || e.off || state.step < (e.alert || 0) || C.frozen(state, e)) return null;
+      const cells = state.level.patrols[e.pt].cells;
+      return [1, 2, 3].map(k => cells[(e.pi + k) % cells.length]).map(c => [c.x, c.y]);
+    }),
     frozen: state.enemies.map(e => C.frozen(state, e)), alert: state.enemies.map(e => state.step < (e.alert || 0)), flash: flashFx && {...flashFx, a: 1 - flashFx.t / 34},
     grace: !introMode && state.layer === 1 && state.enemies.length ? clamp(1 - (C.sinceRing(state) * STEP_FRAMES + stepFrame) / (C.GRACE * STEP_FRAMES), 0, 1) : 0,
     ...storyView()});

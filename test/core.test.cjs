@@ -75,6 +75,21 @@ test('the bell shifts the player and walls in whoever stands in a wall', () => {
   assert.equal(s2.status, 'play'); assert.equal(s2.layer, core.NIGHT);
 });
 
+test('a trial bell: the first strike cannot wall you in, its plasma sleeps through the first round', () => {
+  const day = ['####################', '#P.................#', '#..................#', '#..................#', '#..................#',
+    '#..................#', '#..................#', '#..................#', '#.................X#', '####################'];
+  const night = day.map((r, y) => y === 1 ? '#o.................#' : r.replace('P', '.').replace('X', '.'));
+  const L = core.parseLevel({id: 't3', time: '', title: {}, day, night, bell: 5, bellTrial: true,
+    pulses: [{x0: 3, y0: 3, x1: 4, y1: 4, period: 5, on: [2, 5], sync: 'bell'}]});
+  assert.equal(core.timedHazard(L, core.DAY, 3, 3, 3), null, 'quiet in the first round');
+  assert.equal(core.timedHazard(L, core.DAY, 8, 3, 3), 'plasma', 'awake from the second');
+  const s = core.newState(L);
+  for (let i = 0; i < 5; i++) core.step(s, 'wait');
+  assert.equal(s.status, 'play'); assert.ok(s.events.includes('bell-trial')); assert.equal(s.layer, core.DAY);
+  for (let i = 0; i < 5; i++) core.step(s, 'wait');
+  assert.equal(s.status, 'lost'); assert.equal(s.cause, 'crushed');
+});
+
 test('process stations only count in order', () => {
   const day = ['####################', '#P.2.1............X#', '#..................#', '#..................#', '#..................#',
     '#..................#', '#..................#', '#..................#', '#..................#', '####################'];
