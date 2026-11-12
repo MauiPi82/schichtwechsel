@@ -54,7 +54,7 @@ test('a shift into a solid tile is refused, a shift onto the previous shift is f
   core.step(s, 'right');
   core.step(s, 'shift');
   assert.equal(s.layer, core.NIGHT);
-  core.step(s, 'wait'); core.step(s, 'wait');
+  for (let i = 0; i < core.GRACE; i++) core.step(s, 'wait');
   // After the grace, teleport next to the waiting enemy and step onto it.
   s.x = 17; s.y = 8;
   core.step(s, 'right');

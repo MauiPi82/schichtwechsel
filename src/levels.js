@@ -93,7 +93,7 @@
         en: ['The furnaces sit at 1000 °C.', 'No recipe is running.', 'I wrote it in the shift log.', 'Afterwards the page was blank.'],
       }},
       scare: {type: 'window'},
-      enemyEvery: 4,
+      enemyEvery: 6,
       tools: [
         {x0: 3, y0: 1, type: 'furnace', n: 3, name: 'FORNO V-3', temp: '1000°C'},
         {x0: 11, y0: 1, type: 'wetbench', name: 'PURA W-6', baths: ['SPM', 'SC-1', 'SC-2', 'HF', 'DRY']},
@@ -149,7 +149,7 @@
       }},
       scare: {type: 'blackout', at: 14, layer: 'night'},
       route: [{de: 'Belacken', en: 'Coat', proc: 'coat'}, {de: 'Belichten', en: 'Expose', proc: 'expose'}, {de: 'Entwickeln', en: 'Develop', proc: 'develop'}],
-      enemyEvery: 4,
+      enemyEvery: 6,
       tools: [
         {x0: 2, y0: 2, type: 'track', name: 'KENSEI CT-7'},
         {x0: 10, y0: 2, type: 'scanner', name: 'LUMENA S193i'},
@@ -204,7 +204,7 @@
       }},
       scare: {type: 'shadow', at: 10, n: 1},
       route: [{de: 'Ätzen', en: 'Etch', proc: 'etch'}, {de: 'Lack entfernen', en: 'Strip resist', proc: 'strip'}],
-      enemyEvery: 4,
+      enemyEvery: 6,
       bell: 30,
       tools: [
         {x0: 6, y0: 1, type: 'cluster', kind: 'etch', name: 'VALENTA C-5', chambers: 5},
@@ -262,7 +262,7 @@
       }},
       scare: {type: 'blackout', at: 18, layer: 'day'},
       route: [{de: 'Implantieren', en: 'Implant', proc: 'implant'}],
-      enemyEvery: 4,
+      enemyEvery: 6,
       beams: [{x: 1, y: 8, dir: 'right', keV: 40, metersPerTile: 0.15, field: {x0: 3, y0: 1, x1: 12, y1: 8, B: 0.25}, species: ['B', 'P', 'As'], every: 24}],
       tools: [
         {x0: 1, y0: 7, type: 'implanter', part: 'source'},
@@ -318,7 +318,7 @@
       }},
       scare: {type: 'phone', at: 14, x: 2, y: 0},
       route: [{de: 'Ausheilen', en: 'Anneal', proc: 'anneal'}],
-      enemyEvery: 4,
+      enemyEvery: 6,
       heat: {
         ambient: 22, source: 1000, threshold: 60, alpha: 0.2, cooling: 0.3, substeps: 2, period: 48, open: [0, 14],
         sources: [[6, 1, 0], [9, 1, 8], [12, 1, 16], [15, 1, 24], [5, 5, 12], [8, 5, 20], [11, 5, 28], [14, 5, 36]],
@@ -377,7 +377,7 @@
       }},
       scare: {type: 'blackout', at: 22, layer: 'night'},
       route: [{de: 'Oxid abscheiden', en: 'Deposit oxide', proc: 'deposit'}, {de: 'Kontakte ätzen', en: 'Etch contacts', proc: 'contacts'}],
-      enemyEvery: 4,
+      enemyEvery: 6,
       pulses: [
         {x0: 1, y0: 3, x1: 6, y1: 4, period: 30, on: [0, 10]},
         {x0: 7, y0: 3, x1: 12, y1: 4, period: 30, on: [10, 20]},
@@ -440,7 +440,7 @@
       }},
       scare: {type: 'shadow', afterPa: 1, n: 3},
       route: [{de: 'Sputtern', en: 'Sputter', proc: 'sputter'}, {de: 'Messen', en: 'Measure', proc: 'measure'}],
-      enemyEvery: 4,
+      enemyEvery: 6,
       bell: 36,
       pulses: [{x0: 8, y0: 2, x1: 11, y1: 7, period: 30, on: [0, 12]}],
       tools: [

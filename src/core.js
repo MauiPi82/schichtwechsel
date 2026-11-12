@@ -17,7 +17,9 @@
   const DIRS = {up: [0, -1], right: [1, 0], down: [0, 1], left: [-1, 0]};
   const ORDER = ['up', 'right', 'down', 'left'];
   // Grace equals the cooldown, so a player who shifts next to the previous shift can always shift back in time.
-  const SHIFT_COOLDOWN = 3, GRACE = SHIFT_COOLDOWN;
+  // After a shift into the shift before, the previous shift cannot catch you for GRACE steps:
+  // time to see where they stand and to shift back.
+  const SHIFT_COOLDOWN = 3, GRACE = 6;
   const BELL_WARNING = 24;
   // Tiles: # wall, M machine, = glass, o hole, . floor, P start, X airlock exit,
   // 1-8 process stations (visited in order), V previous shift (night only).
@@ -363,7 +365,7 @@
     const period = [level.enemyEvery * 2, level.bell || 1, ...level.robots.map(r => r.length), ...level.beams.map(b => b.every * b.species.length),
       level.heat ? level.heat.period : 1, ...level.pulses.map(p => p.period)]
       .reduce((a, b) => a / gcd(a, b) * b, 1);
-    const key = s => `${s.x},${s.y},${s.layer},${s.got},${s.step % period},${Math.min(s.step - s.lastShift, SHIFT_COOLDOWN)},` +
+    const key = s => `${s.x},${s.y},${s.layer},${s.got},${s.step % period},${Math.min(s.step - s.lastShift, Math.max(SHIFT_COOLDOWN, GRACE))},` +
       s.enemies.map(e => e.x + ':' + e.y).join(';');
     const start = newState(level);
     const seen = new Map([[key(start), null]]);
@@ -392,6 +394,6 @@
     return null;
   }
 
-  return {W, H, DAY, NIGHT, ACTIONS, DIRS, SHIFT_COOLDOWN, BELL_WARNING, SPECIES, parseLevel, newState, step, clone,
+  return {W, H, DAY, NIGHT, ACTIONS, DIRS, SHIFT_COOLDOWN, GRACE, BELL_WARNING, SPECIES, parseLevel, newState, step, clone,
     walkable, robotAt, beamPhase, pulseOn, timedHazard, bellIn, nearestEnemy, solve, idx};
 });

@@ -4,7 +4,7 @@
 const C = window.SchichtCore, {LEVELS, ENDING, INTRO, FINALE} = window.SchichtLevels;
 const cv = document.getElementById('game'), ctx = cv.getContext('2d');
 const W = 320, H = 180, Z = 4, T = 16, FY = 16;
-const STEP_FRAMES = 7;
+const STEP_FRAMES = 8;
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const isTouch = matchMedia('(pointer: coarse)').matches;
 const levels = LEVELS.map(d => C.parseLevel(d));
@@ -241,8 +241,22 @@ const audio = {
         this.tone('sine', 62, t0, 0.14, o.gain || 0.2); this.tone('sine', 55, t0 + 0.17, 0.16, (o.gain || 0.2) * 0.7);
         break;
       case 'lost':
-        this.burst(t0, 0.7, 0.5, 'lowpass', 2400);
-        this.tone('sawtooth', 160, t0, 0.8, 0.25, null, 30);
+        if (o.cause === 'crushed' || o.cause === 'robot') {
+          // The slam of the wall, then rubble.
+          this.burst(t0 + 0.12, 0.25, 0.6, 'lowpass', 280); this.tone('sine', 60, t0 + 0.12, 0.7, 0.55, null, 28);
+          this.burst(t0 + 0.25, 1.3, 0.12, 'bandpass', 1500, 0.8);
+        } else if (o.cause === 'beam') {
+          this.tone('sawtooth', 2400, t0, 0.5, 0.08, null, 300); this.tone('sine', 6000, t0, 0.9, 0.035, null, 7000);
+          this.burst(t0, 0.9, 0.12, 'highpass', 4000);
+        } else if (o.cause === 'heat') {
+          this.burst(t0, 1.5, 0.32, 'lowpass', 500); this.burst(t0 + 0.1, 1.3, 0.1, 'bandpass', 2500, 0.6); this.tone('sine', 45, t0, 1.3, 0.2);
+        } else if (o.cause === 'plasma') {
+          this.tone('sawtooth', 60, t0, 1.1, 0.16); this.tone('sawtooth', 120.5, t0, 1.1, 0.09);
+          for (let i = 0; i < 9; i++) this.burst(t0 + i * 0.09 + hash(i) * 0.05, 0.04, 0.22, 'highpass', 2500);
+        } else {
+          this.burst(t0, 0.7, 0.5, 'lowpass', 2400);
+          this.tone('sawtooth', 160, t0, 0.8, 0.25, null, 30);
+        }
         break;
       case 'won': this.burst(t0, 1.2, 0.16, 'highpass', 1200); this.tone('square', 70, t0 + 1.1, 0.12, 0.12); break;
       case 'reticle': [1320, 1760, 2640].forEach((f, i) => this.tone('sine', f, t0 + i * 0.07, 0.4, 0.06)); break;
@@ -394,7 +408,7 @@ function pollPad() {
 let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0, shake = 0;
 let progress = clamp(+store.get('level') || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
 const deathsBy = levels.map(() => 0);
-const BUILD = '0.11 · 2026-11-12';
+const BUILD = '0.12 · 2026-11-12';
 // Testers can jump to an hour: ?stunde=3 or ?hour=3 opens the third hour.
 const jump = +(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || 0);
 if (jump >= 1 && jump <= levels.length) progress = jump - 1;
@@ -556,7 +570,7 @@ function doStep(action) {
   totalShifts += state.events.filter(e => e === 'shift').length;
   for (const ev of state.events) {
     if (ev === 'enemy-step') continue;
-    if (['shift', 'blocked', 'station', 'bell', 'bell-warning', 'beam-switch', 'beam-warning', 'won', 'lost', 'pulse', 'pulse-warning', 'furnace-open'].includes(ev)) audio.sfx(ev);
+    if (['shift', 'blocked', 'station', 'bell', 'bell-warning', 'beam-switch', 'beam-warning', 'won', 'lost', 'pulse', 'pulse-warning', 'furnace-open'].includes(ev)) audio.sfx(ev, {cause: state.cause});
     if (ev === 'bell' && !reduced) shake = 10;
   }
   if (state.events.includes('enemy-step')) {
@@ -621,7 +635,7 @@ function update() {
   if (mode === 'cinema') updateCinema();
   if (mode === 'process' && ++procT > window.SchichtProcess.DURATION) mode = 'play';
   if (mode === 'shower') updateShower();
-  if (mode === 'dead' && ++deadT > 70) startLevel(levelIndex, true);
+  if (mode === 'dead' && ++deadT > DEAD_LEN) startLevel(levelIndex, true);
   if (mode === 'clear' && ++deadT > 60) {
     checkpoint = null;
     if (levelIndex + 1 < levels.length) startCard(levelIndex + 1);
@@ -809,8 +823,89 @@ function renderPlay() {
   }
 }
 
+// Every way to fail has its own picture: their visor, the wall that closes, the ion beam, the furnace heat, the plasma.
+const DEAD_LEN = 80, ION_COL = {B: '#9fe0ff', P: '#d59cff', As: '#9cff9c', BF2: '#ffe08a'};
+function deathPicture(cause, d) {
+  const px = state.x * T + T / 2, py = FY + state.y * T + T / 2 - 2, night = state.layer === 1;
+  if (cause === 'crushed' || cause === 'robot') {
+    // The wall of the other shift closes on you from both sides; dust trickles from the seam.
+    const e = 1 - Math.pow(1 - clamp(d / 10, 0, 1), 3), gap = (1 - e) * (W / 2 + 12);
+    const jolt = d >= 10 && d < 20 && !reduced ? Math.round((hash(frame) - 0.5) * 4) : 0;
+    const face = night ? '#342812' : '#c4ccd6', top = night ? '#4a3a1c' : '#e8ecf1', trim = night ? '#9a6c1e' : '#2c6fb5', gr = night ? '#160f06' : '#8a94a2';
+    if (gap > 1) { R('#4a8fd8', px - 3, py - 4, 2, 2); R('#4a8fd8', px + 1, py - 4, 2, 2); }
+    for (const side of [-1, 1]) {
+      const x0 = (side < 0 ? px - gap - W : px + gap) + jolt;
+      R(face, x0, FY, W, H - FY); R(top, x0, FY, W, 12);
+      R(trim, side < 0 ? x0 + W - 3 : x0, FY, 3, H - FY);
+      for (let y = FY + 18; y < H; y += 6) R(gr, x0 + 8, y, W - 16, 1);
+    }
+    if (d >= 10) for (let i = 0; i < 46; i++) {
+      const t2 = d - 10, x = px + jolt + (hash(i) - 0.5) * (3 + t2 * 0.8), y = py - 40 + ((hash(i * 3) * 30 + t2 * (1.2 + hash(i * 7) * 2)) % 110);
+      R(night ? '#7a6a48' : '#eef1f4', x, y, 1, 1);
+    }
+  } else if (cause === 'beam') {
+    // The beam takes the whole room; the suit sputters away atom by atom.
+    const b = state.level.beams[0], sp = b ? b.phases[C.beamPhase(b, state.step)].species : 'B', col = ION_COL[sp] || '#9fe0ff';
+    const th = 3 + 22 * clamp(d / 8, 0, 1), fb = clamp((56 - d) / 30, 0, 1);
+    // Light adds up in the dark; on the bright day floor the beam is painted over it instead.
+    ctx.globalCompositeOperation = night ? 'lighter' : 'source-over';
+    for (const [w, a] of [[th * 2, 0.22], [th, 0.4], [th * 0.35, 0.85]]) { ctx.globalAlpha = a * fb; R(col, 0, py - w / 2, W, w); }
+    ctx.globalAlpha = fb; R('#ffffff', 0, py - 1, W, 2);
+    for (let i = 0; i < 50; i++) R(col, (hash(i) * W + d * (8 + hash(i * 3) * 10)) % W, py + (hash(i * 5) - 0.5) * th, 5 + hash(i * 2) * 6, 1);
+    ctx.globalCompositeOperation = 'source-over';
+    const t2 = Math.max(0, d - 4);
+    for (let i = 0; i < 80; i++) {
+      ctx.globalAlpha = clamp(1 - t2 / 55, 0, 1);
+      R(hash(i) > 0.3 ? '#f7f9fc' : '#8a5cd6', px + (hash(i * 9) - 0.5) * 10 + t2 * (1 + hash(i * 11) * 3), py + (hash(i * 13) - 0.5) * 18 + t2 * (hash(i * 17) - 0.5) * 1.4, 1, 1);
+    }
+    ctx.globalAlpha = 1;
+    if (d > 8) txt(`${sp}+ · ${b ? b.keV : 40} keV`, W / 2, py + th + 4 > H - 12 ? py - th - 12 : py + th + 4, {align: 'center', color: col});
+  } else if (cause === 'heat') {
+    // The air shimmers, the floor glows, embers rise; the thermometer climbs to tube temperature.
+    const h = clamp(d / 24, 0, 1);
+    if (!reduced) {
+      ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+      for (let y = 0; y < cv.height; y += 8) ctx.drawImage(cv, 0, y, cv.width, 8, Math.sin(y / 23 + d / 3) * 6 * h, y, cv.width, 8);
+      ctx.restore();
+    }
+    const g = ctx.createLinearGradient(0, H, 0, FY);
+    g.addColorStop(0, `rgba(255,120,30,${0.75 * h})`); g.addColorStop(1, `rgba(255,60,20,${0.22 * h})`);
+    ctx.fillStyle = g; ctx.fillRect(0, FY, W, H - FY);
+    const rg = ctx.createRadialGradient(px, py, 1, px, py, 10 + 30 * h);
+    rg.addColorStop(0, `rgba(255,245,200,${0.9 * h})`); rg.addColorStop(1, 'rgba(255,140,40,0)');
+    ctx.fillStyle = rg; ctx.fillRect(px - 40, py - 40, 80, 80);
+    for (let i = 0; i < 50; i++) R(hash(i * 2) > 0.5 ? '#ffcf5a' : '#ff7a2a', hash(i) * W + Math.sin(d / 9 + i) * 5, H - ((d * (1 + hash(i * 3) * 1.5) + hash(i * 7) * (H - FY)) % (H - FY)), 1, 2);
+    txt(`${Math.round(22 + 1028 * h)} °C`, W / 2, FY + 14, {align: 'center', size: 16, font: 'Pixelify Sans', weight: 700, color: '#fff0c0', shadow: '#5a1a00'});
+  } else if (cause === 'plasma') {
+    // A violet glow, the sheath as a growing ring, arcs that branch from you into the dark.
+    const a = clamp(d / 10, 0, 1), f = clamp((62 - d) / 30, 0, 1);
+    ctx.globalCompositeOperation = 'lighter';
+    const rg = ctx.createRadialGradient(px, py, 2, px, py, 20 + d * 2);
+    rg.addColorStop(0, `rgba(220,160,255,${0.75 * a * f})`); rg.addColorStop(1, 'rgba(120,40,200,0)');
+    ctx.fillStyle = rg; ctx.fillRect(0, FY, W, H - FY);
+    ctx.strokeStyle = `rgba(240,215,255,${0.8 * f})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(px, py, 6 + d * 1.6, 0, 7); ctx.stroke();
+    const seed = Math.floor(d / 6);
+    ctx.lineWidth = 1; ctx.strokeStyle = `rgba(235,200,255,${0.9 * f})`;
+    for (let k = 0; k < 6; k++) {
+      let x = px, y = py, ang = hash(k * 7 + seed * 13) * 7;
+      ctx.beginPath(); ctx.moveTo(x, y);
+      for (let j = 0; j < 9; j++) { ang += (hash(k * 31 + j * 7 + seed) - 0.5) * 1.3; x += Math.cos(ang) * 8; y += Math.sin(ang) * 8; ctx.lineTo(x, y); }
+      ctx.stroke();
+    }
+    ctx.globalCompositeOperation = 'source-over';
+    if (d > 8) txt('13,56 MHz', W / 2, FY + 14, {align: 'center', color: '#e6c8ff'});
+  }
+}
+
 function renderDead() {
   renderPlay();
+  const cause = state.cause || 'caught';
+  if (cause !== 'caught') {
+    deathPicture(cause, deadT);
+    ctx.fillStyle = `rgba(0,0,0,${clamp((deadT - 28) / 40, 0, 0.9)})`; ctx.fillRect(0, 0, W, H);
+    if (deadT > 24) txt(t()[cause] || t().caught, W / 2, H / 2 - 8, {align: 'center', size: 16, font: 'Pixelify Sans', weight: 700, color: '#e0402a'});
+    return;
+  }
   const k = deadT / 70;
   ctx.fillStyle = `rgba(0,0,0,${clamp(k * 1.6, 0, 0.92)})`; ctx.fillRect(0, 0, W, H);
   if (deadT < 34) {
@@ -823,8 +918,7 @@ function renderDead() {
     ctx.restore();
     if (!reduced) for (let i = 0; i < 300; i++) R(hash(i + frame) > 0.5 ? '#fff' : '#000', hash(i * 3 + frame) * W, hash(i * 7 + frame) * H, 1, 1);
   }
-  const cause = t()[state.cause] || t().caught;
-  if (deadT > 30) txt(cause, W / 2, H / 2 - 8, {align: 'center', size: 16, font: 'Pixelify Sans', weight: 700, color: '#e0402a'});
+  if (deadT > 30) txt(t().caught, W / 2, H / 2 - 8, {align: 'center', size: 16, font: 'Pixelify Sans', weight: 700, color: '#e0402a'});
 }
 
 function renderCard() {
@@ -985,7 +1079,8 @@ if (new URLSearchParams(location.search).has('test')) {
     process: (type, tt) => { procType = type; procT = tt; mode = 'process'; },
     setLayer: l => audio.setLayer(l), lang: l => { lang = l; applyLanguage(); },
     get paNow() { return paNow; }, get paT() { return paT; }, set paT(v) { paT = v; }, get scare() { return scare; }, get noteT() { return noteT; }, set noteT(v) { noteT = v; },
-    pa: i => startPA(LEVELS[levelIndex].pa[i]), setMode: m => { mode = m; }, calm: () => { fx = 0; shake = 0; }, scareNow: (type, extra = {}) => { scare = {type, t: 0, ...extra}; },
+    pa: i => startPA(LEVELS[levelIndex].pa[i]), setMode: m => { mode = m; }, calm: () => { fx = 0; shake = 0; },
+    dead: (cause, tt) => { state.cause = cause; mode = 'dead'; deadT = tt; }, scareNow: (type, extra = {}) => { scare = {type, t: 0, ...extra}; },
   };
 }
 render();
