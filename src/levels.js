@@ -445,7 +445,7 @@
       scare: {type: 'shadow', afterPa: 1, n: 3},
       route: [{de: 'Sputtern', en: 'Sputter', proc: 'sputter'}, {de: 'Schichtwiderstand', en: 'Sheet resistance', proc: 'rs'}],
       enemyEvery: 6,
-      bell: 36,
+      bell: 18,
       pulses: [{x0: 8, y0: 2, x1: 11, y1: 7, period: 30, on: [0, 12]}],
       tools: [
         {x0: 8, y0: 1, type: 'cluster', kind: 'pvd', name: 'VALENTA S-4', chambers: 3},

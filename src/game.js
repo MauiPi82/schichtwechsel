@@ -385,7 +385,7 @@ function paSyllables(text) {
 
 /* ---------- Input ---------- */
 const held = new Set();
-let queuedDir = null, queuedShift = false, lastDir = null, shiftHeld = false, miniPressed = false;
+let queuedDir = null, queuedShift = false, shiftQueuedAt = 0, lastDir = null, shiftHeld = false, miniPressed = false;
 const KEYDIR = {ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down', ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right'};
 addEventListener('keydown', e => {
   if (e.target instanceof Element && e.target.closest('select,input,textarea,button,a')) return;
@@ -416,7 +416,7 @@ function press(what) {
   if (mode === 'mini') { if (what === 'enter') window.SchichtMini.skip(mini); else miniPressed = true; return; }
   if (mode === 'process') { if (procT > 40) mode = 'play'; return; }
   if (mode === 'note') { if (noteT > 25) mode = 'play'; return; }
-  if (mode === 'play') { if (what === 'shift') queuedShift = true; return; }
+  if (mode === 'play') { if (what === 'shift') { queuedShift = true; shiftQueuedAt = frame; } return; }
   if (mode === 'title') { audio.unlock(); if (progress === 0) transition(startCinema, 36, 1); else transition(() => startCard(progress), 30, 30); return; }
   if (mode === 'card' && cardT > 20) { transition(() => { checkpoint = null; startLevel(levelIndex); }, 22, 36); return; }
   const toTitle = () => { mode = 'title'; audio.setLayer(0); };
@@ -458,7 +458,7 @@ function pollPad() {
 let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0, shake = 0;
 let progress = clamp(+store.get('level') || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
 const deathsBy = levels.map(() => 0);
-const BUILD = '0.18 · 2026-11-12';
+const BUILD = '0.19 · 2026-11-12';
 // Testers can jump to an hour: ?stunde=3 or ?hour=3 opens the third hour.
 const jump = +(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || 0);
 if (jump >= 1 && jump <= levels.length) progress = jump - 1;
@@ -642,7 +642,11 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && mod
 
 function nextAction() {
   if (introMode) queuedShift = false;
-  if (queuedShift) { queuedShift = false; return 'shift'; }
+  if (queuedShift) {
+    // A SHIFT pressed during the cooldown is kept for a moment and done as soon as it is allowed.
+    const wait = state.step + 1 - state.lastShift < C.SHIFT_COOLDOWN;
+    if (!wait || frame - shiftQueuedAt > 30) { queuedShift = false; if (!wait) return 'shift'; }
+  }
   if (queuedDir) { const d = queuedDir; queuedDir = null; return d; }
   if (lastDir && held.has(lastDir)) return lastDir;
   for (const d of held) return d;
@@ -711,7 +715,7 @@ function update() {
     const d = state.enemies.length ? C.nearestEnemy(state) : Infinity;
     if (d <= 7 && audio.ctx) {
       heartT -= 1 / 60;
-      if (heartT <= 0) { audio.sfx('heart', {gain: (state.layer ? 0.28 : 0.12) * (1 - d / 9)}); heartT = 0.32 + d * 0.11; }
+      if (heartT <= 0) { audio.sfx('heart', {gain: (state.layer ? 0.17 : 0.07) * (1 - d / 9)}); heartT = 0.4 + d * 0.12; }
     }
   }
   if (fx > 0) fx--;
