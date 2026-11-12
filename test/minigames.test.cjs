@@ -27,15 +27,27 @@ test('grades and yield', () => {
   assert.equal(M.yieldOf({s: worst}), Math.round(0.97 * 0.8 ** M.STEPS.length * 100));
 });
 
-test('oxidise: stopping at 50 nm is perfetto, waiting too long is not', () => {
+test('oxidise: following the recipe curve gives 50 nm; a furnace left alone stays cold and grows nothing', () => {
+  // A careful operator: heater power for where the curve goes next, with the furnace lag (90 frames) in mind.
   const m = M.create('oxidize');
-  run(m, 111);
-  // Stop a little early: about 1 nm grows on while the furnace ramps down.
-  while (m.phase === 'play' && 50 * (Math.sqrt(1 + (m.g + 1) / 180) - 1) + 1 < 50) M.update(m, idle);
-  press(m);
-  assert.equal(m.phase, 'result'); assert.ok(m.score > 0.9, `score ${m.score}`); assert.ok(Math.abs(m.values.oxide - 50) < 0.5, `${m.values.oxide}`);
-  const late = M.create('oxidize'); run(late, 2000);
-  assert.equal(late.phase, 'result'); assert.ok(late.score < 0.1);
+  let g = 0;
+  while (m.phase === 'play' && g++ < 3000) { if (m.goal !== undefined) m.P = Math.max(0, Math.min(10, (m.goal + 90 * m.slope - 400) / 70)); M.update(m, idle); }
+  assert.equal(m.phase, 'result'); assert.ok(m.score > 0.9, `score ${m.score}`); assert.ok(Math.abs(m.values.oxide - 50) < 1.5, `${m.values.oxide}`);
+  // Too hot during the hold: the oxide grows too thick.
+  const hot = M.create('oxidize'); g = 0;
+  while (hot.phase === 'play' && g++ < 3000) { if (hot.goal !== undefined) hot.P = Math.max(0, Math.min(10, (hot.goal + 40 + 90 * hot.slope - 400) / 70)); M.update(hot, idle); }
+  assert.ok(hot.values.oxide > 52, `hot ${hot.values.oxide}`);
+  const cold = M.create('oxidize'); g = 0;
+  while (cold.phase === 'play' && g++ < 3000) M.update(cold, idle);
+  assert.equal(cold.phase, 'result'); assert.ok(cold.score < 0.2, `cold ${cold.score}`);
+});
+
+test('etch: a tuned plasma etches at full rate; mistuned it stalls and costs grade', () => {
+  const tuned = M.create('etch'), loose = M.create('etch');
+  loose.tn = tuned.tn; loose.te = tuned.te; loose.ph = tuned.ph;
+  for (let i = 0; i < 400; i++) { tuned.match = tuned.ideal; M.update(tuned, idle); M.update(loose, idle); }
+  assert.ok(tuned.g > loose.g + 50, `tuned ${tuned.g} loose ${loose.g}`);
+  assert.ok(tuned.refl < 1 && loose.refl > 10);
 });
 
 test('coat: hold SHIFT to 2000 rpm, let go, the film dries at 100 nm', () => {

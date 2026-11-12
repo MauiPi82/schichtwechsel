@@ -15,6 +15,7 @@ function text(s, x, y, o = {}) {
   ctx.textAlign = o.align || 'left'; ctx.textBaseline = 'top';
   ctx.fillStyle = o.color || '#e9e4d6'; ctx.fillText(s, Math.round(x), Math.round(y), o.max || 300);
 }
+const hashM = n => { const v = Math.sin(n * 127.1 + 311.7) * 43758.5453; return v - Math.floor(v); };
 const L = (de, en) => lang === 'de' ? de : en;
 const num = (v, d = 1) => v.toFixed(d).replace('.', lang === 'de' ? ',' : '.');
 
@@ -229,42 +230,65 @@ const clean = {
 };
 
 /* ---------- 2 Oxidise: oxygen off at 50 nm. Deal-Grove: fast at first, then slower ---------- */
+// The furnace recipe: the boat sits at 700 °C, ramps to 1000 °C, holds there while dry O₂ flows, cools under N₂.
+// You set the heater power with ↑ ↓; the tube follows slowly (it is a lot of quartz and metal). Oxide grows only
+// during the hold, faster the hotter (Deal-Grove, B ∝ exp(−1.23 eV / kT)): stay on the curve and it is 50 nm.
 const OX_TAU = 180, OX_A = 50, RAMP = 1.0;
 const oxide = g => OX_A * (Math.sqrt(1 + g / OX_TAU) - 1);
+const OX_IN = 120, OX_UP = 300, OX_HOLD = 480, OX_DOWN = 180, OX_LAG = 90, OX_EA = 1.23;
+const oxGoal = f => f < OX_IN ? 700 : f < OX_IN + OX_UP ? 700 + 300 * (f - OX_IN) / OX_UP : f < OX_IN + OX_UP + OX_HOLD ? 1000
+  : f < OX_IN + OX_UP + OX_HOLD + OX_DOWN ? 1000 - 200 * (f - OX_IN - OX_UP - OX_HOLD) / OX_DOWN : 800;
+const oxSS = P => 400 + 70 * P;                         // where the tube settles at heater power P (0 to 10)
+const oxRate = T => 540 / OX_HOLD * Math.exp(OX_EA / KB_EV * (1 / 1273.15 - 1 / (T + 273.15)));
+const KB_EV = 8.617e-5;
 const oxidize = {
-  init(m) { m.st = 'load'; m.g = 0; },
+  init(m) { m.f = 0; m.T = 700; m.P = (700 - 400) / 70; m.g = 0; m.err = 0; m.n = 0; m.goal = 700; m.slope = 0; m.hist = []; },
   update(m, inp) {
-    if (m.st === 'load') { if (m.t > 110) m.st = 'grow'; return; }
-    m.g++;
-    const d = oxide(m.g);
-    if (inp.pressed || d >= 90) {
-      // While the furnace ramps down, about 1 nm grows on. Stop a little early.
-      const fin = d + RAMP;
+    if (m.t < 40) return;
+    m.f++;
+    if (inp.up) m.P = Math.min(10, m.P + 0.04);
+    if (inp.down) m.P = Math.max(0, m.P - 0.04);
+    m.T += (oxSS(m.P) - m.T) / OX_LAG;
+    m.goal = oxGoal(m.f); m.slope = oxGoal(m.f + 1) - m.goal;
+    m.err += (m.T - m.goal) ** 2; m.n++;
+    if (m.f % 3 === 0) m.hist.push([m.f, m.T]);
+    const hold = m.f >= OX_IN + OX_UP && m.f < OX_IN + OX_UP + OX_HOLD;
+    if (hold) m.g += oxRate(m.T);
+    if (m.f >= OX_IN + OX_UP + OX_HOLD + OX_DOWN) {
+      const fin = oxide(m.g) + RAMP, rms = Math.sqrt(m.err / m.n);
+      const thick = clamp(1 - Math.abs(fin - 50) / 10, 0, 1), track = clamp(1 - rms / 40, 0, 1);
       m.sfx('click');
-      finish(m, 1 - Math.abs(fin - 50) / 10, {oxide: fin}, [
-        L(`SiO₂ ${num(fin)} nm (${num(d)} + ${num(RAMP)} beim Spülen mit N₂)`, `SiO₂ ${num(fin)} nm (${num(d)} + ${num(RAMP)} during the N₂ purge)`),
-        L('Das Ellipsometer misst es nach dem Nitrid nach.', 'The ellipsometer checks it after the nitride.')]);
+      finish(m, 0.65 * thick + 0.35 * track, {oxide: fin}, [
+        L(`SiO₂ ${num(fin)} nm · ${L('im Mittel', 'on average')} ${Math.round(rms)} °C ${L('neben der Kurve', 'off the curve')}`, `SiO₂ ${num(fin)} nm · ${Math.round(rms)} °C off the curve on average`),
+        fin > 51.5 ? L('Zu heiß gehalten: Das Oxid ist zu dick geworden.', 'Held too hot: the oxide grew too thick.')
+          : fin < 48.5 ? L('Zu kalt gehalten: Das Oxid ist zu dünn.', 'Held too cold: the oxide is too thin.')
+            : L('Die Rampe sauber gefahren. Das Ellipsometer misst nach.', 'A clean ramp. The ellipsometer checks it.')]);
     }
   },
   draw(m) {
-    const a = frame(m, L('OXIDIEREN · 1000 °C, TROCKEN', 'OXIDISE · 1000 °C, DRY'), L('SHIFT: SAUERSTOFF AUS BEI 49 NM', 'SHIFT: OXYGEN OFF AT 49 NM'));
-    // The vertical furnace cut open from the side; the boat with its wafers rides up into the quartz bell.
-    const rise = smooth(m.t / 100), heat = clamp((m.t - 60) / 50, 0, 1);
-    window.SchichtProcess.furnace(ctx, a.x + 2, a.y + 2, 86, a.h - 14, {rise, heat, t: m.t, gas: m.st === 'grow' ? ['rgba(160,220,255,.9)'] : null,
-      temp: `${Math.round(400 + 600 * heat)} °C`});
-    text(m.st === 'grow' ? `t = ${Math.round(m.g / 10)} min` : L('BOOT FÄHRT EIN', 'BOAT LOADING'), a.x + 45, a.y + a.h - 10, {align: 'center', color: '#9aa6b5', max: 90});
-    // Thickness, big, and the growth curve with the target line.
-    const d = oxide(m.g), px = a.x + 92, pw = a.w - 98;
-    text(`${num(d)} nm`, px + pw / 2, a.y + 6, {align: 'center', size: 16, font: 'Pixelify Sans', weight: 700, color: Math.abs(d + RAMP - 50) < 1 ? '#3fe06a' : '#cfe8ff'});
-    text(L('ZIEL 50 NM · N₂-SPÜLEN +1 NM', 'TARGET 50 NM · N₂ PURGE +1 NM'), px + pw / 2, a.y + 26, {align: 'center', color: '#ffcf5a', max: pw});
-    const gx = px + 4, gy = a.y + 40, gw = pw - 8, gh = a.h - 46, G = 900, D = 90;
+    const a = frame(m, L('OXIDIEREN · 1000 °C, TROCKEN', 'OXIDISE · 1000 °C, DRY'), L('↑ ↓ HEIZLEISTUNG · FOLGE DER GELBEN KURVE', '↑ ↓ HEATER POWER · FOLLOW THE YELLOW CURVE'));
+    const rise = smooth(m.t / 40), heat = clamp((m.T - 600) / 400, 0, 1), hold = m.f >= OX_IN + OX_UP && m.f < OX_IN + OX_UP + OX_HOLD;
+    window.SchichtProcess.furnace(ctx, a.x + 2, a.y + 2, 86, a.h - 14, {rise, heat, t: m.t, gas: hold ? ['rgba(160,220,255,.9)'] : m.f > OX_IN + OX_UP + OX_HOLD ? ['rgba(200,210,255,.6)'] : null,
+      temp: `${Math.round(m.T)} °C`});
+    text(hold ? L('O₂ STRÖMT', 'O₂ FLOWING') : m.f > OX_IN + OX_UP + OX_HOLD ? L('N₂ SPÜLT', 'N₂ PURGE') : L('RAMPE', 'RAMP'), a.x + 45, a.y + a.h - 10, {align: 'center', color: hold ? '#9fe0ff' : '#9aa6b5', max: 90});
+    // The recipe curve (yellow) and the tube temperature (blue), 650 to 1100 °C, over the whole run.
+    const px = a.x + 92, pw = a.w - 98, gx = px + 4, gy = a.y + 30, gw = pw - 8, gh = a.h - 50;
+    const total = OX_IN + OX_UP + OX_HOLD + OX_DOWN, toY = T => gy + gh - (T - 650) / 450 * gh, toX = f => gx + f / total * gw;
     R('#0b0f18', gx, gy, gw, gh);
-    const ty = gy + gh - 50 / D * gh;
-    R('#5a4a1a', gx, ty, gw, 1); text('50', gx + 2, ty - 9, {color: '#c9a15a'});
+    ctx.globalAlpha = 0.18; R('#9fe0ff', toX(OX_IN + OX_UP), gy, toX(OX_IN + OX_UP + OX_HOLD) - toX(OX_IN + OX_UP), gh); ctx.globalAlpha = 1;
+    text('O₂', toX(OX_IN + OX_UP + OX_HOLD / 2), gy + 2, {align: 'center', color: '#6b9ec0', font: 'IBM Plex Sans', size: 7});
+    ctx.strokeStyle = '#ffcf5a'; ctx.lineWidth = 2; ctx.setLineDash([3, 2]); ctx.beginPath();
+    for (let f = 0; f <= total; f += 6) ctx[f ? 'lineTo' : 'moveTo'](toX(f), toY(oxGoal(f))); ctx.stroke(); ctx.setLineDash([]);
     ctx.strokeStyle = '#9fe0ff'; ctx.lineWidth = 1; ctx.beginPath();
-    for (let g = 0; g <= m.g; g += 6) ctx[g ? 'lineTo' : 'moveTo'](gx + g / G * gw, gy + gh - oxide(g) / D * gh);
-    ctx.stroke();
-    circle('#ffffff', gx + m.g / G * gw, gy + gh - d / D * gh, 1.5);
+    m.hist.forEach(([f, T], i) => ctx[i ? 'lineTo' : 'moveTo'](toX(f), toY(T))); ctx.stroke();
+    circle('#ffffff', toX(m.f), toY(m.T), 1.5);
+    const off = m.T - m.goal, okT = Math.abs(off) < 10;
+    text(`${Math.round(m.T)} °C`, px + pw / 2 - 30, a.y + 4, {align: 'center', size: 16, font: 'Pixelify Sans', weight: 700, color: okT ? '#3fe06a' : Math.abs(off) < 30 ? '#ffcf5a' : '#ff8a5a'});
+    text(`${L('SOLL', 'SET')} ${Math.round(m.goal)} °C`, px + pw / 2 + 36, a.y + 4, {align: 'center', color: '#ffcf5a', max: 70});
+    text(`SiO₂ ${num(oxide(m.g))} nm`, px + pw / 2 + 36, a.y + 14, {align: 'center', color: '#cfe8ff', max: 70});
+    // Heater power as a bar under the graph.
+    R('#1a2030', gx, gy + gh + 6, gw, 4); R('#ff9a4a', gx, gy + gh + 6, gw * m.P / 10, 4);
+    text(L('HEIZUNG', 'HEATER'), gx, gy + gh + 11, {color: '#8c93a8', font: 'IBM Plex Sans', size: 6});
     ctx.restore(); result(m, a);
   },
 };
@@ -503,7 +527,10 @@ const expose = {
  * Then a little more: 20 to 30 % over-etch makes sure every trench is open. */
 const etch = {
   // 100 nm nitride first, then 50 nm oxide, which CF₄/CHF₃ etches at least as fast: the oxide phase is the shorter.
-  init(m) { m.tn = 130 + Math.random() * 50; m.te = m.tn + 50 + Math.random() * 40; m.g = 0; m.cn = []; m.co = []; },
+  // The RF power must stay matched to the plasma: its impedance drifts, and jumps when the nitride is through.
+  // Badly matched, the power is reflected and the etch stalls. ↑ ↓ tune the matching network.
+  init(m) { m.tn = 130 + Math.random() * 50; m.te = m.tn + 50 + Math.random() * 40; m.g = 0; m.cn = []; m.co = []; m.match = 0.5; m.ideal = 0.5; m.refl = 0; m.mq = 0; m.mn = 0; m.ph = Math.random() * 6; },
+  idealAt(m) { return 0.5 + 0.16 * Math.sin(m.t / 70 + m.ph) + 0.06 * Math.sin(m.t / 23) + 0.22 * smooth((m.g - m.tn) / 30); },
   lines(m, g) {
     const drop = (t0, len) => g < t0 ? 1 : g < t0 + len ? 1 - (g - t0) / len : 0;
     const n1 = Math.sin(g * 0.7) * 0.03 + Math.sin(g * 2.3 + 1) * 0.02, n2 = Math.sin(g * 0.9 + 2) * 0.03 + Math.sin(g * 1.7) * 0.02;
@@ -513,25 +540,37 @@ const etch = {
   },
   update(m, inp) {
     if (m.t < 30) return;
-    m.g++;
+    if (inp.up) m.match = Math.min(1, m.match + 0.006);
+    if (inp.down) m.match = Math.max(0, m.match - 0.006);
+    m.ideal = this.idealAt(m);
+    m.refl = clamp(Math.abs(m.match - m.ideal) * 250, 0, 100);
+    m.mq += 1 - m.refl / 100; m.mn++;
+    m.g += 1 - 0.85 * clamp((m.refl - 5) / 60, 0, 1);
     const [cn, co] = this.lines(m, m.g);
     m.cn.push(cn); m.co.push(co); if (m.cn.length > 230) { m.cn.shift(); m.co.shift(); }
     const T = m.te + 40, p = (m.g - T) / T * 100;
     if (inp.pressed || p > 120) {
       m.sfx('click');
-      const s = p < 0 ? 1 + p / 25 : p < 20 ? 0.8 + 0.2 * p / 20 : p <= 30 ? 1 : 1 - (p - 30) / 60;
-      finish(m, s, {overEtch: p}, [
-        p < 0 ? L('Zu früh gestoppt: Oxidreste in den Gräben.', 'Stopped too early: oxide left in the trenches.') : L(`Überätzung ${Math.round(p)} %`, `Over-etch ${Math.round(p)} %`),
-        L('20 bis 30 % sind richtig, mehr greift das Silizium an.', '20 to 30 % is right, more attacks the silicon.')]);
+      const s = p < 0 ? 1 + p / 25 : p < 20 ? 0.8 + 0.2 * p / 20 : p <= 30 ? 1 : 1 - (p - 30) / 60, avg = m.mn ? m.mq / m.mn : 1;
+      finish(m, clamp(s, 0, 1) * (0.55 + 0.45 * avg), {overEtch: p}, [
+        (p < 0 ? L('Zu früh gestoppt: Oxidreste in den Gräben.', 'Stopped too early: oxide left in the trenches.') : L(`Überätzung ${Math.round(p)} %`, `Over-etch ${Math.round(p)} %`)) + L(` · Abstimmung ${Math.round(avg * 100)} %`, ` · matching ${Math.round(avg * 100)} %`),
+        avg < 0.8 ? L('Oft verstimmt: Das Plasma hat geflackert, die Wände sind rau geworden.', 'Often mistuned: the plasma flickered, the walls turned rough.') : L('20 bis 30 % sind richtig, mehr greift das Silizium an.', '20 to 30 % is right, more attacks the silicon.')]);
     }
   },
   draw(m) {
     const T = m.te + 40, p = (m.g - T) / T * 100, past = m.g >= T;
-    const a = frame(m, L('ÄTZEN · PLASMA, ENDPUNKT', 'ETCH · PLASMA, ENDPOINT'), past ? L('SHIFT: STOPP BEI ÜBERÄTZEN 20 BIS 30 %', 'SHIFT: STOP AT OVER-ETCH 20 TO 30 %') : L('WARTEN: CN FÄLLT, DANN CO', 'WAIT: CN DROPS, THEN CO'));
+    const a = frame(m, L('ÄTZEN · PLASMA, ENDPUNKT', 'ETCH · PLASMA, ENDPOINT'), past ? L('SHIFT: STOPP BEI ÜBERÄTZEN 20 BIS 30 % · ↑ ↓ ABSTIMMEN', 'SHIFT: STOP AT OVER-ETCH 20 TO 30 % · ↑ ↓ TUNE') : L('↑ ↓ ABSTIMMEN, REFLEXION NIEDRIG · DANN CN-, CO-ABFALL', '↑ ↓ TUNE, KEEP REFLECTION LOW · THEN CN, CO DROP'));
     // Left: the chamber. The plasma glows in the colour of what it etches: CN blue-violet on nitride, CO violet on oxide.
     const lit = m.t >= 30, cn = m.cn.length ? m.cn[m.cn.length - 1] : 0.9, co = m.co.length ? m.co[m.co.length - 1] : 0.1;
     const mix = [Math.round(110 * cn + 214 * co + 60), Math.round(200 * cn + 120 * co + 20), 255];
-    window.SchichtProcess.chamber(ctx, a.x + 2, a.y + 8, 94, a.h - 10, {t: m.t, gas: 'CF₄ · CHF₃ · Ar', rgb: mix.map(v => Math.min(255, v)), glow: lit ? 1 : 0.15, window: true}, lang);
+    // Mistuned, the plasma flickers and dims.
+    const flick = m.refl > 35 ? 0.45 + 0.55 * hashM(m.t) : 1;
+    window.SchichtProcess.chamber(ctx, a.x + 2, a.y + 8, 94, a.h - 24, {t: m.t, gas: 'CF₄ · CHF₃ · Ar', rgb: mix.map(v => Math.min(255, v)), glow: lit ? flick : 0.15, window: true}, lang);
+    // The reflected RF power: green while it stays low.
+    const ry = a.y + a.h - 13, rw = 90, good = m.refl < 12;
+    R('#1a2030', a.x + 4, ry + 8, rw, 4); R(good ? '#3fe06a' : m.refl < 35 ? '#ffcf5a' : '#ff6a3a', a.x + 4, ry + 8, rw * m.refl / 100, 4);
+    R('rgba(63,224,106,.35)', a.x + 4, ry + 7, rw * 0.12, 1);
+    text(`${L('REFLEKTIERT', 'REFLECTED')} ${Math.round(m.refl)} %`, a.x + 4, ry - 1, {color: good ? '#8fd8a0' : '#ffcf5a', font: 'IBM Plex Sans', size: 7, max: rw});
     // A fibre from the window to the spectrometer.
     ctx.strokeStyle = '#3a4058'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(a.x + 96, a.y + 34); ctx.quadraticCurveTo(a.x + 101, a.y + 30, a.x + 104, a.y + 24); ctx.stroke();
     // Right top: optical emission over time; CN while the nitride etches, CO while the oxide etches.
@@ -855,8 +894,8 @@ const BRIEF = {
     de: ['Drei Bäder: SC-1 hebt Partikel ab, SC-2 löst Metalle, HF das native Oxid.', 'Nach jedem Bad spült Wasser die Chemie ab. Jedes Bad braucht seine Zeit.', 'SHIFT hebt den Korb heraus, wenn die Zeit im Grünen ist.'],
     en: ['Three baths: SC-1 lifts particles, SC-2 dissolves metals, HF the native oxide.', 'After each bath, water rinses the chemicals off. Each bath needs its time.', 'SHIFT lifts the carrier out while the time is in the green.']},
   oxidize: {title: ['OXIDIEREN · 1000 °C', 'OXIDISE · 1000 °C'],
-    de: ['Im Ofen wächst Siliziumoxid, erst schnell, dann langsamer.', 'Ziel: 50 nm. Bis das Rohr mit Stickstoff gespült ist, wächst noch etwa 1 nm.', 'SHIFT stellt den Sauerstoff ab, also bei 49 nm.'],
-    en: ['Silicon oxide grows in the furnace, fast at first, then slower.', 'Target: 50 nm. Until the tube is purged with nitrogen, about 1 nm grows on.', 'SHIFT turns the oxygen off, so at 49 nm.']},
+    de: ['Der Ofen fährt ein Rezept: hoch auf 1000 °C, halten, während Sauerstoff strömt, abkühlen.', 'Das Oxid wächst beim Halten, heißer schneller. Der Ofen ist träge: früh gegensteuern.', '↑ ↓ Heizleistung. Bleib auf der gelben Kurve, dann werden es 50 nm.'],
+    en: ['The furnace runs a recipe: up to 1000 °C, hold while oxygen flows, cool down.', 'The oxide grows during the hold, faster when hotter. The furnace is slow: steer early.', '↑ ↓ heater power. Stay on the yellow curve and it will be 50 nm.']},
   nitride: {title: ['NITRID · LPCVD', 'NITRIDE · LPCVD'],
     de: ['Das Gas strömt von oben ins Rohr und wird unterwegs verbraucht:', 'Die unteren Wafer bekommen weniger. Wärmer wächst es schneller.', '↑↓ Zone · ←→ Temperatur · SHIFT startet die Abscheidung.'],
     en: ['The gas enters the tube at the top and is used up on the way down:', 'the lower wafers get less. Warmer, it grows faster.', '↑↓ zone · ←→ temperature · SHIFT starts the deposition.']},
@@ -877,8 +916,8 @@ const BRIEF = {
     de: ['Nach dem Backen bei 100 °C löst eine Lauge (TMAH) den belichteten Lack:', 'erst öffnen sich die Gräben, dann werden die Linien schmaler. Ziel: 40 nm.', 'SHIFT spült mit Wasser. Es wirkt erst 2 s später, also bei knapp 41 nm drücken.'],
     en: ['After a bake at 100 °C an alkaline developer (TMAH) dissolves the exposed resist:', 'first the trenches open, then the lines slim down. Target: 40 nm.', 'SHIFT rinses with water. It takes 2 s, so press at just under 41 nm.']},
   etch: {title: ['ÄTZEN · PLASMA', 'ETCH · PLASMA'],
-    de: ['Das Plasma ätzt durch Nitrid und Oxid. Sein Licht zeigt, was gerade', 'geätzt wird: erst CN (Nitrid), dann CO (Oxid). Danach 20 bis 30 % nachätzen.', 'SHIFT stoppt den Ätzer, wenn der Zähler ÜBERÄTZEN 25 % zeigt.'],
-    en: ['The plasma etches through nitride and oxide. Its light shows what is', 'being etched: first CN (nitride), then CO (oxide). Then 20 to 30 % more.', 'SHIFT stops the etcher when the OVER-ETCH counter shows 25 %.']},
+    de: ['Das Plasma ätzt durch Nitrid und Oxid. Seine Hochfrequenz muss abgestimmt bleiben,', 'sonst wird sie zurückgeworfen und das Ätzen stockt. Sein Licht zeigt: erst CN, dann CO.', '↑↓ abstimmen (Reflexion niedrig) · SHIFT stoppt bei ÜBERÄTZEN 25 %.'],
+    en: ['The plasma etches through nitride and oxide. Its radio frequency must stay tuned,', 'or it is reflected and the etch stalls. Its light shows: first CN, then CO.', '↑↓ tune (keep reflection low) · SHIFT stops at OVER-ETCH 25 %.']},
   implant: {title: ['IMPLANTIEREN · ARSEN', 'IMPLANT · ARSENIC'],
     de: ['Der Magnet trennt die Ionen nach ihrer Masse.', 'Nur Arsen (As⁺) soll durch den Spalt, bis die Dosis voll ist.', '↑↓ Magnetfeld · SHIFT öffnet den Strahl · das Feld driftet.'],
     en: ['The magnet separates the ions by their mass.', 'Only arsenic (As⁺) may pass the slit until the dose is full.', '↑↓ magnetic field · SHIFT opens the beam · the field drifts.']},
