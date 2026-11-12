@@ -468,7 +468,7 @@ function pollPad() {
 let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0, shake = 0;
 let progress = clamp(+store.get('level') || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
 const deathsBy = levels.map(() => 0);
-const BUILD = '0.20 · 2026-11-12';
+const BUILD = '0.21 · 2026-11-12';
 // Testers can jump to an hour: ?stunde=3 or ?hour=3 opens the third hour.
 const jump = +(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || 0);
 if (jump >= 1 && jump <= levels.length) progress = jump - 1;
@@ -759,7 +759,7 @@ function update() {
 // The previous shift creeps: each move is spread over its whole move interval.
 function enemyPos(e) {
   if (e.moved < 0 || e.fx === undefined) return [e.x, e.y];
-  const span = state.level.enemyEvery * STEP_FRAMES * (state.layer ? 1 : 2);
+  const span = (e.ev || state.level.enemyEvery * (state.layer ? 1 : 2)) * STEP_FRAMES;
   const k = clamp(((state.step - e.moved) * STEP_FRAMES + stepFrame) / span, 0, 1);
   return [lerp(e.fx, e.x, k), lerp(e.fy, e.y, k)];
 }

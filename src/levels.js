@@ -73,7 +73,7 @@
       ],
     },
     {
-      id: 'ox', reticle: [1, 8], time: '23:00',
+      id: 'ox', reticle: [13, 7], time: '23:00',
       layer: {de: 'Oxid', en: 'Oxide'}, stack: {de: 'SiO₂ 50 nm · Si₃N₄ 100 nm', en: 'SiO₂ 50 nm · Si₃N₄ 100 nm'},
       title: {de: 'Schatten', en: 'Shadows'},
       log: {
@@ -103,6 +103,8 @@
         {x0: 1, y0: 5, type: 'gascab', gas: 'DCS'},
       ],
       lamps: [[5, 3], [2, 7], [11, 7]],
+      // The previous shift walks its round along the only way through the wall.
+      patrols: [{path: [[4, 8], [13, 8]], every: 3}],
       day: [
         '####################',
         '#P.MMMMMM#.MMMMM...#',
@@ -123,7 +125,7 @@
         '#..o.....#ooooooooo#',
         '#M.....o.#ooooooooo#',
         '#M.......#.....oooo#',
-        '#....o...#...V.oooo#',
+        '#....o...#.....oooo#',
         '#.............o.===#',
         '####################',
       ],
@@ -160,6 +162,7 @@
         {x0: 15, y0: 7, type: 'stocker'},
       ],
       lamps: [[4, 5], [11, 5], [16, 2], [10, 7]],
+      patrols: [{path: [[2, 5], [16, 5]], every: 3}, {path: [[1, 8], [7, 8]], every: 3}],
       day: [
         '####################',
         '#P......#.........X#',
@@ -178,15 +181,15 @@
         '#.MMMMM.#oMMMMooooo#',
         '#.MMMMM.#.MMMM.ooo.#',
         '#..o....#.MMMM...o.#',
-        '#..V.........2.....#',
+        '#............2.....#',
         '###.#####...###.####',
         '#.......#...#..MM..#',
-        '#....V..#...#..MM..#',
+        '#.......#...#..MM..#',
         '####################',
       ],
     },
     {
-      id: 'st', reticle: [11, 7], time: '01:00',
+      id: 'st', reticle: [9, 7], time: '01:00',
       layer: {de: 'Struktur', en: 'Pattern'}, stack: {de: 'Linien · 40 nm', en: 'Lines · 40 nm'},
       title: {de: 'Campanile', en: 'Campanile'},
       log: {
@@ -218,6 +221,7 @@
         {x0: 12, y0: 7, type: 'gascab', gas: 'CF4'},
       ],
       lamps: [[9, 6], [2, 2], [17, 5]],
+      patrols: [{path: [[7, 6], [11, 6], [11, 8], [7, 8]], every: 3}],
       day: [
         '####################',
         '#P..#.MMMMMMM.#MMMM#',
@@ -239,12 +243,12 @@
         '#..o#oooo.oooo#....#',
         '#...#.........#o2.o#',
         '#...#.M.....M.#.oo.#',
-        '#..o#.M..V..M.#====#',
+        '#..o#.M.....M.#====#',
         '####################',
       ],
     },
     {
-      id: 'im', reticle: [1, 8], time: '02:00',
+      id: 'im', reticle: [9, 1], time: '02:00',
       layer: {de: 'Dotierung', en: 'Doping'}, stack: {de: 'Arsen · 2·10¹⁵ cm⁻²', en: 'Arsenic · 2·10¹⁵ cm⁻²'},
       title: {de: 'Implanter', en: 'Implanter'},
       log: {
@@ -274,12 +278,15 @@
         {x0: 14, y0: 7, type: 'metrology', name: 'ORSA TW-2', screen: 'tw'},
       ],
       lamps: [[4, 2], [8, 6], [12, 1]],
+      // The station room is walled in by day: in through the shift before. The middle is open only by day,
+      // across the beam; the way into the room is a round of the previous shift.
+      patrols: [{path: [[4, 3], [5, 3], [5, 5], [4, 5]], every: 3}],
       day: [
         '####################',
         '#.....#....#......X#',
         '#.1...#....#.......#',
         '#.....#....#.MMMMM.#',
-        '#..........#.MMMMM.#',
+        '######.....#.MMMMM.#',
         '#..........#.......#',
         '#..........#.......#',
         '#M.........#..MM...#',
@@ -291,16 +298,16 @@
         '#.....#......ooooo.#',
         '#.....#......ooooo.#',
         '#ooo..#....#ooooooo#',
-        '#ooo.......#ooooooo#',
-        '#oo...V....#ooooooo#',
-        '#oo........#ooooooo#',
-        '#o.........#ooooooo#',
-        '#...........ooooooo#',
+        '#ooo...o...#ooooooo#',
+        '#oo....o...#ooooooo#',
+        '#oo....o...#ooooooo#',
+        '#o.....o...#ooooooo#',
+        '#......o....ooooooo#',
         '####################',
       ],
     },
     {
-      id: 'an', reticle: [1, 8], time: '03:00',
+      id: 'an', reticle: [17, 6], time: '03:00',
       layer: {de: 'Ausheilen', en: 'Anneal'}, stack: {de: '1000 °C · 30 min · N₂', en: '1000 °C · 30 min · N₂'},
       title: {de: 'Ofenreihe', en: 'Furnace Row'},
       log: {
@@ -324,7 +331,7 @@
       route: [{de: 'Ausheilen', en: 'Anneal', proc: 'anneal'}],
       enemyEvery: 6,
       heat: {
-        ambient: 22, source: 1000, threshold: 60, alpha: 0.2, cooling: 0.3, substeps: 2, period: 48, open: [0, 14],
+        ambient: 22, source: 1000, threshold: 60, alpha: 0.2, cooling: 0.3, substeps: 2, period: 48, open: [0, 20],
         sources: [[6, 1, 0], [9, 1, 8], [12, 1, 16], [15, 1, 24], [5, 5, 12], [8, 5, 20], [11, 5, 28], [14, 5, 36]],
       },
       tools: [
@@ -333,6 +340,8 @@
         {x0: 5, y0: 5, type: 'tubes', name: 'FORNO H-12'},
       ],
       lamps: [[2, 4], [10, 7], [17, 6]],
+      // No way round at night any more: the furnace corridor is the way, with a round in the middle passage.
+      patrols: [{path: [[9, 2], [11, 2], [11, 4], [9, 4]], every: 3}],
       day: [
         '####################',
         '#P..#MMMMMMMMMMM#..#',
@@ -353,7 +362,7 @@
         '#...#oooo...oooo#..#',
         '#M..#...........#..#',
         '#M..#...........#..#',
-        '#...........V......#',
+        '#...............#..#',
         '#...#...........#..#',
         '####################',
       ],
@@ -382,10 +391,14 @@
       scare: {type: 'blackout', at: 22, layer: 'night'},
       route: [{de: 'Oxid abscheiden', en: 'Deposit oxide', proc: 'deposit'}, {de: 'Kontakte ätzen', en: 'Etch contacts', proc: 'contacts'}],
       enemyEvery: 6,
+      // Day: the plasma fires along the corridor in thirds. The middle is walled by day; in the shift before
+      // the plasma burns there too, in between. Wait for the gaps, or stop a chamber with its emergency button.
       pulses: [
-        {x0: 1, y0: 3, x1: 6, y1: 4, period: 30, on: [0, 10]},
-        {x0: 7, y0: 3, x1: 12, y1: 4, period: 30, on: [10, 20]},
-        {x0: 13, y0: 3, x1: 18, y1: 4, period: 30, on: [20, 30]},
+        {x0: 1, y0: 3, x1: 6, y1: 4, period: 30, on: [0, 14]},
+        {x0: 7, y0: 3, x1: 12, y1: 4, period: 30, on: [10, 24]},
+        {x0: 13, y0: 3, x1: 18, y1: 4, period: 30, on: [16, 30]},
+        {x0: 7, y0: 3, x1: 12, y1: 4, period: 30, on: [24, 30], layer: 1},
+        {x0: 7, y0: 3, x1: 12, y1: 4, period: 30, on: [0, 8], layer: 1},
       ],
       tools: [
         {x0: 1, y0: 6, type: 'chamber', kind: 'cvd', name: 'VALENTA D-2'},
@@ -395,12 +408,13 @@
         {x0: 16, y0: 1, type: 'chamber', kind: 'etch', name: 'VALENTA E-1'},
       ],
       lamps: [[2, 3], [9, 7], [16, 6]],
+      patrols: [{path: [[6, 3], [13, 3], [13, 4], [6, 4]], every: 3}],
       day: [
         '####################',
         '#P..MM....MM....MM.#',
         '#...MM....MM....MM.#',
-        '#..................#',
-        '#..................#',
+        '#........##........#',
+        '#........##........#',
         '####.####.####.#####',
         '#MMM.....#.....MMM.#',
         '#MMM.....#.....MMM.#',
@@ -412,11 +426,11 @@
         '#...oo....oo....oo.#',
         '#...oo....oo....oo.#',
         '#..................#',
-        '#........V.........#',
-        '####.####.####.#####',
-        '#MMM...............#',
-        '#MMM......V........#',
         '#..................#',
+        '####.####.####.#####',
+        '#MMM.....#.........#',
+        '#MMM.....#.........#',
+        '#........#.........#',
         '####################',
       ],
     },

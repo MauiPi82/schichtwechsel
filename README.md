@@ -6,7 +6,7 @@ The late shift at Vogt Microelettronica, a chip fab near Luino on Lago Maggiore,
 
 Press **SHIFT** to change between them.
 
-- By day you are safe, but walls block your way. You see the shadows of the previous shift, and they keep moving. They gather right beneath you.
+- By day you are safe, but walls block your way. You see the shadows of the previous shift walking their rounds; watch them before you shift. In the last hour they come for you.
 - By night you pass where walls stand by day. You only see what your helmet lamp shows.
 - Take lot 4471 through the process steps in the right order, then reach the airlock.
 
@@ -22,6 +22,8 @@ Every hour adds one layer to lot 4471, in the order of a real process flow, and 
 | 03:00 Furnace Row | Anneal | heat spreads from the furnace doors | heat equation, diffusion length ≈ 2√(Dt) |
 | 04:00 Plasma | Contacts | plasma fires in rhythm | 13.56 MHz RF plasma, ions falling through the sheath |
 | 05:00 Airlock | Metal | everything at once, a faster bell | sputtering in argon at 10⁻³ mbar: mean free path ≈ 7 cm; four-point probe |
+
+Every hour after the first needs SHIFT: a design check (`node tools/analyze.cjs`) asks the solver whether an hour can be done without it, and whether the previous shift and the hazards actually change the best route.
 
 The implanter beam is traced with the real formula: at 40 keV and 0.25 T, boron flies on a 0.38 m circle, phosphorus on 0.64 m and arsenic on 1.00 m. The heat on the floor is solved with finite differences, and every level is proven solvable by a search over all game states.
 

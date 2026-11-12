@@ -86,13 +86,40 @@ test('process stations only count in order', () => {
   assert.equal(s2.got, 2);
 });
 
-test('the previous shift gathers under a player hiding in the day shift', () => {
-  const def = LEVELS.find(d => d.id === 'ox');
-  const L = core.parseLevel(def);
+test('chasers gather under a player hiding in the day shift', () => {
+  const day = ['####################', '#P.................#', '#..................#', '#..................#', '#..................#',
+    '#..................#', '#..................#', '#..................#', '#.................X#', '####################'];
+  const night = day.map((r, y) => y === 7 ? '#............V.....#' : r.replace(/[PX]/g, '.'));
+  const L = core.parseLevel({id: 't8', time: '', title: {}, day, night, enemyEvery: 4});
   const s = core.newState(L);
   for (let i = 0; i < 400; i++) core.step(s, 'wait');
   const e = s.enemies[0];
   assert.ok(Math.abs(e.x - s.x) + Math.abs(e.y - s.y) <= 1, `enemy at ${e.x},${e.y}, player at ${s.x},${s.y}`);
+});
+
+test('on their rounds the previous shift keeps its rhythm, whatever you do', () => {
+  const def = LEVELS.find(d => d.id === 'ox'), L = core.parseLevel(def), p = L.patrols[0];
+  const a = core.newState(L), b = core.newState(L);
+  for (let i = 0; i < 60; i++) { core.step(a, 'wait'); core.step(b, ['right', 'down', 'left', 'up', 'wait'][i % 5]); }
+  assert.deepEqual([a.enemies[0].x, a.enemies[0].y], [b.enemies[0].x, b.enemies[0].y]);
+  const k = Math.floor(60 / p.every) % p.cells.length;
+  assert.deepEqual([a.enemies[0].x, a.enemies[0].y], [p.cells[k].x, p.cells[k].y]);
+});
+
+test('every hour after the first needs SHIFT, or at least the bell', () => {
+  for (const def of LEVELS) {
+    if (def.id === 'si' || def.bell) continue;
+    assert.equal(core.solve(core.parseLevel(def), {noShift: true}), null, `${def.id} can be done without SHIFT`);
+  }
+});
+
+test('every reticle can be collected and the hour still finished', () => {
+  // With chasers (05:00) this search needs gigabytes; there the reachability test above has to do.
+  for (const def of LEVELS) {
+    const L = core.parseLevel(def);
+    if (L.enemyStarts.length) continue;
+    assert.ok(core.solve(L, {reticle: true}), `${def.id}: reticle and airlock`);
+  }
 });
 
 test('after a resume nothing can kill for a moment, and the bell skips a walled-in player', () => {

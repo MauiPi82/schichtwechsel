@@ -77,6 +77,18 @@
       bell: def.bell || 0,
       dist: distanceFields(walk[NIGHT]),
     };
+    // Rounds of the previous shift: waypoints joined by straight lines, walked as a loop in a fixed rhythm.
+    level.patrols = (def.patrols || []).map((pt, n) => {
+      const wp = pt.path, cells = [];
+      for (let i = 0; i < wp.length; i++) {
+        const [x0, y0] = wp[i], [x1, y1] = wp[(i + 1) % wp.length];
+        if (x0 !== x1 && y0 !== y1) throw new Error(`Level ${def.id}: patrol ${n} must go straight from ${x0},${y0} to ${x1},${y1}`);
+        const sx = Math.sign(x1 - x0), sy = Math.sign(y1 - y0), len = Math.abs(x1 - x0) + Math.abs(y1 - y0);
+        for (let k = 0; k < len || (wp.length === 1 && k === 0); k++) cells.push({x: x0 + sx * k, y: y0 + sy * k});
+      }
+      for (const c of cells) if (!walk[NIGHT][idx(c.x, c.y)]) throw new Error(`Level ${def.id}: patrol ${n} crosses a solid night tile at ${c.x},${c.y}`);
+      return {cells, every: pt.every || 3, start: pt.start || 0};
+    });
     level.blocks = layers.map((map, layer) => toolBlocks(def, map));
     level.blockAt = level.blocks.map(list => { const a = new Int16Array(N).fill(-1); list.forEach((b, n) => { for (let y = b.y0; y <= b.y1; y++) for (let x = b.x0; x <= b.x1; x++) a[idx(x, y)] = n; }); return a; });
     level.beams = (def.beams || []).map(b => ({...b, phases: b.species.map(sp => traceBeam(level, b, sp))}));
@@ -238,7 +250,8 @@
     return {
       level, step: 0, layer: level.start.layer,
       x: level.start.x, y: level.start.y, px: level.start.x, py: level.start.y, face: 'down',
-      got: 0, enemies: level.enemyStarts.map(e => ({x: e.x, y: e.y, px: e.x, py: e.y, moved: -1, frozenUntil: 0})),
+      got: 0, enemies: level.enemyStarts.map(e => ({x: e.x, y: e.y, px: e.x, py: e.y, moved: -1, frozenUntil: 0}))
+        .concat(level.patrols.map((p, n) => { const c = p.cells[p.start % p.cells.length]; return {x: c.x, y: c.y, px: c.x, py: c.y, moved: -1, frozenUntil: 0, pt: n, pi: p.start % p.cells.length, ev: p.every}; })),
       lastShift: -SHIFT_COOLDOWN, shifts: 0, status: 'play', cause: '', events: [], safeUntil: 0, reticle: false,
       toolReady: {}, hazardOff: {beam: 0, plasma: 0}, used: null,
     };
@@ -362,10 +375,16 @@
       if ((state.step + 6) % b.every === 0) state.events.push('beam-warning');
     }
 
-    // The previous shift creeps at half speed while you are in your own shift.
+    // On their rounds the previous shift keeps its own rhythm, whichever shift you are in. Set by light, they stop.
+    for (const e of state.enemies) {
+      if (e.pt === undefined || state.step % e.ev !== 0 || frozen(state, e)) continue;
+      const cells = L.patrols[e.pt].cells;
+      e.pi = (e.pi + 1) % cells.length; e.x = cells[e.pi].x; e.y = cells[e.pi].y; e.moved = state.step; state.events.push('enemy-step');
+    }
+    // Chasers creep towards you, at half speed while you are in your own shift.
     if (state.step % (L.enemyEvery * (state.layer === DAY ? 2 : 1)) === 0) {
       for (const e of state.enemies) {
-        if (frozen(state, e)) continue;
+        if (e.pt !== undefined || frozen(state, e)) continue;
         const occupied = (x, y) => state.enemies.some(o => o !== e && o.x === x && o.y === y);
         const next = enemyStep(L, e, state.x, state.y, occupied);
         if (next) { e.x = next[0]; e.y = next[1]; e.moved = state.step; state.events.push('enemy-step'); }
@@ -412,12 +431,14 @@
   function gcd(a, b) { return b ? gcd(b, a % b) : a; }
 
   // Breadth-first search over complete game states; returns the shortest action list that wins, or null.
-  function solve(level, {maxStates = 4e6} = {}) {
+  // noShift: SHIFT is never pressed (the bell may still shift). reticle: the hour only counts with the reticle.
+  function solve(level, {maxStates = 4e6, noShift = false, reticle = false} = {}) {
     const period = [level.enemyEvery * 2, level.bell || 1, ...level.robots.map(r => r.length), ...level.beams.map(b => b.every * b.species.length),
-      level.heat ? level.heat.period : 1, ...level.pulses.map(p => p.period)]
+      level.heat ? level.heat.period : 1, ...level.pulses.map(p => p.period), ...level.patrols.map(p => p.every)]
       .reduce((a, b) => a / gcd(a, b) * b, 1);
-    const key = s => `${s.x},${s.y},${s.layer},${s.got},${s.step % period},${Math.min(s.step - s.lastShift, Math.max(SHIFT_COOLDOWN, GRACE))},` +
-      s.enemies.map(e => e.x + ':' + e.y).join(';');
+    const key = s => `${s.x},${s.y},${s.layer},${s.got},${s.reticle ? 1 : 0},${s.step % period},${Math.min(s.step - s.lastShift, Math.max(SHIFT_COOLDOWN, GRACE))},` +
+      s.enemies.map(e => e.pt !== undefined ? 'p' + e.pi : e.x + ':' + e.y).join(';');
+    const actions = noShift ? ACTIONS.filter(a => a !== 'shift') : ACTIONS;
     // Proven without the help of the tools: their light and their emergency stops only make an hour easier.
     const start = {...newState(level), noAids: true};
     const seen = new Map([[key(start), null]]);
@@ -425,15 +446,16 @@
     while (frontier.length) {
       const next = [];
       for (const {s, path} of frontier) {
-        for (const a of ACTIONS) {
+        for (const a of actions) {
           const t = step(clone(s), a);
           if (t.status === 'lost') continue;
           const p = {a, prev: path};
-          if (t.status === 'won') {
+          if (t.status === 'won' && (!reticle || t.reticle)) {
             const out = [];
             for (let q = p; q; q = q.prev) out.push(q.a);
             return out.reverse();
           }
+          if (t.status === 'won') continue;
           const k = key(t);
           if (seen.has(k)) continue;
           seen.set(k, null);
