@@ -910,7 +910,7 @@ let lastMode = null, windowClosedAt = -99;
 const CLOSERS = new Set(['mini', 'process', 'note', 'locker', 'gown', 'shower', 'card', 'paused']);
 function update() {
   frame++; pollPad();
-  if (mode !== lastMode) { if (mode === 'play' && CLOSERS.has(lastMode)) { windowClosedAt = frame; queuedShift = false; } lastMode = mode; }
+  if (mode !== lastMode) { if (mode === 'play' && CLOSERS.has(lastMode)) windowClosedAt = frame; lastMode = mode; }
   if (veilPhase) { stepVeil(); if (veilPhase === 'out') return; }
   if (mode === 'card' || mode === 'ending') cardT++;
   if (mode === 'finale') updateFinale();
