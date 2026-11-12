@@ -25,6 +25,7 @@
         de: ['Turno B hat nicht ausgestempelt:', 'Rossi, Colombo, Ferrari.', 'Ihr Los 4471: HOT LOT, fällig um 06:00.', 'Acht Schichten bis zum Morgen.'],
         en: ['Shift B never clocked out:', 'Rossi, Colombo, Ferrari.', 'Their lot 4471: HOT LOT, due at 06:00.', 'Eight layers until morning.'],
       },
+      plain: {de: 'Chips entstehen auf einer dünnen Siliziumscheibe, dem Wafer. Staub ist ihr größter Feind.', en: 'Chips are made on a thin silicon disc, the wafer. Dust is its worst enemy.'},
       fact: {
         de: ['Chip-Silizium ist zu 99,9999999 % rein. Vor dem ersten Schritt die', 'RCA-Reinigung: SC-1 löst Partikel, SC-2 Metalle, HF das native Oxid.', 'Danach zählt ein Laser, was übrig ist. Ein Staubkorn ist hier ein Fels.'],
         en: ['Chip silicon is 99.9999999 % pure. Before the first step comes the', 'RCA clean: SC-1 lifts particles, SC-2 metals, HF the native oxide.', 'Then a laser counts what is left. Down here a speck of dust is a rock.'],
@@ -81,6 +82,7 @@
         de: ['In der Vorschicht steht jemand.', 'Laut Stempeluhr ist Turno B noch im Werk.'],
         en: ['Someone is standing in the shift before.', 'By the time clock, shift B is still inside.'],
       },
+      plain: {de: 'Im Ofen wächst eine Glasschicht (Oxid), darauf Nitrid: Schutz jetzt, Ätzmaske später.', en: 'In the furnace a glass layer grows (oxide), nitride on top: protection now, an etch mask later.'},
       fact: {
         de: ['Thermisches Oxid: Bei 1000 °C wächst SiO₂ in trockenem O₂ nur einige', 'zehn nm pro Stunde, je dicker, desto langsamer (Deal-Grove). Darauf', 'scheidet der LPCVD-Ofen bei 780 °C Siliziumnitrid ab: Si₃N₄, 100 nm.'],
         en: ['Thermal oxide: at 1000 °C, SiO₂ grows in dry O₂ by only a few tens', 'of nm per hour, slower the thicker it gets (Deal-Grove). On top, the', 'LPCVD furnace deposits silicon nitride at 780 °C: Si₃N₄, 100 nm.'],
@@ -141,15 +143,16 @@
         de: ['Gelblicht. Am Scanner liegen drei Paar Handschuhe.', 'Er zeigt FEHLER, seit 21:40.'],
         en: ['Yellow light. Three pairs of gloves lie by the scanner.', 'It has shown FAULT since 21:40.'],
       },
+      plain: {de: 'Fotolack ist wie Fotopapier: Licht durch eine Schablone zeichnet das Muster hinein.', en: 'Photoresist is like photo paper: light through a stencil draws the pattern into it.'},
       fact: {
-        de: ['Fotolack reagiert auf kurzwelliges Licht. Ein Photon', 'gelben Lichts (580 nm) trägt nur E = hc/λ ≈ 2,1 eV.', 'Zu wenig zum Belichten. Darum ist die Vorschicht gelb.'],
-        en: ['Photoresist reacts to short wavelengths. A photon of', 'yellow light (580 nm) carries only E = hc/λ ≈ 2.1 eV.', 'Too little to expose it. That is why the shift before is yellow.'],
+        de: ['Fotolack reagiert auf kurzwelliges Licht. Ein Photon', 'gelben Lichts (580 nm) trägt nur E = hc/λ ≈ 2,1 eV.', 'Zu wenig zum Belichten. Darum ist die Lithografie gelb beleuchtet.'],
+        en: ['Photoresist reacts to short wavelengths. A photon of', 'yellow light (580 nm) carries only E = hc/λ ≈ 2.1 eV.', 'Too little to expose it. That is why lithography is lit in yellow.'],
       },
       hint: {de: 'Die Schritte in Reihenfolge, dann zur Schleuse', en: 'The steps in order, then to the airlock'},
       // Announcements over the PA (step, Italian, translation), a note from shift B, one scare.
       pa: [
         {at: 4, it: 'Litografia: luce gialla. Non aprire le porte.', de: 'Lithografie: Gelblicht. Türen nicht öffnen.', en: 'Lithography: yellow light. Do not open the doors.'},
-        {at: 60, it: 'Q-time del lotto 4471: scade alle due.', de: 'Q-Zeit von Los 4471: läuft um zwei ab.', en: 'Q-time of lot 4471: runs out at two.'},
+        {at: 60, it: 'Q-time del lotto 4471: scade alle due.', de: 'Q-Zeit von Los 4471 (so lange darf es warten): läuft um zwei ab.', en: 'Q-time of lot 4471 (how long it may wait): runs out at two.'},
       ],
       note: {x: 9, y: 5, by: 'Ferrari', text: {
         de: ['Gelblicht an. Auf dem Boden liegen Schatten.', 'Außer uns ist niemand hier.', 'Wir zählen sie: einer, zwei, drei.', 'Vier.'],
@@ -201,6 +204,7 @@
         de: ['Drüben in Luino schlägt der Campanile.', 'Bei jedem Schlag wechselt die Schicht.', 'Wer dann in der Wand steht, bleibt drin.'],
         en: ['Across the water, the campanile of Luino strikes.', 'With every strike the shift changes.', 'Whoever stands inside a wall then, stays there.'],
       },
+      plain: {de: 'Das Muster aus dem Lack wird in die Schichten darunter geätzt, dann kommt der Lack weg.', en: 'The pattern in the resist is etched into the layers below, then the resist comes off.'},
       fact: {
         de: ['Der Scanner belichtet mit 193 nm, unter Wasser (n ≈ 1,44).', 'Kleinster Halbpitch ≈ k₁ · λ / NA = 0,28 · 193 nm / 1,35 ≈ 40 nm.', 'Das Ätzen überträgt das Muster dann in Nitrid und Oxid.'],
         en: ['The scanner exposes at 193 nm, through water (n ≈ 1.44).', 'Smallest half-pitch ≈ k₁ · λ / NA = 0.28 · 193 nm / 1.35 ≈ 40 nm.', 'Etching then transfers the pattern into nitride and oxide.'],
@@ -265,6 +269,7 @@
         de: ['Der Implanter fährt sein Rezept: Bor, Phosphor, Arsen.', 'Er hätte um 22:00 stehen sollen.', 'Q-Zeit überschritten: Los 4471 auf HOLD.', 'Freigegeben von: TURNO B.'],
         en: ['The implanter runs its recipe: boron, phosphorus, arsenic.', 'It should have stopped at 22:00.', 'Q-time exceeded: lot 4471 on HOLD.', 'Released by: TURNO B.'],
       },
+      plain: {de: 'Ein Strahl schießt Arsen-Atome ins Silizium. Erst dadurch leitet es an diesen Stellen.', en: 'A beam shoots arsenic atoms into the silicon. Only then does it conduct in those spots.'},
       fact: {
         de: ['Im Magnet fliegt jedes Ion auf einem Kreis: r = √(2mE) / (qB).', 'Bei 40 keV und 0,25 T: Bor 0,38 m, Phosphor 0,64 m, Arsen 1,00 m.', 'So trennt die Anlage die Sorten. Der Strahl ist tödlich.'],
         en: ['In the magnet every ion flies on a circle: r = √(2mE) / (qB).', 'At 40 keV and 0.25 T: boron 0.38 m, phosphorus 0.64 m, arsenic 1.00 m.', 'That is how the tool separates them. The beam is deadly.'],
@@ -324,6 +329,7 @@
         de: ['Die Öfen öffnen sich von selbst, einer nach dem anderen.', 'Im Rohr liegen Wafer, die niemand geladen hat.'],
         en: ['The furnaces open by themselves, one after another.', 'Inside the tubes lie wafers nobody loaded.'],
       },
+      plain: {de: 'Hitze repariert das Kristallgitter, das der Strahl zerschossen hat.', en: 'Heat repairs the crystal lattice the beam has shot up.'},
       fact: {
         de: ['Wärme breitet sich nach ∂T/∂t = α·∇²T aus, Dotieratome wandern', 'genauso: Diffusionslänge ≈ 2·√(D·t). Im Rohrofen heilt das Gitter', 'bei 1000 °C in 30 min aus. RTP-Anlagen schaffen es in Sekunden.'],
         en: ['Heat spreads as ∂T/∂t = α·∇²T, and dopant atoms wander the same', 'way: diffusion length ≈ 2·√(D·t). In the tube furnace the lattice', 'heals at 1000 °C in 30 min. RTP tools manage it in seconds.'],
@@ -389,6 +395,7 @@
         de: ['Im Ätzer leuchtet Plasma.', 'Auf dem Bildschirm: ROSSI_01_final_v2_NICHT_BENUTZEN.'],
         en: ['Plasma glows in the etcher.', 'On the screen: ROSSI_01_final_v2_DO_NOT_USE.'],
       },
+      plain: {de: 'Eine isolierende Glasschicht darüber, dann Löcher bis zu den dotierten Stellen.', en: 'An insulating glass layer on top, then holes down to the doped spots.'},
       fact: {
         de: ['Der Ätzer zündet Plasma mit 13,56 MHz. Ionen fallen senkrecht', 'durch die Randschicht auf den Wafer. So entstehen gerade,', 'tiefe Kontaktlöcher statt runder Mulden.'],
         en: ['The etcher strikes a plasma at 13.56 MHz. Ions fall straight', 'down through the sheath onto the wafer. That is how straight,', 'deep contact holes form instead of round dents.'],
@@ -455,6 +462,7 @@
         de: ['Letzter Schritt. Die Glocke schlägt öfter.', 'Sie warten an der Schleuse.'],
         en: ['Last step. The bell strikes more often.', 'They are waiting at the airlock.'],
       },
+      plain: {de: 'Zum Schluss Aluminium: die Leiterbahnen, die alles miteinander verbinden.', en: 'Last comes aluminium: the wires that connect everything.'},
       fact: {
         de: ['Sputtern: Die Kammer wird auf 10⁻⁸ mbar gepumpt, dann mit Argon auf', 'wenige µbar gefüllt. Freie Weglänge λ = kT / (√2·π·d²·p): bei 4 µbar ≈ 2 cm,', 'kürzer als der Weg zum Wafer. Mehr Argon, und das Aluminium stößt zu oft.'],
         en: ['Sputtering: the chamber is pumped to 10⁻⁸ mbar, then filled with argon', 'to a few µbar. Mean free path λ = kT / (√2·π·d²·p): at 4 µbar ≈ 2 cm,', 'shorter than the way to the wafer. More argon and the aluminium collides too often.'],
@@ -532,8 +540,8 @@
     ],
     // The handover: lot 4471 on its cart, fresh from the stocker, where Rossi set it down at 21:31. Read when picked up.
     pickup: {
-      de: 'Los 4471: 25 blanke Wafer, noch kein einziger Schritt. Roter Reiter: HOT LOT, Liefertermin 06:00. Laufzettel: abgestellt 21:31, Rossi.',
-      en: 'Lot 4471: 25 bare wafers, not a single step yet. Red tag: HOT LOT, due at 06:00. Traveller: set down at 21:31, Rossi.',
+      de: 'Los 4471: 25 blanke Wafer, noch kein einziger Schritt. Roter Reiter: HOT LOT, es hat Vorrang vor allen anderen, fällig um 06:00. Laufzettel: abgestellt 21:31, Rossi.',
+      en: 'Lot 4471: 25 bare wafers, not a single step yet. Red tag: HOT LOT, it goes before every other lot, due at 06:00. Traveller: set down at 21:31, Rossi.',
     },
     route: [{de: 'Los 4471 abholen', en: 'Pick up lot 4471'}],
     // The suit hangs on the gowning rack (G); standing in front of it you put it on, top to bottom.

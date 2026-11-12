@@ -563,7 +563,7 @@ function pollPad() {
 let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0, shake = 0;
 let progress = clamp(parseInt(store.get('level'), 10) || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
 const deathsBy = levels.map(() => 0);
-const BUILD = '0.57 · 2026-11-12';
+const BUILD = '0.58 · 2026-11-12';
 // Testers can jump to an hour: ?stunde=3 or ?hour=3 opens the third hour.
 const jump = parseInt(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || '0', 10) || 0;
 if (jump >= 1 && jump <= levels.length) progress = jump - 1;
@@ -1494,14 +1494,19 @@ function renderCard() {
   });
   drawStack(204, 22, 100, 72, levelIndex);
   txt(`${t().reticles} ${found.size}/${LEVELS.length}`, W - 10, H - 9, {align: 'right', color: found.size ? '#9fe0ff' : '#3a4058'});
-  if (Object.keys(lot.s).length) txt(`${t().yieldWord} ${lotYield()} %`, 10, H - 9, {color: '#ffcf5a'});
+  if (Object.keys(lot.s).length) {
+    txt(`${t().yieldWord} ${lotYield()} %`, 10, H - 9, {color: '#ffcf5a'});
+    txt(lang === 'de' ? 'Ausbeute: Anteil der Chips, die am Ende funktionieren' : 'Yield: the share of chips that will work in the end', 10, H - 17, {color: '#8c93a8', font: 'IBM Plex Sans', size: 6, max: 150});
+  }
   txt(def.stack[lang], 254, 100, {align: 'center', color: '#c9c2ae', font: 'IBM Plex Sans', size: 7});
   const y0 = 116;
   R('#0f1422', 10, y0 - 4, W - 20, 46); R('#2f6db3', 10, y0 - 4, 2, 46);
   txt(t().physics, 18, y0 - 1, {color: '#9fe0ff'});
   // The hour's hint is on the card too: in the room it shares the first seconds with the announcements.
   if (def.hint) txt(`${lang === 'de' ? 'TIPP' : 'TIP'}: ${def.hint[lang]}`, W - 16, y0 - 1, {align: 'right', color: '#ffcf5a', font: 'IBM Plex Sans', size: 7, max: W - 140});
-  def.fact[lang].forEach((line, i) => txt(line, 18, y0 + 10 + i * 9, {color: '#b9c2cf', font: 'IBM Plex Sans', size: 7, max: W - 36}));
+  // First the hour in plain words, then the physics in small print.
+  if (def.plain) txt(def.plain[lang], 18, y0 + 9, {color: '#e9e4d6', font: 'IBM Plex Sans', size: 8, max: W - 36});
+  def.fact[lang].forEach((line, i) => txt(line, 18, y0 + (def.plain ? 20 : 10) + i * (def.plain ? 8 : 9), {color: '#9aa6b5', font: 'IBM Plex Sans', size: def.plain ? 6 : 7, max: W - 36}));
   if (cardT > 20 && (frame >> 5) % 2) txt(t().cont, W / 2, H - 9, {align: 'center', color: '#6b7190'});
 }
 

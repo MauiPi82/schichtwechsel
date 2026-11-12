@@ -20,10 +20,10 @@ const num = (v, d = 1) => v.toFixed(d).replace('.', lang === 'de' ? ',' : '.');
 
 /* ---------- Grades and yield ---------- */
 function grade(s) {
-  if (s >= 0.9) return {word: 'PERFETTO', color: '#3fe06a'};
-  if (s >= 0.7) return {word: 'BENE', color: '#9fe0ff'};
-  if (s >= 0.45) return {word: 'COSÌ COSÌ', color: '#ffcf5a'};
-  return {word: 'SCARTO', color: '#e0402a'};
+  if (s >= 0.9) return {word: 'PERFETTO', de: 'perfekt', en: 'perfect', color: '#3fe06a'};
+  if (s >= 0.7) return {word: 'BENE', de: 'gut', en: 'good', color: '#9fe0ff'};
+  if (s >= 0.45) return {word: 'COSÌ COSÌ', de: 'na ja', en: 'so-so', color: '#ffcf5a'};
+  return {word: 'SCARTO', de: 'Ausschuss', en: 'scrap', color: '#e0402a'};
 }
 // Yield of lot 4471: every played step keeps 80 to 100 % of the chips, the rest of the flow costs 3 %.
 const STEPS = ['clean', 'oxidize', 'nitride', 'coat', 'expose', 'develop', 'etch', 'implant', 'sputter'];
@@ -56,7 +56,9 @@ function result(m, a) {
   const k = ease(m.resultT / 18), g = grade(m.score);
   ctx.fillStyle = `rgba(8,10,16,${0.82 * k})`; ctx.fillRect(a.x, a.y, a.w, a.h);
   ctx.globalAlpha = k;
-  text(g.word, a.x + a.w / 2, a.y + a.h / 2 - 22, {align: 'center', size: 16, font: 'Pixelify Sans', weight: 700, color: g.color});
+  text(g.word, a.x + a.w / 2, a.y + a.h / 2 - 24, {align: 'center', size: 16, font: 'Pixelify Sans', weight: 700, color: g.color});
+  // The Italian grade with its meaning underneath.
+  text(L(g.de, g.en), a.x + a.w / 2, a.y + a.h / 2 - 9, {align: 'center', font: 'IBM Plex Sans', size: 7, color: '#8c93a8'});
   (m.lines || []).forEach((s, i) => text(s, a.x + a.w / 2, a.y + a.h / 2 + 2 + i * 11, {align: 'center', font: 'IBM Plex Sans', size: 8, color: '#e9e4d6', max: a.w - 16}));
   ctx.globalAlpha = 1;
 }
@@ -679,7 +681,7 @@ const develop = {
   draw(m) {
     const help = {dispense: L('DER ENTWICKLER WIRD AUFGETRAGEN', 'DISPENSING THE DEVELOPER'), puddle: L('SHIFT: SPÜLEN, WENN DIE LINIE 40 NM HAT', 'SHIFT: RINSE WHEN THE LINE IS 40 NM'),
       rinse: L('SPÜLEN MIT DI-WASSER, TROCKENSCHLEUDERN', 'DI WATER RINSE, SPIN DRY')}[m.st];
-    const a = frame(m, L('ENTWICKELN · TMAH 2,38 %, PFÜTZE', 'DEVELOP · TMAH 2.38 %, PUDDLE'), help);
+    const a = frame(m, L('ENTWICKELN · LAUGE (TMAH), PFÜTZE', 'DEVELOP · DEVELOPER (TMAH), PUDDLE'), help);
     const sec = this.sec(m), tc = clearTime(m.resist);
     // Left: the track's develop cup from the side, the wafer on its chuck, the puddle on top.
     const cx = a.x + 56, wy = a.y + 70, ww = 84;
@@ -767,8 +769,11 @@ const develop = {
     ctx.restore();
     const read = cd === null ? L(`GRABEN ${Math.round(f * 100)} % FREI`, `TRENCH ${Math.round(f * 100)} % CLEAR`) : `${L('LINIE', 'LINE')} ${num(Math.max(0, cd))} NM`;
     const ok = cd !== null && Math.abs(cd - 40) < 1.5;
+    // Just above 41 nm is the moment to rinse (the water needs two seconds): the readout says so.
+    const rinseNow = m.st === 'puddle' && cd !== null && cd <= 41.8 && cd >= 40.4;
     R('rgba(8,10,16,.85)', zx, zy + zh - 12, zw, 12);
-    text(m.st === 'dispense' ? L('LATENTES BILD', 'LATENT IMAGE') : read, zx + zw / 2, zy + zh - 10, {align: 'center', color: ok ? '#3fe06a' : cd !== null && cd < 36 ? '#ff8a5a' : '#cfe8ff', max: zw - 4});
+    text(m.st === 'dispense' ? L('UNSICHTBARES BILD IM LACK', 'HIDDEN IMAGE IN THE RESIST') : rinseNow ? `${read} · ${L('JETZT SPÜLEN', 'RINSE NOW')}` : read, zx + zw / 2, zy + zh - 10,
+      {align: 'center', color: rinseNow ? ((F >> 3) % 2 ? '#ffcf5a' : '#fff4d0') : ok ? '#3fe06a' : cd !== null && cd < 36 ? '#ff8a5a' : '#cfe8ff', max: zw - 4});
     ctx.restore(); result(m, a);
   },
 };
@@ -869,8 +874,8 @@ const BRIEF = {
     de: ['Argon-Ionen schlagen Aluminium aus dem Target, es setzt sich auf dem Wafer ab.', 'Zu wenig Argon: Das Plasma geht aus. Zu viel: Die Atome streuen, die Schicht wird porös.', 'SHIFT halten lässt Argon ein. Halte den Druck im grünen Band, bis 500 nm liegen.'],
     en: ['Argon ions knock aluminium out of the target; it settles on the wafer.', 'Too little argon: the plasma goes out. Too much: the atoms scatter, the film turns porous.', 'Hold SHIFT to let argon in. Keep the pressure in the green band until 500 nm are down.']},
   develop: {title: ['ENTWICKELN · TMAH', 'DEVELOP · TMAH'],
-    de: ['Nach dem Backen (PEB, 100 °C) löst der Entwickler den belichteten Lack:', 'erst öffnen sich die Gräben, dann werden die Linien schmaler. Ziel: 40 nm.', 'SHIFT spült mit Wasser. Es wirkt erst 2 s später, also bei knapp 41 nm drücken.'],
-    en: ['After the bake (PEB, 100 °C) the developer dissolves the exposed resist:', 'first the trenches open, then the lines slim down. Target: 40 nm.', 'SHIFT rinses with water. It takes 2 s, so press at just under 41 nm.']},
+    de: ['Nach dem Backen bei 100 °C löst eine Lauge (TMAH) den belichteten Lack:', 'erst öffnen sich die Gräben, dann werden die Linien schmaler. Ziel: 40 nm.', 'SHIFT spült mit Wasser. Es wirkt erst 2 s später, also bei knapp 41 nm drücken.'],
+    en: ['After a bake at 100 °C an alkaline developer (TMAH) dissolves the exposed resist:', 'first the trenches open, then the lines slim down. Target: 40 nm.', 'SHIFT rinses with water. It takes 2 s, so press at just under 41 nm.']},
   etch: {title: ['ÄTZEN · PLASMA', 'ETCH · PLASMA'],
     de: ['Das Plasma ätzt durch Nitrid und Oxid. Sein Licht zeigt, was gerade', 'geätzt wird: erst CN (Nitrid), dann CO (Oxid). Danach 20 bis 30 % nachätzen.', 'SHIFT stoppt den Ätzer, wenn der Zähler ÜBERÄTZEN 25 % zeigt.'],
     en: ['The plasma etches through nitride and oxide. Its light shows what is', 'being etched: first CN (nitride), then CO (oxide). Then 20 to 30 % more.', 'SHIFT stops the etcher when the OVER-ETCH counter shows 25 %.']},
