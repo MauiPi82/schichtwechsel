@@ -573,7 +573,7 @@ function pollPad() {
 let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0, shake = 0;
 let progress = clamp(parseInt(store.get('level'), 10) || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
 const deathsBy = levels.map(() => 0);
-const BUILD = '0.62 · 2026-11-12';
+const BUILD = '0.63 · 2026-11-12';
 // Testers can jump to an hour: ?stunde=3 or ?hour=3 opens the third hour.
 const jump = parseInt(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || '0', 10) || 0;
 if (jump >= 1 && jump <= levels.length) progress = jump - 1;
@@ -1241,11 +1241,14 @@ function nextTarget() {
 function covers(y, h, x0, w) {
   const hit = (tx, ty) => FY + ty * T + T > y - 6 && FY + ty * T < y + h + 6 && (w === undefined || Math.abs(tx * T + 8 - x0) < w / 2 + 10);
   const tg = nextTarget();
-  return (state && hit(state.x, state.y) ? 2 : 0) + (tg && hit(tg.x, tg.y) ? 1 : 0);
+  // The player counts most, then the next station, then each of shift B nearby: you must see who comes.
+  return (state && hit(state.x, state.y) ? 4 : 0) + (tg && hit(tg.x, tg.y) ? 2 : 0) + (state ? state.enemies.filter(e => hit(e.x, e.y)).length : 0);
 }
+// Over the outer wall at the top, or at the bottom: whichever covers less of what matters.
+const PA_H = 22;
 function paY() {
-  const top = FY + 3, bottom = FY + C.H * T - 13 - 26;
-  return covers(bottom, 24) < covers(top, 24) ? bottom : top;
+  const top = FY + 1, bottom = FY + C.H * T - 13 - PA_H - 1;
+  return covers(bottom, PA_H) < covers(top, PA_H) ? bottom : top;
 }
 // The announcement as a strip under the bar: loudspeaker, the Italian words as they are spoken, the translation.
 function drawPA() {
@@ -1253,15 +1256,16 @@ function drawPA() {
   const a = clamp(Math.min(paT / 12, (paNow.len - paT) / 24), 0, 1), night = state.layer === 1;
   const x = 10, y = paY(), w = W - 20, speaking = paT / 60 > PA_START && paT / 60 < PA_START + paNow.voice;
   ctx.globalAlpha = a;
-  R('rgba(6,8,12,.9)', x, y, w, 24); R(night ? '#ffb43a' : '#9fe0ff', x, y + 23, w, 1);
-  R('#c9c2ae', x + 6, y + 9, 3, 6);
-  ctx.fillStyle = '#c9c2ae'; ctx.beginPath(); ctx.moveTo(x + 9, y + 9); ctx.lineTo(x + 14, y + 5); ctx.lineTo(x + 14, y + 19); ctx.lineTo(x + 9, y + 15); ctx.fill();
-  if (speaking || paT / 60 < PA_START) for (let i = 0; i < 2; i++) if ((frame >> 3) % 3 > i) R('#c9c2ae', x + 17 + i * 3, y + 9 - i * 2, 1, 6 + i * 4);
+  // See-through enough that the room below stays readable.
+  R('rgba(6,8,12,.78)', x, y, w, PA_H); R(night ? '#ffb43a' : '#9fe0ff', x, y + PA_H - 1, w, 1);
+  R('#c9c2ae', x + 6, y + 8, 3, 6);
+  ctx.fillStyle = '#c9c2ae'; ctx.beginPath(); ctx.moveTo(x + 9, y + 8); ctx.lineTo(x + 14, y + 4); ctx.lineTo(x + 14, y + 18); ctx.lineTo(x + 9, y + 14); ctx.fill();
+  if (speaking || paT / 60 < PA_START) for (let i = 0; i < 2; i++) if ((frame >> 3) % 3 > i) R('#c9c2ae', x + 17 + i * 3, y + 8 - i * 2, 1, 6 + i * 4);
   const k = clamp((paT / 60 - PA_START) / Math.max(0.3, paNow.voice), 0, 1), it = paNow.it.slice(0, Math.ceil(paNow.it.length * k));
   const [q0, q1] = t().q;
-  txt(paT / 60 < PA_START ? '· · ·' : `${q0}${it}${k < 1 ? '' : q1}`, x + 26, y + 2, {font: 'IBM Plex Sans', size: 9, italic: true, color: night ? '#ffcf5a' : '#e9eef5', max: w - 32});
-  // The translation runs along with the voice, not after it.
-  if (paT / 60 >= PA_START) txt(paNow[lang], x + 26, y + 13, {font: 'IBM Plex Sans', size: 8, color: '#c9c2ae', max: w - 32});
+  // While the chime plays the translation is already there; the Italian follows the voice word by word.
+  if (k > 0) txt(`${q0}${it}${k < 1 ? '' : q1}`, x + 26, y + 1, {font: 'IBM Plex Sans', size: 9, italic: true, color: night ? '#ffcf5a' : '#e9eef5', max: w - 32});
+  txt(paNow[lang], x + 26, y + 12, {font: 'IBM Plex Sans', size: 8, color: '#c9c2ae', max: w - 32});
   ctx.globalAlpha = 1;
 }
 // A measurement over the room: the instrument, what it does, what it found; green when it is in spec.
@@ -1270,7 +1274,7 @@ function drawReading() {
   if (!reading || introMode || mode === 'rewind') return;
   const a = clamp(Math.min(reading.t / 12, (READING_LEN - reading.t) / 30), 0, 1), h = 36, w = W - 40;
   const top = paNow ? FY + 30 : FY + 4, bottom = FY + C.H * T - h - 16;
-  const y = paNow && paY() !== FY + 3 ? top : covers(bottom, h) < covers(top, h) ? bottom : top;
+  const y = paNow && paY() !== FY + 1 ? top : covers(bottom, h) < covers(top, h) ? bottom : top;
   ctx.globalAlpha = a;
   R('rgba(6,8,12,.93)', 20, y, w, h); R(reading.ok ? '#3fe06a' : '#ffcf5a', 20, y, 2, h);
   txt(reading.title, 28, y + 3, {color: '#9fe0ff', max: w - 16});
@@ -1319,7 +1323,8 @@ function renderPlay() {
     clockSpot: introMode && !clockedIn && mode !== 'process', hideNext: introMode && !showerDone,
     locker: introMode && (mode === 'locker' || (mode === 'note' && noteSrc === 'locker')) ? {no: INTRO.locker.no, t: mode === 'locker' ? lockerT : 99} : null,
     extraShadow: extra && !introMode ? {x: extra.x, y: extra.y, a: Math.sin(Math.PI * extra.t / 120)} : null,
-    selfShadow: !introMode && levelIndex >= 6 && state.layer === 0 && selfTrail.length > 12 ? selfTrail[selfTrail.length - 12] : null,
+    // Now and then, for two seconds: your own shadow lags behind you, in their shape.
+    selfShadow: !introMode && levelIndex >= 6 && state.layer === 0 && selfTrail.length > 12 && frame % 600 < 130 ? [...selfTrail[selfTrail.length - 12], Math.sin(Math.PI * (frame % 600) / 130)] : null,
     routes: introMode ? null : state.enemies.map(e => {
       // Where a round goes next: the next tiles of its loop, so you can tell its direction before you shift.
       if (e.pt === undefined || e.off || state.step < (e.alert || 0) || C.frozen(state, e)) return null;
@@ -1365,7 +1370,7 @@ function renderPlay() {
     const lines = wrapLine(toastText, W - 30), h = 3 + lines.length * 10;
     const w = Math.min(W - 16, Math.max(...lines.map(l => ctx.measureText(l).width)) + 14);
     // Over the top of the room, unless the player stands there: then over the bottom, so you see yourself.
-    const top = paNow && !introMode && paY() === FY + 3 ? FY + 30 : FY + 4, bottom = FY + C.H * T - h - 16;
+    const top = paNow && !introMode && paY() === FY + 1 ? FY + 30 : FY + 4, bottom = FY + C.H * T - h - 16;
     const ty = covers(bottom, h, W / 2, w) < covers(top, h, W / 2, w) ? bottom : top;
     R('rgba(5,6,10,.85)', W / 2 - w / 2, ty, w, h); R(state.layer ? '#ffb43a' : '#9fe0ff', W / 2 - w / 2, ty + h - 1, w, 1);
     lines.forEach((l, i) => txt(l, W / 2, ty + 3 + i * 10, {align: 'center', color: '#e9e4d6', max: w - 10}));

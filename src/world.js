@@ -882,11 +882,12 @@ function routeMarks(routes, enemies, near, rgb, strength) {
   ctx.lineCap = 'butt';
 }
 function shadowSprite(face, set) {
-  const key = face + (set ? ':set' : '');
+  const key = face + ':' + (set || '');
   if (shadowSprites[key]) return shadowSprites[key];
   const c = document.createElement('canvas'); c.width = 96; c.height = 96;
   const main = ctx; ctx = c.getContext('2d'); ctx.setTransform(2, 0, 0, 2, 0, 0);
-  const col = set ? '#4a3480' : '#070c18', pal = {};
+  // Their shadows near-black, the set ones violet, your own lagging shadow a cold grey-blue.
+  const col = set === 'self' ? '#2c3a52' : set ? '#4a3480' : '#070c18', pal = {};
   for (const k of Object.keys(SUIT.them)) pal[k] = col;
   bunny(8, 10, face, 0, pal, {tall: 5, longArms: true});
   ctx = main; shadowSprites[key] = c;
@@ -897,7 +898,7 @@ function shadowSprite(face, set) {
 function shadowFigure(ex, ey, i, set, face, alpha, fray, near) {
   const px = ex * T, py = FY + ey * T, sp = shadowSprite(face, set), sx0 = px - 8, sy0 = py - 14, foot = 40, stretch = 1.1;
   if (fray) {
-    ctx.fillStyle = set ? 'rgba(150,120,230,.07)' : 'rgba(110,160,255,.06)';
+    ctx.fillStyle = set === true ? 'rgba(150,120,230,.07)' : 'rgba(110,160,255,.06)';
     ctx.beginPath(); ctx.ellipse(px + 16, py + 28, 15, 5, 0, 0, 7); ctx.fill();
     if (!reduced) for (let k = 0; k < 3; k++) { const t = ((F * 0.4 + k * 17 + i * 11) % 30) / 30; R(`rgba(200,220,255,${0.35 * (1 - t)})`, px + 9 + ((k * 7 + i * 5) % 14), py + 26 - t * 24, 1, 1); }
   }
@@ -1058,8 +1059,8 @@ function draw(c, s, o) {
   }
   // From four o'clock your own shadow lags behind you, and it has their shape.
   if (!night && o.selfShadow) {
-    const [sx, sy] = o.selfShadow;
-    if (Math.hypot(sx - ppx / T, sy - (ppy - FY) / T) > 0.15) shadowFigure(sx, sy, 88, false, s.face, 0.22, true, false);
+    const [sx, sy, a] = o.selfShadow;
+    if (Math.hypot(sx - ppx / T, sy - (ppy - FY) / T) > 0.15) shadowFigure(sx, sy, 88, 'self', s.face, 0.3 * a, true, false);
   }
   if (o.grace > 0) {
     ctx.strokeStyle = `rgba(255,207,90,${0.35 + 0.4 * o.grace})`; ctx.lineWidth = 2;

@@ -52,9 +52,12 @@ function frame(m, title, help) {
   ctx.fillStyle = `rgba(3,4,8,${0.6 * appear})`; ctx.fillRect(0, 0, W, 180);
   R('#0b0f18', PX - 2, y0 - 2, PW + 4, PH + 4); R('#ffb43a', PX - 2, y0 - 2, PW + 4, 1);
   R('#1c160c', PX, y0, PW, 12);
-  text(title, PX + 6, y0 + 2, {color: '#ffcf5a', max: PW - 116});
-  const canSkip = skippable(m);
-  text(canSkip ? L('ENTER: ÜBERSPRINGEN', 'ENTER: SKIP') : 'LOT 4471', PX + PW - 6, y0 + 2, {align: 'right', color: canSkip ? '#b09060' : '#c9a15a', max: 100});
+  // The title takes what the label on the right leaves; a long one in a smaller face rather than squeezed.
+  const canSkip = skippable(m), right = canSkip ? L('ENTER: ÜBERSPRINGEN', 'ENTER: SKIP') : 'LOT 4471';
+  ctx.font = '400 8px "Silkscreen", monospace';
+  const room = PW - 20 - Math.min(100, ctx.measureText(right).width), small = ctx.measureText(title).width > room;
+  text(title, PX + 6, y0 + (small ? 3 : 2), {color: '#ffcf5a', max: room, ...(small ? {font: 'IBM Plex Sans', size: 8, weight: 700} : {})});
+  text(right, PX + PW - 6, y0 + 2, {align: 'right', color: canSkip ? '#b09060' : '#c9a15a', max: 100});
   R('#0d111a', PX, y0 + 12, PW, PH - 28);
   R('#141a28', PX, y0 + PH - 16, PW, 16);
   const done = m.phase === 'result';
@@ -452,7 +455,7 @@ const coat = {
       if (m.t > 15 && m.t < 48) circle('#d99a32', nx, ny + 6, 1.5);
     }
     // Dial with the green window around 3000 rpm.
-    const dx = a.x + a.w - 70, dy = a.y + 54, dr = 34, A0 = Math.PI * 0.8, A1 = Math.PI * 2.2, ang = v => A0 + (A1 - A0) * v / 5000;
+    const dx = a.x + a.w - 70, dy = a.y + 62, dr = 34, A0 = Math.PI * 0.8, A1 = Math.PI * 2.2, ang = v => A0 + (A1 - A0) * v / 5000;
     ctx.lineWidth = 5; ctx.strokeStyle = '#1a2030'; ctx.beginPath(); ctx.arc(dx, dy, dr, A0, A1); ctx.stroke();
     // The target: a bright green window at 2000 rpm with its number, red beyond (too thin, no way back).
     ctx.lineWidth = 7; ctx.strokeStyle = '#3fe06a'; ctx.beginPath(); ctx.arc(dx, dy, dr, ang(1900), ang(2100)); ctx.stroke();
@@ -656,7 +659,9 @@ const implant = {
     m.B = clamp(m.B + dir * (m.hold > 30 ? 0.0004 : 0.0001), BMIN, BMAX);
     if (m.st === 'tune') { if (inp.pressed) { m.st = 'implant'; m.sfx('click'); } return; }
     m.it++;
-    m.B += Math.sin(m.it / 60 + m.drift) * 0.000012;
+    m.B += Math.sin(m.it / 60 + m.drift) * 0.00002;
+    // The magnet's supply jumps now and then: the beam slips towards the slit's edge until you bring it back.
+    if (m.it % 140 === 70) m.B += (hashM(m.it + m.drift * 100) > 0.5 ? 1 : -1) * 0.0007;
     const ion = this.through(m);
     if (ion === 'As+') m.good++; else if (ion) m.bad++;
     if (m.it >= IMPLANT_FRAMES) {
@@ -846,17 +851,19 @@ const develop = {
 /* ---------- 9 Sputter: hold SHIFT to let argon in, the pump draws it off. Keep the pressure in the band ----------
  * DC magnetron, Al with 0.5 % Cu. Below about 1.5 µbar the plasma goes out; above 6 µbar the sputtered atoms
  * scatter on the argon and the film grows slower and porous (higher resistivity). 500 nm is the target. */
-const SP_PUMP = 1 / 60, SP_FLOW = 10 / 60, SP_BAND = [3, 6], SP_OFF = 1.5, SP_ON = 2.2, SP_TARGET = 500, SP_MAX = 900;
+const SP_PUMP = 1 / 60, SP_FLOW = 10 / 60, SP_BAND = [3.5, 5.5], SP_OFF = 1.5, SP_ON = 2.2, SP_TARGET = 500, SP_MAX = 900;
 const spQuality = p => p >= SP_BAND[0] && p <= SP_BAND[1] ? 1 : p >= SP_OFF && p <= 7.5 ? 0.55 : 0.2;
 const sputter = {
-  init(m) { m.st = 'pump'; m.bt = 0; m.p = 0.4; m.flow = 0; m.lit = false; m.al = 0; m.q = 0; m.hist = []; },
+  init(m) { m.st = 'pump'; m.bt = 0; m.p = 0.4; m.flow = 0; m.lit = false; m.al = 0; m.q = 0; m.hist = []; m.ph = Math.random() * 6; },
   update(m, inp) {
     m.bt++;
     if (m.st === 'pump') { if (m.bt > 70) { m.st = 'run'; m.bt = 0; } return; }
     // The valve follows the key with a little lag; the gas line wobbles; the pump draws in proportion.
     m.flow += ((inp.held ? 1 : 0) - m.flow) * 0.12;
-    const k = SP_FLOW * (1 + 0.15 * Math.sin(m.bt / 70));
-    m.p = clamp(m.p + m.flow * k - SP_PUMP * m.p, 0, 12);
+    // The gas line wobbles, and the pump's throttle valve hunts: it draws now harder, now softer.
+    const k = SP_FLOW * (1 + 0.25 * Math.sin(m.bt / 47 + m.ph));
+    const pump = SP_PUMP * (1 + 0.3 * Math.sin(m.bt / 113 + 2 * m.ph));
+    m.p = clamp(m.p + m.flow * k - pump * m.p, 0, 12);
     if (!m.lit && m.p >= SP_ON) { m.lit = true; m.sfx('click'); }
     if (m.lit && m.p < SP_OFF) { m.lit = false; m.sfx('click'); }
     if (m.lit) {
