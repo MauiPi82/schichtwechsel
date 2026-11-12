@@ -22,8 +22,8 @@
       layer: {de: 'Silizium', en: 'Silicon'}, stack: {de: 'Wafer · 775 µm', en: 'Wafer · 775 µm'},
       title: {de: 'Übergabe', en: 'Handover'},
       log: {
-        de: ['Turno B nicht erschienen:', 'Rossi, Colombo, Ferrari.', 'Übernehmen Sie Bay 7.'],
-        en: ['Shift B did not show up:', 'Rossi, Colombo, Ferrari.', 'Take over Bay 7.'],
+        de: ['Turno B hat nicht ausgestempelt:', 'Rossi, Colombo, Ferrari.', 'Ihr Los 4471: HOT LOT, fällig um 06:00.', 'Acht Schichten bis zum Morgen.'],
+        en: ['Shift B never clocked out:', 'Rossi, Colombo, Ferrari.', 'Their lot 4471: HOT LOT, due at 06:00.', 'Eight layers until morning.'],
       },
       fact: {
         de: ['Chip-Silizium ist zu 99,9999999 % rein. Vor dem ersten Schritt die', 'RCA-Reinigung: SC-1 löst Partikel, SC-2 Metalle, HF das native Oxid.', 'Danach zählt ein Laser, was übrig ist. Ein Staubkorn ist hier ein Fels.'],
@@ -77,8 +77,8 @@
       layer: {de: 'Oxid', en: 'Oxide'}, stack: {de: 'SiO₂ 50 nm · Si₃N₄ 100 nm', en: 'SiO₂ 50 nm · Si₃N₄ 100 nm'},
       title: {de: 'Schatten', en: 'Shadows'},
       log: {
-        de: ['In der Vorschicht steht jemand.', 'Niemand ist eingestempelt.'],
-        en: ['Someone is standing in the shift before.', 'Nobody is clocked in.'],
+        de: ['In der Vorschicht steht jemand.', 'Laut Stempeluhr ist Turno B noch im Werk.'],
+        en: ['Someone is standing in the shift before.', 'By the time clock, shift B is still inside.'],
       },
       fact: {
         de: ['Thermisches Oxid: Bei 1000 °C wächst SiO₂ in trockenem O₂ nur einige', 'zehn nm pro Stunde, je dicker, desto langsamer (Deal-Grove). Darauf', 'scheidet der LPCVD-Ofen bei 780 °C Siliziumnitrid ab: Si₃N₄, 100 nm.'],
@@ -88,7 +88,7 @@
       route: [{de: 'Oxidieren', en: 'Oxidise', proc: 'oxidize'}, {de: 'Nitrid abscheiden', en: 'Deposit nitride', proc: 'nitride'}, {de: 'Schicht messen', en: 'Measure films', proc: 'ellipso'}],
       // Announcements over the PA (step, Italian, translation), a note from shift B, one scare.
       pa: [
-        {at: 5, it: 'Il lotto 4471 è in attesa. Ripeto: in attesa.', de: 'Los 4471 wartet. Ich wiederhole: wartet.', en: 'Lot 4471 is waiting. I repeat: waiting.'},
+        {at: 5, it: 'Lotto 4471 in ritardo. Consegna alle sei.', de: 'Los 4471 im Verzug. Liefertermin sechs Uhr.', en: 'Lot 4471 behind schedule. Due at six.'},
       ],
       note: {x: 10, y: 8, by: 'Colombo', text: {
         de: ['Die Öfen stehen auf 1000 °C.', 'Es läuft kein Rezept.', 'Ich hab es ins Schichtbuch geschrieben.', 'Danach war die Seite leer.'],
@@ -135,8 +135,8 @@
       layer: {de: 'Fotolack', en: 'Photoresist'}, stack: {de: 'Fotolack · 100 nm', en: 'Resist · 100 nm'},
       title: {de: 'Gelblicht', en: 'Yellow Light'},
       log: {
-        de: ['Los 4471 steht seit 21:40 vor dem Coater.', 'Bringen Sie es durch die Lithografie.'],
-        en: ['Lot 4471 has been waiting at the coater since 21:40.', 'Take it through lithography.'],
+        de: ['Gelblicht. Am Scanner liegen drei Paar Handschuhe.', 'Er zeigt FEHLER, seit 21:40.'],
+        en: ['Yellow light. Three pairs of gloves lie by the scanner.', 'It has shown FAULT since 21:40.'],
       },
       fact: {
         de: ['Fotolack reagiert auf kurzwelliges Licht. Ein Photon', 'gelben Lichts (580 nm) trägt nur E = hc/λ ≈ 2,1 eV.', 'Zu wenig zum Belichten. Darum ist die Vorschicht gelb.'],
@@ -509,12 +509,25 @@
     layer: {de: 'Einschleusen', en: 'Gowning'}, stack: {de: '', en: ''},
     title: {de: 'Einschleusen', en: 'Gowning'}, log: {de: [], en: []}, fact: {de: [], en: []}, hint: {de: '', en: ''},
     triggers: [
-      {x: 1, y: 7, text: {de: 'Vogt Microelettronica, Luino. 21:56. Du übernimmst die Nachtschicht in Bay 7.', en: 'Vogt Microelettronica, Luino. 21:56. You take over the night shift in Bay 7.'}},
+      {x: 1, y: 7, text: {de: 'Vogt Microelettronica, Luino. 21:56. Du übernimmst Bay 7 von Turno B. Keiner von ihnen hat ausgestempelt.', en: 'Vogt Microelettronica, Luino. 21:56. You take over Bay 7 from shift B. None of them clocked out.'}},
       {x: 2, y: 5, text: {de: 'Umkleide: Overall, Haube, Mundschutz, Brille, Handschuhe, Überschuhe. Ein Mensch verliert Millionen Partikel pro Minute.', en: 'Gowning room: coverall, hood, face mask, goggles, gloves, boot covers. A person sheds millions of particles a minute.'}},
       {x: 6, y: 3, text: {de: 'Luftdusche: Düsen blasen gefilterte Luft mit etwa 25 m/s und lösen die letzten Partikel vom Anzug.', en: 'Air shower: nozzles blow filtered air at about 25 m/s and loosen the last particles from the suit.'}},
-      {x: 13, y: 3, text: {de: 'Bay 7. Die Anlagen laufen. Niemand ist hier.', en: 'Bay 7. The tools are running. Nobody is here.'}},
+      {x: 13, y: 3, text: {de: 'Bay 7. Die Anlagen laufen. Niemand ist hier. Am Übergabewagen steht ein Los.', en: 'Bay 7. The tools are running. Nobody is here. A lot stands on the handover cart.'}},
     ],
+    // The handover: lot 4471 on its cart, where shift B left it at 21:40. Read when it is picked up.
+    pickup: {
+      de: 'Los 4471. Roter Reiter: HOT LOT, Liefertermin 06:00. Laufzettel: zuletzt gebucht 21:40, Turno B. Danach nichts mehr.',
+      en: 'Lot 4471. Red tag: HOT LOT, due at 06:00. Traveller: last booked at 21:40 by shift B. Nothing after that.',
+    },
+    route: [{de: 'Los 4471 abholen', en: 'Pick up lot 4471'}],
     suitAt: 6,
+    // In the air shower the picture tears into the shift before for a moment: shift B stands in the cabin with you,
+    // one, two, three. Afterwards their handover note lies in front of the door to Bay 7.
+    ghosts: [[11, 3], [10, 3], [9, 3]],
+    note: {x: 13, y: 3, by: 'Turno B', text: {
+      de: ['Übergabe an die Nachtschicht:', 'Los 4471 steht auf dem Wagen in Bay 7.', 'HOT LOT. Bis sechs muss es fertig sein.', 'Wir warten drinnen.'],
+      en: ['Handover to the night shift:', 'Lot 4471 is on the cart in Bay 7.', 'HOT LOT. It must be done by six.', 'We are waiting inside.'],
+    }},
     lamps: [],
     signs: [
       {x: 3, y: 5, text: 'VESTIZIONE'}, {x: 9, y: 2, text: {de: "DOCCIA D'ARIA", en: "DOCCIA D'ARIA"}, bg: '#2c6fb5', color: '#ffffff'},
@@ -525,7 +538,7 @@
       '#KKKKKK#####......X#',
       '#......#####.......#',
       '#.BBBB.DAAAAD......#',
-      '#......#####.......#',
+      '#......#####....1..#',
       '##.#################',
       '#..................#',
       '#P.................#',
@@ -533,7 +546,7 @@
       '####################',
     ],
   };
-  INTRO.night = INTRO.day.map(r => r.replace('P', '.').replace('X', '.'));
+  INTRO.night = INTRO.day.map(r => r.replace('P', '.').replace('X', '.').replace('1', '.'));
 
   // The secret finale with all eight reticles: lot 4471 becomes the Odenchip from Elektronenreise.
   const FINALE = {
@@ -555,8 +568,8 @@
     time: '06:00',
     layer: {de: 'Passivierung', en: 'Passivation'}, stack: {de: '12 nm', en: '12 nm'},
     log: {
-      de: ['Über dem See tutet das erste Schiff.', 'Die Frühschicht kommt.', '', 'Schichtbuch, 06:12:', 'Nachtschicht nicht erschienen.', 'Neue Schicht auf Los 4471: 12 nm.'],
-      en: ['Out on the lake, the first ferry sounds its horn.', 'The morning shift arrives.', '', 'Shift log, 06:12:', 'Night shift did not show up.', 'New layer on lot 4471: 12 nm.'],
+      de: ['Über dem See tutet das erste Schiff.', 'Los 4471 steht pünktlich im Stocker.', '', 'Schichtbuch, 06:12:', 'Nachtschicht nicht ausgestempelt.', 'Neue Schicht auf Los 4471: 12 nm.'],
+      en: ['Out on the lake, the first ferry sounds its horn.', 'Lot 4471 sits in the stocker, on time.', '', 'Shift log, 06:12:', 'Night shift never clocked out.', 'New layer on lot 4471: 12 nm.'],
     },
   };
 

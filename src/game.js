@@ -478,7 +478,7 @@ function pollPad() {
 let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0, shake = 0;
 let progress = clamp(+store.get('level') || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
 const deathsBy = levels.map(() => 0);
-const BUILD = '0.26 · 2026-11-12';
+const BUILD = '0.27 · 2026-11-12';
 // Testers can jump to an hour: ?stunde=3 or ?hour=3 opens the third hour.
 const jump = +(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || 0);
 if (jump >= 1 && jump <= levels.length) progress = jump - 1;
@@ -488,6 +488,21 @@ function startCard(i) {
 }
 let checkpoint = null, toastText = '', toastT = 0, shiftHintT = 0, stickyTimes = [], stickyWarned = store.get('sticky') === '1';
 function toast(text, frames = 150) { toastText = text; toastT = frames; }
+// While the intro is torn into the shift before, its caption waits.
+function toastHeld() { return introMode && state && state.layer === 1; }
+// Splits a line into as few lines of about equal width as fit into max (in the current font).
+function wrapLine(s, max) {
+  const full = ctx.measureText(s).width;
+  if (full <= max) return [s];
+  const n = Math.ceil(full / max), target = Math.min(max, full / n * 1.1), out = [];
+  let cur = '';
+  for (const w of s.split(' ')) {
+    const next = cur ? `${cur} ${w}` : w;
+    if (cur && out.length < n - 1 && ctx.measureText(next).width > target) { out.push(cur); cur = w; } else cur = next;
+  }
+  out.push(cur);
+  return out;
+}
 function stickyCheck() {
   if (stickyWarned || !/Windows/.test(navigator.userAgent)) return;
   const now = performance.now();
@@ -495,7 +510,9 @@ function stickyCheck() {
   if (stickyTimes.length >= 4) { stickyWarned = true; store.set('sticky', '1'); toast(t().sticky, 420); }
 }
 /* ---------- Intro: corridor, gowning room, air shower ---------- */
-let introMode = false, suited = false, showerT = 0, showerDone = false, introSeen = new Set(), procT = 0, procType = '';
+let introMode = false, suited = false, showerT = 0, showerDone = false, introSeen = new Set(), procT = 0, procType = '', introNote = null;
+// The tear into the shift before during the air shower: in at GL_IN, back at GL_OUT; the door opens SHOWER_END later.
+const GL_IN = 60, GL_OUT = 132, SHOWER_END = 200;
 const idx = (x, y) => y * C.W + x;
 function introDoors(L) { const d = []; for (let i = 0; i < L.layers[0].length; i++) if (L.layers[0][i] === 'D') d.push(i); return d.sort((a, b) => a - b); }
 /* ---------- Lot 4471: what you made of it ---------- */
@@ -617,12 +634,12 @@ function startIntro() {
   const L = C.parseLevel(INTRO);
   const [entry] = introDoors(L);
   L.open = new Set([entry]); L.walk[0][entry] = 1; L.showerT = 0;
-  introMode = true; suited = false; showerT = 0; showerDone = false; introSeen = new Set();
+  introMode = true; suited = false; showerT = 0; showerDone = false; introSeen = new Set(); introNote = null;
   state = C.newState(L); mode = 'play'; stepFrame = 0; fx = 0; hintT = 999; toastT = 0; checkpoint = null;
   audio.setLayer(0);
 }
 function endIntro() {
-  introMode = false; store.set('intro', '1');
+  introMode = false; store.set('intro', '1'); audio.setLayer(0);
   startCard(0);
 }
 function introStep() {
@@ -631,6 +648,10 @@ function introStep() {
     if (!introSeen.has(n) && Math.abs(tr.x - state.x) + Math.abs(tr.y - state.y) <= 1) { introSeen.add(n); toast(tr.text[lang], 420); }
   });
   if (!suited && state.y <= 4 && state.x >= INTRO.suitAt) { audio.sfx('rustle'); transition(() => { suited = true; audio.sfx('rustle'); }, 18, 30); }
+  // The handover note of shift B, in front of the door to Bay 7 after the air shower.
+  if (introNote && !introNote.read && state.x === introNote.x && state.y === introNote.y && mode === 'play') {
+    introNote.read = true; mode = 'note'; noteT = 0; audio.sfx('rustle');
+  }
   if (!showerDone && L.layers[0][idx(state.x, state.y)] === 'A' && suited) {
     const [entry] = introDoors(L);
     L.open.delete(entry); L.walk[0][entry] = 0;
@@ -639,9 +660,14 @@ function introStep() {
 }
 function updateShower() {
   const L = state.level;
-  L.showerT = ++showerT;
-  if (showerT === 90) audio.sfx('shower');
-  if (showerT > 180) {
+  ++showerT;
+  const tear = layer => { state.layer = layer; fx = reduced ? 6 : 12; fxLayer = layer; audio.setLayer(layer); audio.sfx('shift'); };
+  if (showerT === GL_IN) { tear(1); audio.sfx('whisper'); }
+  if (showerT === GL_OUT) { tear(0); introNote = {...INTRO.note, read: false}; }
+  if (showerT === GL_OUT + 16) audio.sfx('shower');
+  // In the shift before the nozzles are silent.
+  L.showerT = state.layer ? 0 : showerT;
+  if (showerT > SHOWER_END) {
     const [, exit] = introDoors(L);
     L.open.add(exit); L.walk[0][exit] = 1; L.showerT = 0; showerDone = true; mode = 'play'; audio.sfx('door');
   }
@@ -703,7 +729,9 @@ function doStep(action) {
     found.add(LEVELS[levelIndex].id); store.set('reticles', JSON.stringify([...found]));
     audio.sfx('reticle'); procType = 'reticle'; procT = 0; mode = 'process';
   }
-  if (state.events.includes('station') && state.status === 'play') {
+  // In the gowning intro the only station is the handover cart: you pick up lot 4471.
+  if (state.events.includes('station') && introMode) toast(INTRO.pickup[lang], 480);
+  else if (state.events.includes('station') && state.status === 'play') {
     checkpoint = C.clone(state); history = []; toast(t().checkpoint, 100);
     const step = LEVELS[levelIndex].route && LEVELS[levelIndex].route[state.got - 1];
     if (step && step.proc && window.SchichtMini && window.SchichtMini.has(step.proc)) startMini(step.proc);
@@ -759,7 +787,7 @@ function update() {
   }
   if (paNow && ++paT > paNow.len) { paNow = null; if (paQueue.length && mode !== 'card') startPA(paQueue.shift()); }
   if (scare && ['play', 'note', 'process'].includes(mode) && ++scare.t > SCARE_LEN[scare.type]) scare = null;
-  if (toastT > 0) toastT--;
+  if (toastT > 0 && !toastHeld() && mode !== 'note') toastT--;
   if (shiftHintT > 0) shiftHintT--;
   if (blockedT > 0) blockedT--;
   if (flashFx && ++flashFx.t > 34) flashFx = null;
@@ -832,6 +860,13 @@ function drawHUD() {
     R('#0d1420', 0, 0, W, FY); R('#2f6db3', 0, FY - 1, W, 1);
     txt(`${INTRO.time} · ${INTRO.layer[lang].toUpperCase()}`, 4, 4, {color: '#9fe0ff'});
     txt(lang === 'de' ? 'ENTER: ÜBERSPRINGEN' : 'ENTER: SKIP', W - 4, 4, {align: 'right', color: '#6b7190'});
+    // In Bay 7 the goal: the lot first, then the way into the fab.
+    if (showerDone) {
+      ctx.font = '400 8px "Silkscreen", monospace';
+      const a = 4 + ctx.measureText(`${INTRO.time} · ${INTRO.layer[lang].toUpperCase()}`).width, b = W - 4 - ctx.measureText(lang === 'de' ? 'ENTER: ÜBERSPRINGEN' : 'ENTER: SKIP').width;
+      const got = state.got > 0;
+      txt(got ? 'HOT LOT · 06:00' : INTRO.route[0][lang].toUpperCase(), (a + b) / 2, 4, {align: 'center', color: got ? '#ff6a5a' : '#c9c2ae', max: b - a - 8});
+    }
     return;
   }
   const L = state.level, def = LEVELS[levelIndex], night = state.layer === 1;
@@ -887,9 +922,15 @@ function nearTool() {
   }
   return null;
 }
+// Shift B in the air shower during the tear: first one at the far end, then two, then three right next to you.
+function introGhosts() {
+  if (!introMode || mode !== 'shower' || state.layer !== 1) return null;
+  const n = showerT < GL_IN + 24 ? 1 : showerT < GL_IN + 50 ? 2 : 3;
+  return INTRO.ghosts.slice(0, n);
+}
 function storyView() {
   const def = LEVELS[levelIndex], sc = scare, d = def.scare;
-  if (introMode) return {};
+  if (introMode) return {note: introNote && {x: introNote.x, y: introNote.y, layer: 0, read: introNote.read}};
   return {
     note: def.note ? {x: def.note.x, y: def.note.y, layer: def.note.layer === 'day' ? 0 : 1, read: noteRead} : null,
     phone: d && d.type === 'phone' ? {x: d.x, y: d.y, ringing: !!(sc && sc.type === 'phone' && phoneRinging(sc.t))} : null,
@@ -918,7 +959,7 @@ function drawPA() {
 }
 // A note from shift B: torn ruled paper, a coffee ring, blue handwriting, the signature.
 function drawNote() {
-  const n = LEVELS[levelIndex].note, a = clamp(noteT / 10, 0, 1);
+  const n = introMode ? INTRO.note : LEVELS[levelIndex].note, a = clamp(noteT / 10, 0, 1);
   ctx.globalAlpha = a;
   R('rgba(0,0,0,.62)', 0, FY, W, H - FY);
   const pw = 212, ph = 116, px = Math.round(W / 2 - pw / 2), py = Math.round(34 + (1 - a) * 6);
@@ -951,7 +992,7 @@ function renderPlay() {
   if (fx > 0 && !reduced) ctx.translate(Math.round((hash(frame) - 0.5) * 6), 0);
   if (shake > 0) ctx.translate(Math.round((hash(frame * 3) - 0.5) * shake * 0.8), Math.round((hash(frame * 5) - 0.5) * shake * 0.6));
   const rt = state.level.reticle && !state.reticle && !introMode && !found.has(LEVELS[levelIndex].id) ? state.level.reticle : null;
-  window.SchichtWorld.draw(ctx, state, {reticle: rt, reticleN: levelIndex,k: mode === 'play' ? k : 1, frame, reduced, lang, enemies: state.enemies.map(enemyPos),
+  window.SchichtWorld.draw(ctx, state, {reticle: rt, reticleN: levelIndex,k: mode === 'play' ? k : 1, frame, reduced, lang, enemies: introGhosts() || state.enemies.map(enemyPos),
     playerVisible: !(state.step < state.safeUntil && (frame >> 2) % 2), shiftHint: shiftHintT > 0 && !introMode, civilian: introMode && !suited,
     frozen: state.enemies.map(e => C.frozen(state, e)), flash: flashFx && {...flashFx, a: 1 - flashFx.t / 34},
     grace: !introMode && state.layer === 1 && state.enemies.length ? clamp(1 - ((state.step - state.lastShift) * STEP_FRAMES + stepFrame) / (C.GRACE * STEP_FRAMES), 0, 1) : 0,
@@ -966,13 +1007,17 @@ function renderPlay() {
   }
   drawHUD();
   drawPA();
-  if (toastT > 0) {
+  if (toastT > 0 && !toastHeld() && mode !== 'note') {
     ctx.globalAlpha = clamp(toastT / 20, 0, 1);
     ctx.font = '400 8px "Silkscreen", monospace';
-    const w = Math.min(W - 16, ctx.measureText(toastText).width + 14);
-    const ty = paNow && !introMode && paY() === FY + 3 ? FY + 30 : FY + 4;
-    R('rgba(5,6,10,.85)', W / 2 - w / 2, ty, w, 13); R(state.layer ? '#ffb43a' : '#9fe0ff', W / 2 - w / 2, ty + 12, w, 1);
-    txt(toastText, W / 2, ty + 3, {align: 'center', color: '#e9e4d6', max: w - 10});
+    // Long messages (the intro, the handover) wrap onto balanced lines instead of being squeezed.
+    const lines = wrapLine(toastText, W - 30), h = 3 + lines.length * 10;
+    const w = Math.min(W - 16, Math.max(...lines.map(l => ctx.measureText(l).width)) + 14);
+    // Over the top of the room, unless the player stands there: then over the bottom, so you see yourself.
+    const top = paNow && !introMode && paY() === FY + 3 ? FY + 30 : FY + 4;
+    const ty = state && FY + state.y * T < top + h + 2 && Math.abs(state.x * T + 8 - W / 2) < w / 2 + 8 ? FY + C.H * T - h - 16 : top;
+    R('rgba(5,6,10,.85)', W / 2 - w / 2, ty, w, h); R(state.layer ? '#ffb43a' : '#9fe0ff', W / 2 - w / 2, ty + h - 1, w, 1);
+    lines.forEach((l, i) => txt(l, W / 2, ty + 3 + i * 10, {align: 'center', color: '#e9e4d6', max: w - 10}));
     ctx.globalAlpha = 1;
   }
   if (fx > 0) {
@@ -1131,7 +1176,11 @@ function renderDeadPicture() {
 function renderCard() {
   const def = LEVELS[levelIndex];
   R('#07080c', 0, 0, W, H);
-  txt('VOGT MICROELETTRONICA · LUINO · LOT 4471', W / 2, 6, {align: 'center', color: '#4c5470'});
+  // The header and the red tag of the hot lot, centred together.
+  ctx.font = '400 8px "Silkscreen", monospace';
+  const head = 'VOGT MICROELETTRONICA · LUINO · LOT 4471', hw = ctx.measureText(head).width, bw = ctx.measureText('HOT LOT · 06:00').width + 8;
+  const hx = Math.round(W / 2 - (hw + 6 + bw) / 2);
+  txt(head, hx, 6, {color: '#4c5470'}); hotLot(hx + hw + 6 + bw, 6);
   txt(`${t().layerWord} ${levelIndex + 1}/${LEVELS.length}`, 16, 20, {color: '#6b7190'});
   txt(def.layer[lang].toUpperCase(), 16, 30, {size: 24, font: 'Pixelify Sans', weight: 700, color: '#ffcf5a', shadow: '#3a2200', max: 170});
   txt(`${def.time} · ${def.title[lang]}`, 16, 58, {color: '#8c93a8', font: 'IBM Plex Sans', size: 8, max: 170});
@@ -1150,6 +1199,15 @@ function renderCard() {
   txt(t().physics, 18, y0 - 1, {color: '#9fe0ff'});
   def.fact[lang].forEach((line, i) => txt(line, 18, y0 + 10 + i * 9, {color: '#b9c2cf', font: 'IBM Plex Sans', size: 7, max: W - 36}));
   if (cardT > 20 && (frame >> 5) % 2) txt(t().cont, W / 2, H - 9, {align: 'center', color: '#6b7190'});
+}
+
+// The red tag on lot 4471: a hot lot jumps every queue, and the customer waits for it at six.
+function hotLot(right, y) {
+  const label = 'HOT LOT · 06:00';
+  ctx.font = '400 8px "Silkscreen", monospace';
+  const w = ctx.measureText(label).width + 8;
+  R('#7a1410', right - w, y - 1, w, 11); R('#d8262a', right - w, y - 1, 2, 11);
+  txt(label, right - w / 2 + 1, y, {align: 'center', color: '#ffe0d8', shadow: null});
 }
 
 // The shift log: every hour of the night with its reticle, its note and what its steps did to the yield.
@@ -1347,7 +1405,7 @@ if (new URLSearchParams(location.search).has('test')) {
   // Test hook: deterministic control for the browser check, only with ?test in the URL.
   window.__schicht = {
     levels, get state() { return state; }, get mode() { return mode; },
-    card: i => startCard(i), start: i => startLevel(i), act: a => doStep(a), render, update, intro: () => startIntro(), cinema: () => startCinema(), get cinemaT() { return cinemaT; },
+    card: i => startCard(i), start: i => startLevel(i), act: a => doStep(a), render, update, intro: () => startIntro(), get showerT() { return showerT; }, get introNote() { return introNote; }, cinema: () => startCinema(), get cinemaT() { return cinemaT; },
     finale: () => { mode = 'finale'; finT = 0; }, get finT() { return finT; }, found,
     process: (type, tt) => { procType = type; procT = tt; mode = 'process'; },
     setLayer: l => audio.setLayer(l), lang: l => { lang = l; applyLanguage(); },

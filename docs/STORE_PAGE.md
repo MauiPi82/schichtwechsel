@@ -42,14 +42,14 @@ Findings from 15 Steam pages of short atmospheric horror and puzzle games (Iron 
 
 **Description (EN):**
 
-> Luino, 21:56. Shift B did not clock out. You take over Bay 7 until six in the morning.
+> Luino, 21:56. Shift B did not clock out. You take over Bay 7 and their hot lot 4471, due at six in the morning.
 >
 > The fab exists twice. Your shift is bright and safe, but walls stand in your way. The shift before is the same hall in yellow light, decayed, and the previous shift still walks its rounds there. Press Shift to change between them.
 >
 > - Take lot 4471 through a real front-end process, one layer per hour: clean, oxidise, coat, expose, etch, implant, anneal, contact, metal.
 > - Play the steps yourself: lift the wafers out of the baths in time, stop the oxygen at 50 nm, keep the analysing magnet on arsenic.
 > - Real physics decides: an ion beam bent by the Lorentz force, heat spreading from furnace doors, plasma firing in rhythm.
-> - Watch their shadows by day, slip past them at night. Light stops them.
+> - Watch their shadows in your shift, slip past them in theirs. Light stops them.
 > - Measuring stations judge your work. Your yield is the score of the night.
 > - Eight reticles hide in the shift before. They lead to a second ending.
 >
@@ -61,14 +61,14 @@ Findings from 15 Steam pages of short atmospheric horror and puzzle games (Iron 
 
 **Description (DE):**
 
-> Luino, 21:56. Schicht B hat nicht ausgestempelt. Du übernimmst Bay 7 bis sechs Uhr morgens.
+> Luino, 21:56. Schicht B hat nicht ausgestempelt. Du übernimmst Bay 7 und ihr Eillos 4471, fällig um sechs Uhr morgens.
 >
 > Das Werk gibt es zweimal. Deine Schicht ist hell und sicher, aber Wände stehen im Weg. Die Vorschicht ist dieselbe Halle im Gelblicht, verfallen, und die Schicht von vorhin geht dort noch ihre Runden. Mit Shift wechselst du zwischen beiden.
 >
 > - Bring Los 4471 durch einen echten Front-End-Prozess, eine Schicht pro Stunde: reinigen, oxidieren, belacken, belichten, ätzen, implantieren, ausheilen, kontaktieren, metallisieren.
 > - Spiel die Schritte selbst: die Wafer rechtzeitig aus dem Bad heben, den Sauerstoff bei 50 nm abstellen, den Analysiermagneten auf Arsen halten.
 > - Echte Physik entscheidet: ein Ionenstrahl, den die Lorentzkraft biegt, Hitze aus Ofentüren, Plasma im Takt.
-> - Am Tag ihre Schatten beobachten, nachts an ihnen vorbei. Licht hält sie auf.
+> - In deiner Schicht ihre Schatten beobachten, in ihrer an ihnen vorbei. Licht hält sie auf.
 > - Messstationen bewerten deine Arbeit. Deine Ausbeute ist der Punktestand der Nacht.
 > - Acht Retikel liegen in der Vorschicht. Sie führen zu einem zweiten Ende.
 >

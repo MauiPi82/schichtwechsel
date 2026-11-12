@@ -253,3 +253,22 @@ test('after a resume the bell starts a full interval again', () => {
   assert.equal(core.bellIn(s), L.bell, 'a whole interval until the next strike');
   for (let i = 0; i < L.bell - 1; i++) { core.step(s, 'wait'); assert.ok(!s.events.includes('bell'), `no strike at ${s.step}`); }
 });
+
+test('the intro hands over lot 4471: the airlock opens only after the lot is picked up', () => {
+  const {INTRO} = require('../src/levels.js');
+  const L = core.parseLevel(INTRO);
+  assert.equal(L.stations.length, 1, 'one handover cart');
+  assert.equal(L.stations[0].layer, 0, 'the cart stands in your shift');
+  assert.ok(INTRO.pickup.de && INTRO.pickup.en && INTRO.route[0].de && INTRO.route[0].en);
+  // Stand next to the airlock without the lot: walking into it does nothing.
+  const [exit] = L.exits;
+  let s = core.newState(L);
+  Object.assign(s, {x: exit.x - 1, y: exit.y, px: exit.x - 1, py: exit.y});
+  s = core.step(s, 'right');
+  assert.notEqual(s.status, 'won', 'no lot, no way in');
+  // With the lot it opens.
+  s = core.newState(L);
+  Object.assign(s, {x: exit.x - 1, y: exit.y, px: exit.x - 1, py: exit.y, got: 1});
+  s = core.step(s, 'right');
+  assert.equal(s.status, 'won');
+});

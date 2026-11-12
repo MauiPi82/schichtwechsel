@@ -2,12 +2,12 @@
 
 A dark night-shift game for **GitHub Game Off 2026**, theme **SHIFT**.
 
-The late shift at Vogt Microelettronica, a chip fab near Luino on Lago Maggiore, never clocked in. You take over Bay 7 until the morning shift. The fab exists twice: the **day shift**, cold, bright and safe, and the **night shift**, the same rooms in the yellow light of lithography, decayed, where the previous shift is still at work.
+Shift B at Vogt Microelettronica, a chip fab near Luino on Lago Maggiore, never clocked out: Rossi, Colombo and Ferrari vanished at 21:40, when the scanner in Bay 7 failed. You take over the bay at 21:56 and pick up their lot 4471 from the handover cart. It is a hot lot, due at six. The fab exists twice: **your shift**, cold, bright and safe, and **the shift before**, the same rooms in the yellow light of lithography, decayed, where shift B is still at work.
 
 Press **SHIFT** to change between them.
 
-- By day you are safe, but walls block your way. You see the shadows of the previous shift walking their rounds; watch them before you shift. In the last hour they come for you.
-- By night you pass where walls stand by day. You only see what your helmet lamp shows.
+- In your shift you are safe, but walls block your way. You see the shadows of the previous shift walking their rounds; watch them before you shift. In the last hour they come for you.
+- In the shift before you pass where walls stand in yours. You only see what your helmet lamp shows.
 - Take lot 4471 through the process steps in the right order, then reach the airlock.
 
 Every hour adds one layer to lot 4471, in the order of a real process flow, and is built on real semiconductor physics:

@@ -89,8 +89,16 @@ function lockers(x, y, px, py) {
     R('#b8c0cb', px + dx, py - 6, 15, T + 4); R('#97a1ae', px + dx, py - 6, 1, T + 4);
     for (let i = 0; i < 3; i++) R('#7c8693', px + dx + 4, py - 3 + i * 2, 7, 1);
     R('#4a525e', px + dx + 11, py + 10, 2, 4);
-    text(String(10 + x * 2 + (dx > 1 ? 1 : 0)), px + dx + 3, py + 20, {size: 8, color: '#4a525e'});
+    const no = 10 + x * 2 + (dx > 1 ? 1 : 0);
+    text(String(no), px + dx + 3, py + 20, {size: 8, color: '#4a525e'});
+    // In the shift before three lockers stand open, the street clothes of shift B still inside.
+    if (night && no >= 15 && no <= 17) {
+      R('#14100a', px + dx + 1, py - 5, 13, T + 2); R('#3a2e1c', px + dx + 4, py - 3, 7, 1);
+      R(['#3a4a6a', '#5a3a2a', '#2a3a2a'][no - 15], px + dx + 4, py - 2, 7, 12); R('#1a140a', px + dx + 7, py - 2, 1, 12);
+      R('#8d97a4', px + dx - (dx > 1 ? 4 : -13), py - 6, 4, T + 4);
+    }
   }
+  if (night) R('rgba(16,11,4,.7)', px, py - 10, T, T + 10);
 }
 function bench(x, y, px, py) {
   floorTile(x, y, px, py);
@@ -98,6 +106,7 @@ function bench(x, y, px, py) {
   R('#c9cfd8', px, py + 10, T, 10); R('#e6eaf0', px, py + 10, T, 2); R('#8d97a4', px + 3, py + 20, 3, 6); R('#8d97a4', px + T - 6, py + 20, 3, 6);
   if (x % 2) { R('#f7f9fc', px + 6, py + 8, 14, 5); R('#d3dae4', px + 6, py + 12, 14, 1); }
   else { R('#e2e8f0', px + 8, py + 9, 6, 4); R('#e2e8f0', px + 16, py + 9, 6, 4); }
+  if (night) R('rgba(16,11,4,.7)', px, py + 8, T, 18);
 }
 function showerFloor(L, x, y, px, py) {
   R('#9aa3ae', px, py, T, T);
@@ -118,6 +127,7 @@ function door(L, x, y, px, py) {
     R('#b8c0cb', px + 4, py - 4, T - 8, T + 2); R('rgba(160,205,240,.6)', px + 9, py, T - 18, 10);
     R('#4a525e', px + T - 10, py + 12, 2, 5);
   }
+  if (night) R('rgba(16,11,4,.6)', px, py - 8, T, T + 8);
   R(open ? '#3fe06a' : '#ff3a2a', px + 14, py - 7, 4, 3);
 }
 // Filtered air from the nozzles; particles leave the suit and are sucked to the floor grates.
@@ -491,6 +501,8 @@ function stations(L, layer, s, lang) {
   L.stations.forEach((st, n) => {
     if (st.layer !== layer) return;
     const px = st.x * T, py = FY + st.y * T, done = s.got > n, next = s.got === n;
+    if (L.intro) handoverCart(px, py, done);
+    else {
     // An empty load port: the lot is in your hands. Three kinematic pins wait for the FOUP; the LED shows the state.
     R('rgba(0,0,0,.25)', px + 6, py + 26, 22, 4);
     R(p.dark, px + 5, py + 12, 22, 16); R(p.darker, px + 5, py + 24, 22, 4); R(p.grey, px + 6, py + 13, 20, 1);
@@ -498,6 +510,7 @@ function stations(L, layer, s, lang) {
     const led = done ? '#3fe06a' : next ? ((F >> 4) % 2 ? (night ? '#ffcf5a' : '#7fd0ff') : p.darker) : night ? '#3a1408' : '#5a2a20';
     R(led, px + 23, py + 25, 2, 2);
     text(done ? 'OK' : `${n + 1}`, px + 9, py + 23, {size: 8, color: done ? '#3fe06a' : night ? '#8a6a30' : '#9aa6b5', max: 12});
+    }
     if (next) {
       const a = 0.5 + 0.5 * Math.sin(F / 8);
       ctx.strokeStyle = night ? `rgba(255,207,90,${a})` : `rgba(127,208,255,${a})`; ctx.lineWidth = 2;
@@ -515,6 +528,25 @@ function stations(L, layer, s, lang) {
       text(label, lx, ly + 1, {align: 'center', color: night ? '#ffcf5a' : '#e9eef5'});
     }
   });
+}
+
+// The handover cart in Bay 7 of the intro: lot 4471 where shift B left it, its red HOT LOT tag on the FOUP.
+function handoverCart(px, py, taken) {
+  R('rgba(0,0,0,.25)', px + 3, py + 27, 26, 3);
+  R('#6a7380', px + 4, py + 17, 1, 10); R('#6a7380', px + 27, py + 17, 1, 10);
+  R('#a9b1bc', px + 3, py + 16, 26, 2); R('#7c8693', px + 3, py + 18, 26, 1); R('#8a939f', px + 4, py + 24, 24, 2);
+  R('#2a2e36', px + 4, py + 27, 3, 2); R('#2a2e36', px + 25, py + 27, 3, 2);
+  R('#5a6370', px + 28, py + 10, 1, 7); R('#7c8693', px + 27, py + 9, 3, 1);
+  // The traveller: a sheet in a sleeve on the push handle.
+  R('#e9e4d6', px + 23, py + 19, 4, 5); R('#9aa6b5', px + 24, py + 20, 2, 1); R('#9aa6b5', px + 24, py + 22, 2, 1);
+  if (taken) return;
+  const fx = px + 8, fy = py + 3;
+  R('rgba(0,0,0,.2)', fx + 1, fy + 12, 14, 1);
+  R('#d9dde3', fx, fy, 14, 12); R('#a9b1bc', fx, fy + 10, 14, 2); R('#eef1f4', fx + 1, fy + 1, 12, 1);
+  R('#5a6370', fx + 4, fy - 2, 6, 2); R('#e8732a', fx + 2, fy + 4, 10, 2);
+  text('4471', fx + 7, fy + 6, {align: 'center', size: 8, color: '#2a2e36', max: 13});
+  const sw = (F >> 4) % 2;
+  R('#d8262a', fx + 12 + sw, fy + 2, 4, 6); R('#ffffff', fx + 13 + sw, fy + 4, 2, 1);
 }
 
 function airlock(L, layer, s) {
@@ -625,6 +657,9 @@ function bunny(px, py, face, walk, c, o = {}) {
     const fx = face === 'down' ? px + 10 : dir > 0 ? px + 17 : px + 5, fy = y + 14;
     R(c.dark, fx, fy + 1, 12, 8); R(o.night ? '#6a5a3a' : '#d9dde3', fx, fy, 12, 7); R(o.night ? '#4a3d24' : '#a9b1bc', fx, fy + 6, 12, 1);
     R(o.night ? '#9a6c1e' : '#e8732a', fx + 2, fy + 2, 8, 2); R(o.night ? '#2a1e0a' : '#5a6370', fx + 4, fy - 1, 4, 1);
+    // The red tag of the hot lot, swinging a little.
+    const sw = (F >> 4) % 2;
+    R(o.night ? '#8a2018' : '#d8262a', fx + (face === 'left' ? -2 : 11) + sw, fy + 3, 3, 4); R(o.night ? '#c9a59a' : '#ffffff', fx + (face === 'left' ? -1 : 12) + sw, fy + 4, 1, 1);
   }
 }
 
@@ -774,7 +809,7 @@ function draw(c, s, o) {
   const figures = [];
   const walkF = (s.px !== s.x || s.py !== s.y) ? (Math.floor(k * 4) % 4) : 0;
   if (o.playerVisible) figures.push({y: lerp(s.py, s.y, k), draw: () => o.civilian ? civilian(ppx, ppy - 4, s.face, walkF)
-    : bunny(ppx, ppy - 4, s.face, walkF, night ? SUIT.night : SUIT.day, {carry: !L.intro, night})});
+    : bunny(ppx, ppy - 4, s.face, walkF, night ? SUIT.night : SUIT.day, {carry: !L.intro || s.got > 0, night})});
   const isSet = i => !!(o.frozen && o.frozen[i]);
   if (night) o.enemies.forEach(([ex, ey], i) => figures.push({y: ey, draw: () => {
     const jit = !reduced && !isSet(i) && hash(F + i * 9) > 0.97 ? 2 : 0;
