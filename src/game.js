@@ -486,7 +486,7 @@ function pollPad() {
 let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0, shake = 0;
 let progress = clamp(+store.get('level') || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
 const deathsBy = levels.map(() => 0);
-const BUILD = '0.34 · 2026-11-12';
+const BUILD = '0.35 · 2026-11-12';
 // Testers can jump to an hour: ?stunde=3 or ?hour=3 opens the third hour.
 const jump = +(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || 0);
 if (jump >= 1 && jump <= levels.length) progress = jump - 1;
@@ -637,7 +637,7 @@ function stepVeil() {
 let cinemaT = 0;
 function startCinema() { newLot(); mode = 'cinema'; cinemaT = 0; audio.setLayer(0); audio.rain(0.09); }
 // Sound cues per shot: [shot, second, cue].
-const CUES = [[0, 0.8, 'bell'], [0, 2.9, 'bell'], [1, 0.1, 'hum'], [1, 3.6, 'click'], [2, 2.6, 'error'], [3, 2.3, 'click'], [3, 2.4, 'powerdown'],
+const CUES = [[0, 0.8, 'bell'], [0, 2.9, 'bell'], [1, 0.1, 'hum'], [1, 3.6, 'click'], [2, 0.8, 'click'], [2, 2.6, 'error'], [3, 2.3, 'click'], [3, 2.4, 'powerdown'],
   [4, 0.6, 'heart'], [4, 1.2, 'eyes'], [4, 1.6, 'heart'], [4, 2.0, 'eyes'], [4, 2.6, 'heart'], [4, 2.8, 'eyes'], [5, 3.0, 'horn']];
 // The epilogue of the normal ending: five shots with captions, then the card.
 let epiT = 0;
@@ -662,7 +662,7 @@ function updateCinema() {
     if (shot !== s || t < at || (before[0] === s && before[1] >= at)) continue;
     if (cue === 'bell') audio.bell(0.3); else if (cue === 'horn') audio.horn(); else audio.sfx(cue, {gain: 0.25});
   }
-  if (shot === 2 && t < 2.6 && frame % 6 === 0) audio.sfx('zap');
+  if (shot === 2 && t > 0.8 && t < 2.6 && frame % 6 === 0) audio.sfx('zap');
   if (cinemaT >= window.SchichtCinema.TOTAL) { startIntro(); fadeIn(70); }
 }
 function startIntro() {

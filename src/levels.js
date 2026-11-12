@@ -513,10 +513,10 @@
       {x: 7, y: 3, suited: true, text: {de: 'Luftdusche: Düsen blasen gefilterte Luft mit etwa 25 m/s und lösen die letzten Partikel vom Anzug.', en: 'Air shower: nozzles blow filtered air at about 25 m/s and loosen the last particles from the suit.'}},
       {x: 13, y: 3, text: {de: 'Bay 7. Die Anlagen laufen. Niemand ist hier. Am Übergabewagen steht ein Los.', en: 'Bay 7. The tools are running. Nobody is here. A lot stands on the handover cart.'}},
     ],
-    // The handover: lot 4471 on its cart, where shift B left it at 21:40. Read when it is picked up.
+    // The handover: lot 4471 on its cart, fresh from the stocker, where Rossi set it down at 21:31. Read when picked up.
     pickup: {
-      de: 'Los 4471. Roter Reiter: HOT LOT, Liefertermin 06:00. Laufzettel: zuletzt gebucht 21:40, Turno B. Danach nichts mehr.',
-      en: 'Lot 4471. Red tag: HOT LOT, due at 06:00. Traveller: last booked at 21:40 by shift B. Nothing after that.',
+      de: 'Los 4471: 25 blanke Wafer, noch kein einziger Schritt. Roter Reiter: HOT LOT, Liefertermin 06:00. Laufzettel: abgestellt 21:31, Rossi.',
+      en: 'Lot 4471: 25 bare wafers, not a single step yet. Red tag: HOT LOT, due at 06:00. Traveller: set down at 21:31, Rossi.',
     },
     route: [{de: 'Los 4471 abholen', en: 'Pick up lot 4471'}],
     // The suit hangs on the gowning rack (G); standing in front of it you put it on, top to bottom.

@@ -2,7 +2,7 @@
 
 A dark night-shift game for **GitHub Game Off 2026**, theme **SHIFT**.
 
-Shift B at Vogt Microelettronica, a chip fab near Luino on Lago Maggiore, never clocked out: Rossi, Colombo and Ferrari vanished at 21:40, when the scanner in Bay 7 failed. You take over the bay at 21:56 and pick up their lot 4471 from the handover cart. It is a hot lot, due at six. The fab exists twice: **your shift**, cold, bright and safe, and **the shift before**, the same rooms in the yellow light of lithography, decayed, where shift B is still at work.
+Shift B at Vogt Microelettronica, a chip fab near Luino on Lago Maggiore, never clocked out: Rossi, Colombo and Ferrari vanished at 21:40, when the idle scanner in Bay 7 started a recipe by itself on an empty stage and failed. You take over the bay at 21:56 and pick up their lot 4471 from the handover cart. It is a hot lot, due at six. The fab exists twice: **your shift**, cold, bright and safe, and **the shift before**, the same rooms in the yellow light of lithography, decayed, where shift B is still at work.
 
 Press **SHIFT** to change between them.
 

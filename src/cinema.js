@@ -1,5 +1,6 @@
 /* Schichtwechsel - wordless prologue before the night shift, drawn at 640 x 360 with letterbox bars.
- * Six shots: the lake at 21:40, Bay 7 in yellow light, the scanner fault, the emergency stop,
+ * Six shots: the lake at 21:40, Bay 7 in yellow light with lot 4471 waiting on its cart, the idle scanner
+ * starting a recipe by itself on an empty stage, the emergency stop,
  * darkness with three pairs of eyes, and the walk to the gate at 21:56. */
 (() => {
 'use strict';
@@ -122,6 +123,11 @@ function bayScene(t) {
   R('#120c04', 360, 230, 90, 30); R('#ffb43a', 366 + (Math.sin(F / 20) + 1) * 30, 240, 14, 10);
   // Wall clock: 21:40.
   clockFace(590, 100, 14, 21, 40);
+  // Lot 4471 waits on the handover cart, untouched: fresh wafers, planned for the night shift. Red HOT LOT tag.
+  R('#4a3a1c', 560, 262, 60, 4); R('#3a2c14', 562, 266, 3, 22); R('#3a2c14', 615, 266, 3, 22); R('#2a2010', 560, 282, 60, 3);
+  R('#1a1208', 560, 288, 6, 4); R('#1a1208', 614, 288, 6, 4);
+  R('#c9b98a', 572, 236, 36, 26); R('#a8956a', 572, 258, 36, 4); R('#e8732a', 578, 244, 24, 4); R('#6a5a3a', 582, 232, 16, 4);
+  R('#d8262a', 604 + Math.round(Math.sin(F / 14)), 240, 7, 12); R('#ffe0d8', 606 + Math.round(Math.sin(F / 14)), 244, 3, 2);
   // Three operators; they stop working and turn their heads.
   const stop = t > 3.6, turn = t > 4.4;
   [[150, 'track'], [300, 'walk'], [430, 'screen']].forEach(([x0, job], i) => {
@@ -139,28 +145,48 @@ function bayScene(t) {
 
 // Close-up: wafer under the lens, laser pulses, then the fault on the screen.
 function scannerScene(t) {
-  R('#0a0704', 0, 0, W, H);
-  const fault = t > 2.6;
-  // Lens and wafer stage.
-  R('#3a2c14', 60, 40, 240, 50); circle('#1a1208', 180, 110, 50); circle('#2a2010', 180, 110, 38); circle('#0a0704', 180, 110, 24);
-  const pulse = !fault && (F >> 1) % 2;
-  if (pulse) { ctx.fillStyle = 'rgba(170,120,255,.5)'; ctx.beginPath(); ctx.moveTo(160, 130); ctx.lineTo(200, 130); ctx.lineTo(186, 250); ctx.lineTo(174, 250); ctx.fill(); }
-  // The stage carries the wafer back and forth under the lens; exposed fields stay violet.
-  const wx = fault ? 180 : 180 + Math.sin(t * 2.2) * 40, wy = 250;
-  R('#2a2010', 40, 292, 280, 14); circle('#5a5040', wx, wy, 44); circle('#d99a32', wx, wy, 40);
-  ctx.save(); ctx.beginPath(); ctx.arc(wx, wy, 40, 0, 7); ctx.clip();
-  const done = Math.floor(clamp(t / 2.6, 0, 1) * 24);
-  for (let j = 0; j < 5; j++) for (let i = 0; i < 5; i++) {
-    const n = j * 5 + (j % 2 ? 4 - i : i);
-    R(n < done ? 'rgba(120,70,200,.55)' : 'rgba(0,0,0,.08)', wx - 40 + i * 16 + 1, wy - 40 + j * 16 + 1, 14, 14);
+  // The scanner cut open from the side, in the dim yellow of the bay. Nobody loaded a lot, yet at 0.8 s it starts
+  // a recipe by itself: the reticle and the wafer stage scan against each other (4 : 1), the laser fires through
+  // the lens onto an empty vacuum chuck. At 2.6 s it finds no wafer and stops with an error.
+  R('#0a0704', 0, 0, W, H); ctx.fillStyle = 'rgba(255,190,70,.05)'; ctx.fillRect(0, 0, W, H);
+  const run = t > 0.8 && t < 2.6, fault = t >= 2.6, scan = run ? Math.sin((t - 0.8) * 5) : 0, pulse = run && (F >> 1) % 2;
+  // Laser source and beam path into the illuminator.
+  R('#2a1e4a', 52, 50, 110, 30); R('#3a2a64', 52, 50, 110, 4); txt('ArF 193 nm', 107, 60, 8, '#d6c8ff');
+  R('#2a2010', 162, 60, 70, 10); R('#2a2010', 222, 60, 10, 34);
+  if (pulse) { R('rgba(190,140,255,.9)', 162, 63, 66, 4); R('rgba(190,140,255,.9)', 225, 64, 4, 30); }
+  // Reticle stage: quartz plate with its chrome pattern, scanning left and right.
+  R('#3a2c14', 130, 96, 200, 6); const rx = 196 + scan * 40;
+  R('#cfe8ff', rx, 102, 68, 8); for (let k = 0; k < 9; k++) if (k % 3 !== 1) R('#1a1e24', rx + 6 + k * 6.5, 103, 4, 6);
+  txt('RETICOLO', 104, 102, 8, '#6b5a2a');
+  // Projection lens: a column of elements in its housing.
+  R('#3a2c14', 186, 116, 8, 108); R('#3a2c14', 266, 116, 8, 108);
+  [34, 30, 32, 26, 20, 16, 12].forEach((wd, k) => { ctx.fillStyle = 'rgba(200,225,255,.55)'; ctx.beginPath(); ctx.ellipse(230, 124 + k * 15, wd, 4, 0, 0, 7); ctx.fill(); });
+  if (pulse) {
+    ctx.fillStyle = 'rgba(170,120,255,.32)'; ctx.beginPath(); ctx.moveTo(204, 112); ctx.lineTo(256, 112); ctx.lineTo(236, 232); ctx.lineTo(224, 232); ctx.fill();
   }
-  ctx.restore();
-  // Monitor.
-  R('#1a1208', 360, 70, 230, 170); R(fault && (F >> 3) % 2 ? '#3a0804' : '#0a1a10', 368, 78, 214, 154);
-  txt('LOT 4471', 475, 92, 16, '#7fd09a');
-  txt('ESPOSIZIONE  2 / 3', 475, 116, 8, '#7fd09a');
-  for (let i = 0; i < 5; i++) R('#2a6a3a', 388, 140 + i * 10, (fault ? 60 : 40 + t * 40) % 170, 3);
-  if (fault) { txt('ERRORE', 475, 190, 16, '#ff4030'); txt('STAGE 0x0B · 21:40:07', 475, 212, 8, '#ff8070'); }
+  // Immersion hood with its water film, and the wafer stage below: an empty chuck with vacuum grooves.
+  R('#3a2c14', 206, 226, 48, 8); R('rgba(90,170,255,.55)', 214, 234, 32, 3);
+  const sx = 230 - scan * 10;
+  R('#2a2010', 90, 268, 280, 22); R('#3a2c14', 90, 268, 280, 4);
+  ctx.fillStyle = '#4a4030'; ctx.beginPath(); ctx.ellipse(sx, 252, 92, 14, 0, 0, 7); ctx.fill();
+  ctx.strokeStyle = '#6a5a40'; ctx.lineWidth = 1;
+  for (const r of [80, 60, 40, 20]) { ctx.beginPath(); ctx.ellipse(sx, 252, r, r * 0.15, 0, 0, 7); ctx.stroke(); }
+  if (pulse) { ctx.fillStyle = 'rgba(190,140,255,.75)'; ctx.beginPath(); ctx.ellipse(230, 252, 8, 2, 0, 0, 7); ctx.fill(); ctx.fillStyle = 'rgba(190,140,255,.18)'; ctx.beginPath(); ctx.ellipse(230, 252, 30, 6, 0, 0, 7); ctx.fill(); }
+  txt('PIATTO', 230, 292, 8, '#6b5a2a');
+  // Stack light on top of the tool: green while running, red on the fault.
+  R('#1a1208', 340, 40, 6, 60);
+  R(run ? '#3fe06a' : '#0a2a0e', 336, 44, 14, 10); R(fault && (F >> 3) % 2 ? '#ff3a2a' : '#3a0a06', 336, 56, 14, 10);
+  // Monitor: standby, then the recipe nobody started, then the fault.
+  R('#1a1208', 374, 62, 236, 196); R(fault && (F >> 3) % 2 ? '#3a0804' : '#0a1a10', 382, 70, 220, 180);
+  txt('LUMENA S193i · BAY 7', 492, 80, 8, '#4a8a5a');
+  if (t < 0.8) { txt('STANDBY', 492, 112, 16, '#7fd09a'); txt('LOTTO: ----', 492, 140, 8, '#7fd09a'); }
+  else {
+    txt('ESPOSIZIONE', 492, 104, 16, fault ? '#7a3a2a' : '#ffcf5a');
+    txt('RICETTA: ROSSI_01_final_v2', 492, 130, 8, fault ? '#7a3a2a' : '#ffcf5a');
+    txt('LOTTO: ----', 492, 146, 8, fault ? '#7a3a2a' : '#ffcf5a');
+    if (!fault) for (let i = 0; i < 3; i++) R('#6a5a1a', 410, 170 + i * 10, ((t - 0.8) * 90 + i * 30) % 160, 3);
+  }
+  if (fault) { txt('ERRORE', 492, 176, 16, '#ff4030'); txt('NESSUN WAFER SUL PIATTO', 492, 202, 8, '#ff8070'); txt('21:40:07', 492, 218, 8, '#ff8070'); }
 }
 
 // A gloved hand presses the emergency stop.
