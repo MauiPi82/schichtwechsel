@@ -42,7 +42,7 @@
       scare: {type: 'phone', at: 12, x: 4, y: 0},
       tools: [
         {x0: 6, y0: 1, type: 'stocker'},
-        {x0: 3, y0: 5, type: 'wetbench', name: 'PURA W-6', baths: ['SPM', 'HF', 'SC-1', 'SC-2', 'DRY']},
+        {x0: 3, y0: 5, type: 'wetbench', name: 'PURA W-6', baths: ['SC-1', 'QDR', 'SC-2', 'QDR', 'HF', 'DRY']},
         {x0: 13, y0: 2, type: 'metrology', name: 'ORSA SP-3', screen: 'particles'},
         {x0: 12, y0: 7, type: 'stocker'},
       ],
@@ -100,7 +100,7 @@
         {x0: 3, y0: 1, type: 'furnace', n: 3, name: 'FORNO V-3', temps: ['1000°C', '1000°C', '780°C']},
         {x0: 11, y0: 1, type: 'wetbench', name: 'PURA W-6', baths: ['SPM', 'SC-1', 'SC-2', 'HF', 'DRY']},
         {x0: 16, y0: 4, type: 'metrology', name: 'ORSA EL-4', screen: 'thickness'},
-        {x0: 1, y0: 5, type: 'gascab', gas: 'O2'},
+        {x0: 1, y0: 5, type: 'gascab', gas: 'DCS'},
       ],
       lamps: [[5, 3], [2, 7], [11, 7]],
       day: [
@@ -130,7 +130,7 @@
     },
     {
       id: 'pr', reticle: [2, 8], time: '00:00',
-      layer: {de: 'Fotolack', en: 'Photoresist'}, stack: {de: 'Fotolack · 1,2 µm', en: 'Resist · 1.2 µm'},
+      layer: {de: 'Fotolack', en: 'Photoresist'}, stack: {de: 'Fotolack · 100 nm', en: 'Resist · 100 nm'},
       title: {de: 'Gelblicht', en: 'Yellow Light'},
       log: {
         de: ['Los 4471 steht seit 21:40 vor dem Coater.', 'Bringen Sie es durch die Lithografie.'],
@@ -144,17 +144,19 @@
       // Announcements over the PA (step, Italian, translation), a note from shift B, one scare.
       pa: [
         {at: 4, it: 'Litografia: luce gialla. Non aprire le porte.', de: 'Lithografie: Gelblicht. Türen nicht öffnen.', en: 'Lithography: yellow light. Do not open the doors.'},
+        {at: 60, it: 'Q-time del lotto 4471: scade alle due.', de: 'Q-Zeit von Los 4471: läuft um zwei ab.', en: 'Q-time of lot 4471: runs out at two.'},
       ],
       note: {x: 9, y: 5, by: 'Ferrari', text: {
         de: ['Gelblicht an. Auf dem Boden liegen Schatten.', 'Außer uns ist niemand hier.', 'Wir zählen sie: einer, zwei, drei.', 'Vier.'],
         en: ['Yellow light on. There are shadows on the floor.', 'Nobody is here but us.', 'We count them: one, two, three.', 'Four.'],
       }},
       scare: {type: 'blackout', at: 14, layer: 'night'},
-      route: [{de: 'Belacken', en: 'Coat', proc: 'coat'}, {de: 'Belichten', en: 'Expose', proc: 'expose'}, {de: 'Entwickeln', en: 'Develop', proc: 'develop'}],
+      route: [{de: 'Belacken', en: 'Coat', proc: 'coat'}, {de: 'Belichten', en: 'Expose', proc: 'expose'}, {de: 'Entwickeln', en: 'Develop', proc: 'develop'}, {de: 'Linien messen', en: 'Measure lines', proc: 'measure'}],
       enemyEvery: 6,
       tools: [
         {x0: 2, y0: 2, type: 'track', name: 'KENSEI CT-7'},
         {x0: 10, y0: 2, type: 'scanner', name: 'LUMENA S193i'},
+        {x0: 15, y0: 3, type: 'metrology', name: 'ORSA CD-9', screen: 'lines'},
         {x0: 15, y0: 7, type: 'stocker'},
       ],
       lamps: [[4, 5], [11, 5], [16, 2], [10, 7]],
@@ -162,9 +164,9 @@
         '####################',
         '#P......#.........X#',
         '#.MMMMM.#.MMMM.....#',
-        '#.MMMMM.#.MMMM.....#',
-        '#..1.3..#.MMMM.....#',
-        '#.......#..........#',
+        '#.MMMMM.#.MMMM.MM..#',
+        '#..1.3..#.MMMM.MM..#',
+        '#.......#......4...#',
         '###.#####...###.####',
         '#.......#...#..MM..#',
         '#.......#...#..MM..#',
@@ -192,8 +194,8 @@
         en: ['Across the water, the campanile of Luino strikes.', 'With every strike the shift changes.', 'Whoever stands inside a wall then, stays there.'],
       },
       fact: {
-        de: ['Der Scanner belichtet mit 193 nm, unter Wasser (n ≈ 1,44).', 'Kleinste Struktur ≈ k₁ · λ / NA = 0,28 · 193 nm / 1,35 ≈ 40 nm.', 'Das Ätzen überträgt das Muster dann ins Oxid.'],
-        en: ['The scanner exposes at 193 nm, through water (n ≈ 1.44).', 'Smallest feature ≈ k₁ · λ / NA = 0.28 · 193 nm / 1.35 ≈ 40 nm.', 'Etching then transfers the pattern into the oxide.'],
+        de: ['Der Scanner belichtet mit 193 nm, unter Wasser (n ≈ 1,44).', 'Kleinster Halbpitch ≈ k₁ · λ / NA = 0,28 · 193 nm / 1,35 ≈ 40 nm.', 'Das Ätzen überträgt das Muster dann in Nitrid und Oxid.'],
+        en: ['The scanner exposes at 193 nm, through water (n ≈ 1.44).', 'Smallest half-pitch ≈ k₁ · λ / NA = 0.28 · 193 nm / 1.35 ≈ 40 nm.', 'Etching then transfers the pattern into nitride and oxide.'],
       },
       hint: {de: 'Die Glocke wechselt für dich. Steh auf festem Boden', en: 'The bell shifts for you. Stand on solid ground'},
       // Announcements over the PA (step, Italian, translation), a note from shift B, one scare.
@@ -243,7 +245,7 @@
     },
     {
       id: 'im', reticle: [1, 8], time: '02:00',
-      layer: {de: 'Dotierung', en: 'Doping'}, stack: {de: 'Arsen · 10¹⁵ cm⁻²', en: 'Arsenic · 10¹⁵ cm⁻²'},
+      layer: {de: 'Dotierung', en: 'Doping'}, stack: {de: 'Arsen · 2·10¹⁵ cm⁻²', en: 'Arsenic · 2·10¹⁵ cm⁻²'},
       title: {de: 'Implanter', en: 'Implanter'},
       log: {
         de: ['Der Implanter fährt sein Rezept: Bor, Phosphor, Arsen.', 'Er hätte um 22:00 stehen sollen.'],
@@ -269,7 +271,7 @@
       tools: [
         {x0: 1, y0: 7, type: 'implanter', part: 'source'},
         {x0: 13, y0: 3, type: 'implanter', part: 'end', name: 'AURIGA HC-3'},
-        {x0: 14, y0: 7, type: 'metrology', name: 'ORSA RS-1', screen: 'rs', value: '52Ω/□'},
+        {x0: 14, y0: 7, type: 'metrology', name: 'ORSA TW-2', screen: 'tw'},
       ],
       lamps: [[4, 2], [8, 6], [12, 1]],
       day: [
@@ -299,15 +301,15 @@
     },
     {
       id: 'an', reticle: [1, 8], time: '03:00',
-      layer: {de: 'Ausheilen', en: 'Anneal'}, stack: {de: '1050 °C · 10 s', en: '1050 °C · 10 s'},
+      layer: {de: 'Ausheilen', en: 'Anneal'}, stack: {de: '1000 °C · 30 min · N₂', en: '1000 °C · 30 min · N₂'},
       title: {de: 'Ofenreihe', en: 'Furnace Row'},
       log: {
         de: ['Die Öfen öffnen sich von selbst, einer nach dem anderen.', 'Im Rohr liegen Wafer, die niemand geladen hat.'],
         en: ['The furnaces open by themselves, one after another.', 'Inside the tubes lie wafers nobody loaded.'],
       },
       fact: {
-        de: ['Wärme breitet sich nach ∂T/∂t = α·∇²T aus. Dotieratome', 'wandern genauso: Diffusionslänge ≈ 2·√(D·t). Darum heizen', 'Kurzzeitöfen in Sekunden über 1000 °C und gleich wieder ab.'],
-        en: ['Heat spreads as ∂T/∂t = α·∇²T. Dopant atoms wander', 'the same way: diffusion length ≈ 2·√(D·t). That is why rapid', 'thermal anneals go past 1000 °C for seconds, then cool at once.'],
+        de: ['Wärme breitet sich nach ∂T/∂t = α·∇²T aus, Dotieratome wandern', 'genauso: Diffusionslänge ≈ 2·√(D·t). Im Rohrofen heilt das Gitter', 'bei 1000 °C in 30 min aus. RTP-Anlagen schaffen es in Sekunden.'],
+        en: ['Heat spreads as ∂T/∂t = α·∇²T, and dopant atoms wander the same', 'way: diffusion length ≈ 2·√(D·t). In the tube furnace the lattice', 'heals at 1000 °C in 30 min. RTP tools manage it in seconds.'],
       },
       hint: {de: 'Warte, bis die Hitze zurückweicht', en: 'Wait for the heat to fall back'},
       // Announcements over the PA (step, Italian, translation), a note from shift B, one scare.
@@ -326,7 +328,7 @@
         sources: [[6, 1, 0], [9, 1, 8], [12, 1, 16], [15, 1, 24], [5, 5, 12], [8, 5, 20], [11, 5, 28], [14, 5, 36]],
       },
       tools: [
-        {x0: 1, y0: 5, type: 'gascab', gas: 'N2'},
+        {x0: 1, y0: 5, type: 'gascab', gas: 'HCl'},
         {x0: 5, y0: 1, type: 'tubes', name: 'FORNO H-12'},
         {x0: 5, y0: 5, type: 'tubes', name: 'FORNO H-12'},
       ],
@@ -361,8 +363,8 @@
       layer: {de: 'Kontakte', en: 'Contacts'}, stack: {de: 'Kontaktloch · 60 nm', en: 'Contact hole · 60 nm'},
       title: {de: 'Plasma', en: 'Plasma'},
       log: {
-        de: ['Im Ätzer leuchtet Plasma.', 'Auf dem Bildschirm steht das Rezept ROSSI_01.'],
-        en: ['Plasma glows in the etcher.', 'On the screen: recipe ROSSI_01.'],
+        de: ['Im Ätzer leuchtet Plasma.', 'Auf dem Bildschirm: ROSSI_01_final_v2_NICHT_BENUTZEN.'],
+        en: ['Plasma glows in the etcher.', 'On the screen: ROSSI_01_final_v2_DO_NOT_USE.'],
       },
       fact: {
         de: ['Der Ätzer zündet Plasma mit 13,56 MHz. Ionen fallen senkrecht', 'durch die Randschicht auf den Wafer. So entstehen gerade,', 'tiefe Kontaktlöcher statt runder Mulden.'],
@@ -374,8 +376,8 @@
         {at: 4, it: 'Allarme gas rientrato. Ripeto: rientrato.', de: 'Gasalarm aufgehoben. Ich wiederhole: aufgehoben.', en: 'Gas alarm cleared. I repeat: cleared.'},
       ],
       note: {x: 4, y: 6, by: 'Rossi', text: {
-        de: ['ROSSI_01 ist mein Rezept.', 'Ich habe es nicht gestartet.', 'Ich kann nichts mehr starten.', 'Ich kann nichts mehr anfassen.'],
-        en: ['ROSSI_01 is my recipe.', 'I did not start it.', 'I cannot start anything any more.', 'I cannot touch anything any more.'],
+        de: ['ROSSI_01_final_v2 ist mein Rezept. NICHT BENUTZEN.', 'Ich habe es nicht gestartet.', 'Ich kann nichts mehr starten.', 'Ich kann nichts mehr anfassen.'],
+        en: ['ROSSI_01_final_v2 is my recipe. DO NOT USE.', 'I did not start it.', 'I cannot start anything any more.', 'I cannot touch anything any more.'],
       }},
       scare: {type: 'blackout', at: 22, layer: 'night'},
       route: [{de: 'Oxid abscheiden', en: 'Deposit oxide', proc: 'deposit'}, {de: 'Kontakte ätzen', en: 'Etch contacts', proc: 'contacts'}],
@@ -427,8 +429,8 @@
         en: ['Last step. The bell strikes more often.', 'They are waiting at the airlock.'],
       },
       fact: {
-        de: ['Sputtern im Vakuum: Freie Weglänge λ = kT / (√2·π·d²·p).', 'Bei 10⁻⁶ mbar fliegt ein Argonatom im Mittel rund 70 m weit.', 'Darum treffen die Aluminiumatome geradlinig auf den Wafer.'],
-        en: ['Sputtering in vacuum: mean free path λ = kT / (√2·π·d²·p).', 'At 10⁻⁶ mbar an argon atom flies about 70 m on average.', 'So the aluminium atoms reach the wafer in straight lines.'],
+        de: ['Sputtern: Die Kammer wird auf 10⁻⁸ mbar gepumpt, dann mit Argon', 'auf 10⁻³ mbar gefüllt. Freie Weglänge λ = kT / (√2·π·d²·p) ≈ 7 cm,', 'etwa der Abstand Target–Wafer: Das Aluminium fliegt fast geradeaus.'],
+        en: ['Sputtering: the chamber is pumped to 10⁻⁸ mbar, then filled with', 'argon to 10⁻³ mbar. Mean free path λ = kT / (√2·π·d²·p) ≈ 7 cm,', 'about the target-to-wafer gap: the aluminium flies nearly straight.'],
       },
       hint: {de: 'Alles zugleich. Die Glocke schlägt öfter', en: 'Everything at once. The bell strikes more often'},
       // Announcements over the PA (step, Italian, translation), a note from shift B, one scare.
@@ -441,7 +443,7 @@
         en: ['If you are reading this, you have been here long.', 'Finish the lot.', 'And do not stand still', 'when the bell strikes.'],
       }},
       scare: {type: 'shadow', afterPa: 1, n: 3},
-      route: [{de: 'Sputtern', en: 'Sputter', proc: 'sputter'}, {de: 'Messen', en: 'Measure', proc: 'measure'}],
+      route: [{de: 'Sputtern', en: 'Sputter', proc: 'sputter'}, {de: 'Schichtwiderstand', en: 'Sheet resistance', proc: 'rs'}],
       enemyEvery: 6,
       bell: 36,
       pulses: [{x0: 8, y0: 2, x1: 11, y1: 7, period: 30, on: [0, 12]}],
@@ -449,7 +451,7 @@
         {x0: 8, y0: 1, type: 'cluster', kind: 'pvd', name: 'VALENTA S-4', chambers: 3},
         {x0: 2, y0: 3, type: 'stocker'},
         {x0: 2, y0: 6, type: 'chamber', kind: 'pvd', name: 'VALENTA S-4'},
-        {x0: 15, y0: 3, type: 'metrology', name: 'ORSA CD-9', screen: 'lines'},
+        {x0: 15, y0: 3, type: 'metrology', name: 'ORSA EL-4', screen: 'thickness'},
         {x0: 15, y0: 6, type: 'metrology', name: 'ORSA RS-1', screen: 'rs', value: '0.054Ω'},
       ],
       lamps: [[5, 5], [10, 4], [13, 8]],
@@ -496,7 +498,7 @@
     lamps: [],
     signs: [
       {x: 3, y: 5, text: 'VESTIZIONE'}, {x: 9, y: 2, text: {de: "DOCCIA D'ARIA", en: "DOCCIA D'ARIA"}, bg: '#2c6fb5', color: '#ffffff'},
-      {x: 12, y: 5, text: 'BAY 7', bg: '#2c6fb5', color: '#ffffff'}, {x: 15, y: 5, text: 'ZONA ISO 3'},
+      {x: 12, y: 5, text: 'BAY 7', bg: '#2c6fb5', color: '#ffffff'}, {x: 15, y: 5, text: 'ZONA ISO 5'},
     ],
     day: [
       '####################',

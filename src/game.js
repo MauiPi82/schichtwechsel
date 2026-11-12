@@ -68,7 +68,8 @@ const TOOL_INFO = {
   'metrology-thickness': ['Ellipsometer: misst Schichtdicken mit Licht', 'Ellipsometer: measures film thickness with light'],
   'metrology-rs': ['Vierspitzenmessung: Schichtwiderstand', 'Four-point probe: sheet resistance'],
   stocker: ['Stocker: hier warten die FOUPs', 'Stocker: where the FOUPs wait'],
-  gascab: ['Gasschrank: giftiges Prozessgas', 'Gas cabinet: toxic process gas'],
+  gascab: ['Gasschrank: Prozessgas, abgesaugt und überwacht', 'Gas cabinet: process gas, exhausted and monitored'],
+  'metrology-tw': ['Thermawelle: prüft die Implantation vor dem Ausheilen', 'Therma-wave: checks the implant before the anneal'],
   generic: ['Anlage', 'Tool'],
 };
 function toolKey(b) {
@@ -412,7 +413,7 @@ function press(what) {
   if (veilPhase === 'out') return;
   if (mode === 'cinema') { if (cinemaT > 0.4) transition(() => startIntro(), 28, 60); return; }
   if (introMode && (mode === 'play' || mode === 'shower')) { if (what === 'enter') transition(endIntro, 30, 1); return; }
-  if (mode === 'mini') { miniPressed = true; return; }
+  if (mode === 'mini') { if (what === 'enter') window.SchichtMini.skip(mini); else miniPressed = true; return; }
   if (mode === 'process') { if (procT > 40) mode = 'play'; return; }
   if (mode === 'note') { if (noteT > 25) mode = 'play'; return; }
   if (mode === 'play') { if (what === 'shift') queuedShift = true; return; }
@@ -457,7 +458,7 @@ function pollPad() {
 let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0, shake = 0;
 let progress = clamp(+store.get('level') || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
 const deathsBy = levels.map(() => 0);
-const BUILD = '0.17 · 2026-11-12';
+const BUILD = '0.18 · 2026-11-12';
 // Testers can jump to an hour: ?stunde=3 or ?hour=3 opens the third hour.
 const jump = +(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || 0);
 if (jump >= 1 && jump <= levels.length) progress = jump - 1;
@@ -1126,15 +1127,19 @@ function renderEnding() {
   drawStack(204, 22, 100, 72, cardT > 200 ? LEVELS.length : LEVELS.length - 1);
   if (cardT > 200) txt(ENDING.stack[lang], 254, 100, {align: 'center', color: '#e0402a', font: 'IBM Plex Sans', size: 7});
   if (cardT > 260) {
-    txt(t().stats(deaths, totalShifts), W / 2, 136, {align: 'center', color: '#8c93a8'});
-    txt(LEVELS.map((d, i) => `${i + 1}:${deathsBy[i]}`).join('  '), W / 2, 146, {align: 'center', color: '#6b7190', max: W - 20});
+    txt(t().stats(deaths, totalShifts), 16, 136, {color: '#8c93a8', max: 180});
+    txt(LEVELS.map((d, i) => `${i + 1}:${deathsBy[i]}`).join('  '), 16, 146, {color: '#6b7190', max: 180});
   }
   if (cardT > 280 && Object.keys(lot.s).length) {
     const y = lotYield(), g = window.SchichtMini.grade((y - 26) / 71);
-    txt(`${t().yieldLog(y)} · ${g.word}`, W / 2, 124, {align: 'center', color: g.color});
+    txt(`${t().yieldWord} ${y} %`, 254, 128, {align: 'center', color: '#ffcf5a', max: 100});
+    txt(g.word, 254, 137, {align: 'center', color: g.color, max: 100});
   }
   if (cardT > 300) txt(t().thanks, W / 2, 158, {align: 'center', color: '#c9c2ae'});
-  if (cardT > 330) txt(`${t().reticles} ${found.size}/${LEVELS.length} · ${t().missing}`, W / 2, 104, {align: 'center', color: '#6b7190', max: 180});
+  if (cardT > 330) {
+    txt(`${t().reticles} ${found.size}/${LEVELS.length}`, 254, 110, {align: 'center', color: '#6b7190', max: 100});
+    txt(t().missing, 254, 119, {align: 'center', color: '#4c5470', font: 'IBM Plex Sans', size: 6, max: 110});
+  }
   txt(t().credit, W / 2, H - 9, {align: 'center', color: '#4c5470', font: 'IBM Plex Sans', size: 6});
 }
 

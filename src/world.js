@@ -338,7 +338,7 @@ const TOOLS = {
     for (let i = 0; i + 1 < mouths.length; i++) {
       const dx = (mouths[i].px + mouths[i + 1].px) / 2 - 10;
       R(p.darker, dx, fy + 3, 20, 8);
-      if (!night || (F >> 3) % 5) text(night ? '--' : '1050', dx + 10, fy + 3, {align: 'center', size: 8, color: night ? '#5a3a10' : '#ff6a3a', max: 19});
+      if (!night || (F >> 3) % 5) text(night ? '--' : '1000', dx + 10, fy + 3, {align: 'center', size: 8, color: night ? '#5a3a10' : '#ff6a3a', max: 19});
     }
     brand(t.name || 'FORNO H-12', x + 6, y + 3, 62);
   },
@@ -346,7 +346,7 @@ const TOOLS = {
   wetbench(x, y, w, h, t) {
     const fy = body(x, y, w, h, 14);
     for (let i = 0; i < Math.floor(w / 6); i++) R(p.grey, x + 3 + i * 6, y + 3, 3, 2);
-    const baths = t.baths || ['HF', 'SC-1', 'SC-2', 'SPM', 'QDR'], n = Math.min(baths.length, Math.floor((w - 8) / 28));
+    const baths = t.baths || ['HF', 'SC-1', 'SC-2', 'SPM', 'QDR'], n = Math.min(baths.length, Math.floor((w - 8) / 24));
     const tint = {HF: '#cfe6f5', 'SC-1': '#d8f0e0', 'SC-2': '#e6f0d8', SPM: '#f3e6c8', QDR: '#d8e8f8', DIW: '#d8e8f8', HOT: '#f3dcc8', DRY: '#e6e9ee'};
     const bw = Math.floor((w - 12) / n);
     for (let i = 0; i < n; i++) {
@@ -410,6 +410,9 @@ const TOOLS = {
     } else if (scr === 'thickness') {
       for (let i = 0; i < mw - 6; i++) R(hi, mx + 3 + i, my + mh - 6 - Math.round((mh - 12) * (0.5 + 0.4 * Math.sin(i / 3))), 1, 1);
       if (!night) text('50.1nm', mx + mw / 2, my + 1, {align: 'center', size: 8, color: '#e9eef5', max: mw - 2});
+    } else if (scr === 'tw') {
+      for (let i = 0; i < mw - 6; i++) R(hi, mx + 3 + i, my + mh / 2 - Math.round(Math.sin(i / 2 + F / 6) * (mh / 2 - 4) * Math.exp(-i / 30)), 1, 1);
+      if (!night) text('TW 812', mx + mw / 2, my + 1, {align: 'center', size: 8, color: '#e9eef5', max: mw - 2});
     } else {
       for (let i = 0; i < 4; i++) R(ink, mx + 4 + i * ((mw - 8) / 4), my + 3, 1, 6);
       if (!night) text(t.value || '52Ω/□', mx + mw / 2, my + mh - 9, {align: 'center', size: 8, color: hi, max: mw - 2});

@@ -21,12 +21,12 @@ const CAP = {
     en: ['INSPECT · PARTICLE SCAN', 'A laser spirals across the wafer. Every flash of scattered light is a particle.']},
   oxidize: {de: ['OXIDIEREN · 1000 °C, TROCKEN', 'O₂ wandert durchs Oxid zum Silizium. 44 % der Schicht wachsen nach unten.'],
     en: ['OXIDISE · 1000 °C, DRY', 'O₂ diffuses through the oxide to the silicon. 44 % of the film grows downward.']},
-  nitride: {de: ['NITRID · LPCVD, 780 °C', 'Bei 0,3 mbar erreicht das Gas alle 100 Wafer gleich. Si₃N₄ wächst Lage für Lage.'],
-    en: ['NITRIDE · LPCVD, 780 °C', 'At 0.3 mbar the gas reaches all 100 wafers alike. Si₃N₄ grows layer by layer.']},
+  nitride: {de: ['NITRID · LPCVD, 780 °C', 'Bei 0,3 mbar erreicht das Gas alle 100 Wafer. Si₃N₄ wächst gleichmäßig auf jedem.'],
+    en: ['NITRIDE · LPCVD, 780 °C', 'At 0.3 mbar the gas reaches all 100 wafers. Si₃N₄ grows evenly on every one.']},
   ellipso: {de: ['SCHICHTDICKE · ELLIPSOMETER', 'Polarisiertes Licht kommt elliptisch zurück. Daraus folgen beide Dicken.'],
     en: ['FILM THICKNESS · ELLIPSOMETER', 'Polarised light comes back elliptical. Both thicknesses follow from it.']},
-  coat: {de: ['BELACKEN · SPIN-COATING', 'Lack auf die Mitte, dann 3000 U/min. Dicke ∝ 1/√ω: hier 1,2 µm.'],
-    en: ['COAT · SPIN COATING', 'Resist on the centre, then 3000 rpm. Thickness ∝ 1/√ω: here 1.2 µm.']},
+  coat: {de: ['BELACKEN · SPIN-COATING', 'Lack auf die Mitte, dann 2000 U/min. Dicke ∝ 1/√ω: hier 100 nm.'],
+    en: ['COAT · SPIN COATING', 'Resist on the centre, then 2000 rpm. Thickness ∝ 1/√ω: here 100 nm.']},
   expose: {de: ['BELICHTEN · 193 NM, RETIKEL 4:1', 'Das Retikel scannt, der Wafertisch läuft gegenläufig. Feld für Feld.'],
     en: ['EXPOSE · 193 NM, RETICLE 4:1', 'The reticle scans, the wafer stage moves the other way. Field by field.']},
   develop: {de: ['ENTWICKELN', 'Belichteter Lack löst sich im Entwickler. Übrig bleiben Linien von 40 nm.'],
@@ -37,14 +37,16 @@ const CAP = {
     en: ['STRIP RESIST · OXYGEN PLASMA', 'The resist burns off as CO₂ and water. The pattern stays in the oxide.']},
   implant: {de: ['IMPLANTIEREN · ARSEN, 40 KEV', 'Ionen schlagen unter 7° ins Silizium, nur dort, wo das Oxid offen ist.'],
     en: ['IMPLANT · ARSENIC, 40 KEV', 'Ions strike the silicon at 7°, only where the oxide is open.']},
-  anneal: {de: ['AUSHEILEN · 1050 °C', 'Das Gitter heilt aus, die Dotierung wandert: Länge ≈ 2·√(D·t).'],
-    en: ['ANNEAL · 1050 °C', 'The lattice heals and the dopant spreads: length ≈ 2·√(D·t).']},
-  deposit: {de: ['OXID ABSCHEIDEN · CVD', 'Moleküle aus dem Gas wachsen Lage für Lage über die Stufen.'],
-    en: ['DEPOSIT OXIDE · CVD', 'Molecules from the gas grow layer by layer over the steps.']},
-  contacts: {de: ['KONTAKTE ÄTZEN', 'Senkrechte Löcher durch das Oxid, bis hinunter auf die Dotierung.'],
-    en: ['ETCH CONTACTS', 'Straight holes through the oxide, down onto the doped silicon.']},
+  anneal: {de: ['AUSHEILEN · 1000 °C, 30 MIN, N₂', 'Das Gitter heilt aus, die Dotierung wandert: Länge ≈ 2·√(D·t).'],
+    en: ['ANNEAL · 1000 °C, 30 MIN, N₂', 'The lattice heals and the dopant spreads: length ≈ 2·√(D·t).']},
+  deposit: {de: ['OXID ABSCHEIDEN · CVD', 'Oxid wächst aus dem Gas gleichmäßig über die Stufen und füllt die Fenster.'],
+    en: ['DEPOSIT OXIDE · CVD', 'Oxide grows evenly from the gas over the steps and fills the windows.']},
+  contacts: {de: ['KONTAKTE ÄTZEN', 'Durch die Kontaktmaske: senkrechte Löcher bis auf die Dotierung.'],
+    en: ['ETCH CONTACTS', 'Through the contact mask: straight holes down to the doped silicon.']},
   sputter: {de: ['SPUTTERN · ALUMINIUM', 'Argon schlägt Atome aus dem Target. Im Vakuum fliegen sie geradeaus.'],
     en: ['SPUTTER · ALUMINIUM', 'Argon knocks atoms out of the target. In vacuum they fly straight.']},
+  rs: {de: ['SCHICHTWIDERSTAND · VIERSPITZE', 'Rs = 4,53 · V/I = 54 mΩ/□. Das sind 500 nm Aluminium.'],
+    en: ['SHEET RESISTANCE · FOUR-POINT PROBE', 'Rs = 4.53 · V/I = 54 mΩ/□. That is 500 nm of aluminium.']},
   measure: {de: ['MESSEN · CD-SEM', 'Der Elektronenstrahl rastert die Linien ab. Ziel: 40 nm Breite.'],
     en: ['MEASURE · CD-SEM', 'The electron beam scans the lines. Target: 40 nm wide.']},
 };
@@ -221,6 +223,27 @@ function ellipso(t, x, y, w, h) {
   }
 }
 
+// Four-point probe: current through the outer needles, voltage across the inner two. Rs = π/ln2 · V/I.
+function rs(t, x, y, w, h) {
+  const st = stackView(x + 10, y + h - 36, w - 20, 34, [[4, '#cfe8ff'], [3, '#9fc4a8'], [8, '#a9cbe6'], [7, '#c9ced6']], []);
+  const cx = x + w / 2 - 30, down = ease(t / 50), top = y + 22, tip = st.top - 1;
+  R('#5a6270', cx - 40, y + 8, 80, 12); text(lang === 'de' ? 'MESSKOPF' : 'PROBE HEAD', cx, y + 10, {align: 'center', color: '#1a1e24'});
+  [-27, -9, 9, 27].forEach(dx => {
+    R('#9aa3ad', cx + dx, top - 2, 1, 2 + down * (tip - top)); circle('#e9eef5', cx + dx + 0.5, top + down * (tip - top), 1.2);
+  });
+  if (t > 60) {
+    for (let i = 0; i < 8; i++) circle('#ffcf5a', cx - 27 + ((F * 0.8 + i * 7) % 54), tip + 2, 0.9);
+    const k = clamp((t - 60) / 80, 0, 1);
+    text(`I = ${fmt(1.0, 3)} mA`, x + w - 8, y + 10, {align: 'right', color: '#ffcf5a'});
+    text(`V = ${fmt(11.9 * k)} µV`, x + w - 8, y + 21, {align: 'right', color: '#9fe0ff'});
+    if (k >= 1) {
+      text('Rs = 4,53 · V/I', x + w - 8, y + 36, {align: 'right', color: '#9aa6b5', font: 'IBM Plex Sans', size: 8});
+      text('= 54 mΩ/□', x + w - 8, y + 46, {align: 'right', color: '#3fe06a', font: 'IBM Plex Sans', size: 9});
+    }
+  }
+  text(lang === 'de' ? 'Al 500 nm' : 'Al 500 nm', x + 14, st.top - 10, {color: '#c9ced6'});
+}
+
 /* ---------- Lithography from the top ---------- */
 function coat(t, x, y, w, h) {
   const cx = x + w / 2 - 30, cy = y + h / 2 + 4, r = 42;
@@ -248,9 +271,9 @@ function coat(t, x, y, w, h) {
   const armX = t < 30 ? cx + 90 - ease(t / 30) * 90 : t < 70 ? cx : cx + ease((t - 70) / 30) * 90;
   R('#7c8693', armX, cy - r - 14, x + w - armX, 4); R('#4a525e', armX - 3, cy - r - 16, 6, 10);
   if (t > 28 && t < 62) for (let i = 0; i < 4; i++) circle('#d99a32', cx, cy - r - 4 + ((t * 3 + i * 9) % (r + 4)), 1.5);
-  const rpm = Math.round(spin * 3000);
+  const rpm = Math.round(spin * 2000);
   text(`${rpm} ${lang === 'de' ? 'U/MIN' : 'RPM'}`, x + w - 62, y + 10, {color: '#7fd0ff'});
-  text('1,2 µm', x + w - 62, y + 22, {color: t > 150 ? '#ffcf5a' : '#4a5470'});
+  text('100 nm', x + w - 62, y + 22, {color: t > 150 ? '#ffcf5a' : '#4a5470'});
 }
 
 function fieldsGrid(cx, cy, r) {
@@ -337,7 +360,8 @@ function section(t, x, y, w, h, type) {
   const resist = (amount, gaps) => { R('#d99a32', bx, oxTop - 12 * amount, bw, 12 * amount); if (gaps) holes.forEach(hx => R('#0b0f18', hx, oxTop - 12, 18, 12)); };
   const rain = (col, n, slant = 0, until = oxTop) => {
     for (let i = 0; i < n; i++) {
-      const px = bx + ((i * 47) % bw), py = y + 10 + ((F * 3 + i * 23) % (until - y - 10));
+      const py = y + 10 + ((F * 3 + i * 23) % (until - y - 10)), lap = Math.floor((F * 3 + i * 23) / (until - y - 10));
+      const px = bx + ((i * 47 + lap * 61 + i * i * 13) % bw);
       circle(col, px + (py - y) * slant, py, 1.2);
     }
   };
@@ -359,16 +383,18 @@ function section(t, x, y, w, h, type) {
     }
     case 'deposit': {
       oxide(1); doped(18, 6);
+      holes.forEach(hx => R('#a9cbe6', hx, oxTop + ox * (1 - k), 18, ox * k));
       const top = oxTop - 22 * k; R('#a9cbe6', bx, top, bw, oxTop - top);
       rain('#d8ecff', 30, 0, top); break;
     }
     case 'contacts': {
-      oxide(1); doped(18, 6); R('#a9cbe6', bx, oxTop - 22, bw, 22);
+      oxide(1); doped(18, 6); holes.forEach(hx => R('#a9cbe6', hx, oxTop, 18, ox)); R('#a9cbe6', bx, oxTop - 22, bw, 22);
       holes.forEach(hx => R('#0b0f18', hx + 5, oxTop - 22, 8, (22 + ox) * k));
       rain('#c890ff', 30); break;
     }
     case 'sputter': {
-      oxide(1); doped(18, 6); R('#a9cbe6', bx, oxTop - 22, bw, 22); holes.forEach(hx => R('#c9ced6', hx + 5, oxTop - 22, 8, (22 + ox) * Math.min(1, k * 1.5)));
+      oxide(1); doped(18, 6); holes.forEach(hx => R('#a9cbe6', hx, oxTop, 18, ox)); R('#a9cbe6', bx, oxTop - 22, bw, 22);
+      holes.forEach(hx => R('#0b0f18', hx + 5, oxTop - 22, 8, 22 + ox)); holes.forEach(hx => R('#c9ced6', hx + 5, oxTop - 22, 8, (22 + ox) * Math.min(1, k * 1.5)));
       R('#c9ced6', bx, oxTop - 22 - 8 * k, bw, 8 * k);
       R('#7c8693', bx + 20, y + 6, bw - 40, 8); text('AL TARGET', bx + bw / 2, y + 6, {align: 'center', color: '#1a1e24'});
       for (let i = 0; i < 30; i++) R('#e6e9ee', bx + 22 + (i * 37) % (bw - 44), y + 16 + ((F * 2 + i * 17) % (oxTop - y - 50)), 1, 2);
@@ -422,7 +448,7 @@ function drawReticleFound(t, info) {
 // The animations are written for 230 frames. Each one plays slower than that, so there is time to look:
 // the clean takes about ten seconds, one bath after another. At the end the picture rests a moment.
 const BASE = 230, HOLD = 150;
-const DUR = {clean: 620, inspect: 480, oxidize: 540, nitride: 480, ellipso: 460, reticle: 230};
+const DUR = {clean: 620, inspect: 480, oxidize: 540, nitride: 480, ellipso: 460, rs: 420, reticle: 230};
 function duration(type) { return (DUR[type] || 330) + (type === 'reticle' ? 0 : HOLD); }
 function draw(c, type, t, language, info) {
   ctx = c; lang = language; lotInfo = info && info.lot;
@@ -438,7 +464,7 @@ function draw(c, type, t, language, info) {
   text('LOT 4471', PX + PW - 6, y0 + 2, {align: 'right', color: '#ffcf5a'});
   ctx.save(); ctx.beginPath(); ctx.rect(PX, y0 + 12, PW, PH - 28); ctx.clip();
   R('#0d111a', PX, y0 + 12, PW, PH - 28);
-  const fn = {clean, inspect, oxidize, nitride, ellipso, coat, expose, develop, measure}[type];
+  const fn = {clean, inspect, oxidize, nitride, ellipso, rs, coat, expose, develop, measure}[type];
   const tp = Math.min(tt, BASE + 10);
   if (fn) fn(tp, PX, y0 + 12, PW, PH - 28); else section(tp, PX, y0 + 12, PW, PH - 28, type);
   ctx.restore();

@@ -39,8 +39,9 @@ function frame(m, title, help) {
   ctx.fillStyle = `rgba(3,4,8,${0.6 * appear})`; ctx.fillRect(0, 0, W, 180);
   R('#0b0f18', PX - 2, y0 - 2, PW + 4, PH + 4); R('#ffb43a', PX - 2, y0 - 2, PW + 4, 1);
   R('#1c160c', PX, y0, PW, 12);
-  text(title, PX + 6, y0 + 2, {color: '#ffcf5a', max: PW - 70});
-  text('LOT 4471', PX + PW - 6, y0 + 2, {align: 'right', color: '#c9a15a'});
+  text(title, PX + 6, y0 + 2, {color: '#ffcf5a', max: PW - 104});
+  const canSkip = m.phase === 'play' && m.t > 60;
+  text(canSkip ? L('ENTER: ÜBERSPRINGEN', 'ENTER: SKIP') : 'LOT 4471', PX + PW - 6, y0 + 2, {align: 'right', color: canSkip ? '#6b5a2a' : '#c9a15a', max: 96});
   R('#0d111a', PX, y0 + 12, PW, PH - 28);
   R('#141a28', PX, y0 + PH - 16, PW, 16);
   const done = m.phase === 'result';
@@ -64,9 +65,10 @@ function finish(m, score, values, lines) {
 
 /* ---------- 1 Clean: lift the carrier out of each bath while the time is in the green ---------- */
 const BATHS = [
-  {name: 'SC-1', col: '#bfe3d0', max: 15, unit: 'min', zone: [9, 11], what: ['PARTIKEL', 'PARTICLES']},
-  {name: 'SC-2', col: '#dfe8b8', max: 15, unit: 'min', zone: [9, 11], what: ['METALLE', 'METALS']},
-  {name: 'HF 1%', col: '#cfe3f5', max: 120, unit: 's', zone: [50, 70], what: ['NATIVES OXID', 'NATIVE OXIDE']},
+  // SC-1 1:1:5 at 75 °C about 10 min, SC-2 the same, HF 1 % about a minute (30 to 120 s still fine).
+  {name: 'SC-1', col: '#bfe3d0', max: 15, unit: 'min', zone: [8, 12], what: ['PARTIKEL', 'PARTICLES']},
+  {name: 'SC-2', col: '#dfe8b8', max: 15, unit: 'min', zone: [8, 12], what: ['METALLE', 'METALS']},
+  {name: 'HF 1%', col: '#cfe3f5', max: 150, unit: 's', zone: [45, 90], what: ['NATIVES OXID', 'NATIVE OXIDE']},
 ];
 const BATH_FRAMES = 420;
 const clean = {
@@ -130,13 +132,18 @@ const clean = {
         if (gone < 1) { ctx.globalAlpha = 1 - gone; circle(m.bath === 1 ? '#e0402a' : '#8a7a5a', zx + zw - 90 + j * 10, zy + 10 - gone * 6, m.bath === 1 ? 1 : 1.6); ctx.globalAlpha = 1; }
       }
       if (k > b.zone[1] / b.max) for (let j = 0; j < zw; j += 3) R('#2a303a', zx + j, zy + 12, 2, (j * 7) % 3);
+      // In HF the bare silicon turns water-repellent: the wafer dewets. The sign that the oxide is gone.
+      if (m.bath === 2 && k * b.max >= b.zone[0]) {
+        text(L('WAFER ENTNETZT', 'WAFER DEWETS'), zx + zw - 4, zy + 1, {align: 'right', color: '#3fe06a'});
+        for (let j = 0; j < 6; j++) circle('rgba(170,210,255,.9)', zx + 20 + j * 17 + Math.sin(F / 20 + j) * 2, zy + 10, 2);
+      }
     }
     ctx.restore(); result(m, a);
   },
 };
 
 /* ---------- 2 Oxidise: oxygen off at 50 nm. Deal-Grove: fast at first, then slower ---------- */
-const OX_TAU = 180, OX_A = 50;
+const OX_TAU = 180, OX_A = 50, RAMP = 1.0;
 const oxide = g => OX_A * (Math.sqrt(1 + g / OX_TAU) - 1);
 const oxidize = {
   init(m) { m.st = 'load'; m.g = 0; },
@@ -145,9 +152,11 @@ const oxidize = {
     m.g++;
     const d = oxide(m.g);
     if (inp.pressed || d >= 90) {
+      // While the furnace ramps down, about 1 nm grows on. Stop a little early.
+      const fin = d + RAMP;
       m.sfx('click');
-      finish(m, 1 - Math.abs(d - 50) / 8, {oxide: d}, [
-        L(`SiO₂ ${num(d)} nm nach ${Math.round(m.g / 6)} min bei 1000 °C`, `SiO₂ ${num(d)} nm after ${Math.round(m.g / 6)} min at 1000 °C`),
+      finish(m, 1 - Math.abs(fin - 50) / 10, {oxide: fin}, [
+        L(`SiO₂ ${num(fin)} nm (${num(d)} + ${num(RAMP)} beim Abrampen)`, `SiO₂ ${num(fin)} nm (${num(d)} + ${num(RAMP)} on ramp-down)`),
         L('Das Ellipsometer misst es nach dem Nitrid nach.', 'The ellipsometer checks it after the nitride.')]);
     }
   },
@@ -164,8 +173,8 @@ const oxidize = {
     text(m.st === 'grow' ? `t = ${Math.round(m.g / 6)} min` : L('BOOT FÄHRT EIN', 'BOAT LOADING'), fx + fw / 2, bot - 10, {align: 'center', color: '#9aa6b5', max: fw + 20});
     // Thickness, big, and the growth curve with the target line.
     const d = oxide(m.g), px = a.x + 92, pw = a.w - 98;
-    text(`${num(d)} nm`, px + pw / 2, a.y + 6, {align: 'center', size: 16, font: 'Pixelify Sans', weight: 700, color: Math.abs(d - 50) < 0.8 ? '#3fe06a' : '#cfe8ff'});
-    text(L('ZIEL: 50,0 NM SiO₂', 'TARGET: 50.0 NM SiO₂'), px + pw / 2, a.y + 26, {align: 'center', color: '#ffcf5a', max: pw});
+    text(`${num(d)} nm`, px + pw / 2, a.y + 6, {align: 'center', size: 16, font: 'Pixelify Sans', weight: 700, color: Math.abs(d + RAMP - 50) < 1 ? '#3fe06a' : '#cfe8ff'});
+    text(L('ZIEL 50 NM · ABRAMPEN +1 NM', 'TARGET 50 NM · RAMP-DOWN +1 NM'), px + pw / 2, a.y + 26, {align: 'center', color: '#ffcf5a', max: pw});
     const gx = px + 4, gy = a.y + 40, gw = pw - 8, gh = a.h - 46, G = 900, D = 90;
     R('#0b0f18', gx, gy, gw, gh);
     const ty = gy + gh - 50 / D * gh;
@@ -179,27 +188,29 @@ const oxidize = {
 };
 
 /* ---------- 3 Coat: hold SHIFT to spin up; the film thins as 1/sqrt(rpm). Let go and it dries ---------- */
-const filmOf = rpm => rpm > 200 ? 1.2 * Math.sqrt(3000 / rpm) : 4;
+// For 40 nm lines the resist is thin: 100 nm at 2000 rpm. Thicker resist would make the lines topple.
+const filmOf = rpm => rpm > 200 ? 100 * Math.sqrt(2000 / rpm) : 400;
 const coat = {
   init(m) { m.rpm = 0; m.still = 0; m.rot = 0; m.spinning = false; },
   update(m, inp) {
     if (m.t < 50) return;
-    if (inp.held) { m.rpm = Math.min(6000, m.rpm + 20); m.still = 0; m.spinning = true; }
-    else if (inp.down) { m.rpm = Math.max(0, m.rpm - 20); m.still = 0; }
+    if (inp.held) { m.rpm = Math.min(5000, m.rpm + 10); m.still = 0; m.spinning = true; }
+    else if (inp.down && m.spinning) { m.rpm = Math.max(500, m.rpm - 4); m.still = 0; }
+    else if (inp.up && m.spinning) { m.rpm = Math.min(5000, m.rpm + 4); m.still = 0; }
     else if (m.spinning) m.still++;
     m.rot += m.rpm / 6000;
     if (m.spinning && m.rpm > 500 && m.still >= 150) {
       const film = filmOf(m.rpm);
-      finish(m, 1 - Math.abs(film - 1.2) / 0.25, {resist: film, rpm: m.rpm}, [
-        L(`${Math.round(m.rpm)} U/min → Lack ${num(film, 2)} µm`, `${Math.round(m.rpm)} rpm → resist ${num(film, 2)} µm`),
+      finish(m, 1 - Math.abs(film - 100) / 20, {resist: film, rpm: m.rpm}, [
+        L(`${Math.round(m.rpm)} U/min → Lack ${num(film)} nm`, `${Math.round(m.rpm)} rpm → resist ${num(film)} nm`),
         L('Zu dick oder zu dünn verschiebt später die Linienbreite.', 'Too thick or too thin shifts the line width later.')]);
     }
   },
   draw(m) {
-    const a = frame(m, L('BELACKEN · SPIN-COATING', 'COAT · SPIN COATING'), L('SHIFT HALTEN: SCHNELLER · ↓ LANGSAMER · LOSLASSEN: TROCKNEN', 'HOLD SHIFT: FASTER · ↓ SLOWER · LET GO: DRY'));
+    const a = frame(m, L('BELACKEN · SPIN-COATING', 'COAT · SPIN COATING'), L('SHIFT HALTEN: SCHNELLER · ↑ ↓ FEIN · DANN TROCKNEN', 'HOLD SHIFT: FASTER · ↑ ↓ FINE · THEN IT DRIES'));
     const cx = a.x + 62, cy = a.y + a.h / 2 + 2, r = 44, film = filmOf(m.rpm);
     // Thin-film colours: the hue turns as the thickness changes (about 0.18 µm per order in resist).
-    const hue = (film / 0.18 * 360) % 360;
+    const hue = (film / 180 * 360) % 360;
     circle('#5a6270', cx, cy, r + 1); circle('#c9ced6', cx, cy, r);
     const spread = m.t < 50 ? smooth((m.t - 20) / 30) * 10 : 10 + smooth(m.rpm / 1500) * (r - 10);
     if (m.t > 20) { ctx.globalAlpha = 0.85; circle(`hsl(${hue},55%,${m.spinning ? 55 : 45}%)`, cx, cy, spread); ctx.globalAlpha = 1; }
@@ -207,14 +218,14 @@ const coat = {
     for (let k = 0; k < 4; k++) { const ang = m.rot * 6 + k * Math.PI / 2; ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(cx, cy, r * 0.7, ang, ang + 0.4); ctx.stroke(); }
     R('#0b0f18', cx - 2, cy + r - 2, 4, 3);
     // Dial with the green window around 3000 rpm.
-    const dx = a.x + a.w - 70, dy = a.y + 54, dr = 34, A0 = Math.PI * 0.8, A1 = Math.PI * 2.2, ang = v => A0 + (A1 - A0) * v / 6000;
+    const dx = a.x + a.w - 70, dy = a.y + 54, dr = 34, A0 = Math.PI * 0.8, A1 = Math.PI * 2.2, ang = v => A0 + (A1 - A0) * v / 5000;
     ctx.lineWidth = 5; ctx.strokeStyle = '#1a2030'; ctx.beginPath(); ctx.arc(dx, dy, dr, A0, A1); ctx.stroke();
-    ctx.strokeStyle = '#1f6a36'; ctx.beginPath(); ctx.arc(dx, dy, dr, ang(2850), ang(3150)); ctx.stroke();
+    ctx.strokeStyle = '#1f6a36'; ctx.beginPath(); ctx.arc(dx, dy, dr, ang(1920), ang(2080)); ctx.stroke();
     ctx.lineWidth = 2; ctx.strokeStyle = '#ffcf5a'; ctx.beginPath(); ctx.moveTo(dx, dy); ctx.lineTo(dx + Math.cos(ang(m.rpm)) * (dr - 6), dy + Math.sin(ang(m.rpm)) * (dr - 6)); ctx.stroke();
     text(`${Math.round(m.rpm)}`, dx, dy + 8, {align: 'center', color: '#e9e4d6'});
     text(L('U/MIN', 'RPM'), dx, dy + 17, {align: 'center', color: '#6b7190'});
-    text(`${num(Math.min(film, 9.99), 2)} µm`, dx, a.y + 4, {align: 'center', color: Math.abs(film - 1.2) < 0.03 ? '#3fe06a' : '#cfe8ff'});
-    text(L('ZIEL 1,20 µm', 'TARGET 1.20 µm'), dx, a.y + 14, {align: 'center', color: '#ffcf5a', max: 90});
+    text(`${num(Math.min(film, 400))} nm`, dx, a.y + 4, {align: 'center', color: Math.abs(film - 100) < 2 ? '#3fe06a' : '#cfe8ff'});
+    text(L('ZIEL 100 NM', 'TARGET 100 NM'), dx, a.y + 14, {align: 'center', color: '#ffcf5a', max: 90});
     if (m.spinning && m.still > 0 && m.phase === 'play') {
       R('#1a2030', dx - 30, a.y + a.h - 8, 60, 3); R('#9fe0ff', dx - 30, a.y + a.h - 8, 60 * m.still / 150, 3);
       text(L('TROCKNET', 'DRYING'), dx, a.y + a.h - 18, {align: 'center', color: '#9fe0ff'});
@@ -224,30 +235,32 @@ const coat = {
 };
 
 /* ---------- 4 Expose: focus every field with the arrows, then SHIFT. The wafer is not flat ---------- */
-const FIELDS = 5;
+const FIELDS = 4;
 const expose = {
-  init(m) { m.field = 0; m.z = 0; m.target = (Math.random() - 0.5) * 0.9; m.res = []; m.flash = 0; m.offs = []; },
+  // Focus in nm. The fields stand at different heights (±100 nm); within ±15 nm it is perfetto.
+  init(m) { m.field = 0; m.z = 0; m.target = Math.round((Math.random() - 0.5) * 200); m.res = []; m.flash = 0; m.offs = []; m.hold = 0; },
   update(m, inp) {
     if (m.flash > 0) { m.flash--; if (!m.flash && m.field >= FIELDS) this.end(m); return; }
-    if (inp.left || inp.down) m.z = Math.max(-1, m.z - 0.006);
-    if (inp.right || inp.up) m.z = Math.min(1, m.z + 0.006);
+    const dir = (inp.right || inp.up ? 1 : 0) - (inp.left || inp.down ? 1 : 0);
+    m.hold = dir ? m.hold + 1 : 0;
+    m.z = clamp(m.z + dir * (m.hold > 30 ? 4 : 1), -300, 300);
     if (inp.pressed && m.field < FIELDS) {
       const off = Math.abs(m.z - m.target);
-      m.res.push(clamp(1 - off / 0.2, 0, 1)); m.offs.push(off);
+      m.res.push(clamp(1 - off / 150, 0, 1)); m.offs.push(off);
       m.field++; m.flash = 26; m.sfx('zap');
-      m.target = clamp(m.target + (Math.random() - 0.5) * 0.8, -0.8, 0.8);
+      m.target = Math.round(clamp(m.target + (Math.random() - 0.5) * 160, -100, 100));
     }
   },
   end(m) {
     const s = m.res.reduce((x, y) => x + y, 0) / FIELDS, off = m.offs.reduce((x, y) => x + y, 0) / FIELDS;
     finish(m, s, {defocus: off}, [
-      L(`Mittlere Fokusabweichung ${num(off * 1000, 0)} nm`, `Mean focus error ${num(off * 1000, 0)} nm`),
+      L(`Mittlere Fokusabweichung ${Math.round(off)} nm`, `Mean focus error ${Math.round(off)} nm`),
       L('Unscharf belichtet heißt breitere Linien. Das CD-SEM sieht es.', 'Blurred exposure means wider lines. The CD-SEM will see it.')]);
   },
   draw(m) {
     const a = frame(m, L(`BELICHTEN · FELD ${Math.min(m.field + 1, FIELDS)}/${FIELDS}`, `EXPOSE · FIELD ${Math.min(m.field + 1, FIELDS)}/${FIELDS}`), L('← → FOKUS · SHIFT: BELICHTEN', '← → FOCUS · SHIFT: EXPOSE'));
     // The aerial image: five lines, blurred by the focus error.
-    const ix = a.x + 8, iy = a.y + 8, iw = 120, ih = a.h - 30, off = Math.abs(m.z - m.target), b = clamp(off / 0.45, 0, 1);
+    const ix = a.x + 8, iy = a.y + 8, iw = 120, ih = a.h - 30, off = Math.abs(m.z - m.target), b = clamp(off / 200, 0, 1);
     R('#2a2f38', ix, iy, iw, ih);
     for (let k = 0; k < 5; k++) {
       const lx = ix + 12 + k * 22, sp = 1 + b * 9;
@@ -260,7 +273,7 @@ const expose = {
     const sx = ix + iw + 10, sw = 12, sh = ih;
     R('#1a2030', sx, iy, sw, sh); R(b < 0.12 ? '#3fe06a' : b < 0.4 ? '#ffcf5a' : '#e0402a', sx + 2, iy + sh * b, sw - 4, sh * (1 - b));
     text(L('SCHÄRFE', 'SHARP'), sx + sw / 2, iy + sh + 2, {align: 'center', color: '#6b7190'});
-    text(`z ${m.z >= 0 ? '+' : ''}${num(m.z, 2)} µm`, sx + sw + 8, iy, {color: '#e9e4d6'});
+    text(`z ${m.z >= 0 ? '+' : ''}${Math.round(m.z)} nm`, sx + sw + 8, iy, {color: '#e9e4d6'});
     // The wafer with its fields.
     const cx = a.x + a.w - 44, cy = a.y + a.h / 2 + 6, r = 32;
     circle('#5a6270', cx, cy, r + 1); circle('#d99a32', cx, cy, r);
@@ -274,106 +287,131 @@ const expose = {
   },
 };
 
-/* ---------- 5 Etch: stop when the CO line of the plasma drops. The oxide is through ---------- */
+/* ---------- 5 Etch: first the nitride clears (CN line drops), then the oxide (CO line drops). ----------
+ * Then a little more: 20 to 30 % over-etch makes sure every hole is open. */
 const etch = {
-  init(m) { m.te = 300 + Math.random() * 200; m.g = 0; m.trace = []; },
-  signal(m, g) {
-    const base = g < m.te ? 1 : g < m.te + 40 ? 1 - 0.65 * (g - m.te) / 40 : 0.35;
-    return base + Math.sin(g * 0.7) * 0.03 + Math.sin(g * 2.3 + 1) * 0.025;
+  init(m) { m.tn = 140 + Math.random() * 60; m.te = m.tn + 180 + Math.random() * 140; m.g = 0; m.cn = []; m.co = []; },
+  lines(m, g) {
+    const drop = (t0, len) => g < t0 ? 1 : g < t0 + len ? 1 - (g - t0) / len : 0;
+    const n1 = Math.sin(g * 0.7) * 0.03 + Math.sin(g * 2.3 + 1) * 0.02, n2 = Math.sin(g * 0.9 + 2) * 0.03 + Math.sin(g * 1.7) * 0.02;
+    const cn = 0.25 + 0.65 * drop(m.tn, 30) + n1;
+    const co = 0.2 + 0.7 * (g < m.tn ? 0.1 : g < m.tn + 30 ? (g - m.tn) / 30 : 1) * drop(m.te, 40) + n2;
+    return [cn, co];
   },
   update(m, inp) {
     if (m.t < 30) return;
-    m.g++; m.trace.push(this.signal(m, m.g)); if (m.trace.length > 260) m.trace.shift();
-    const over = m.g - (m.te + 40);
-    if (inp.pressed || over > 420) {
+    m.g++;
+    const [cn, co] = this.lines(m, m.g);
+    m.cn.push(cn); m.co.push(co); if (m.cn.length > 230) { m.cn.shift(); m.co.shift(); }
+    const T = m.te + 40, p = (m.g - T) / T * 100;
+    if (inp.pressed || p > 120) {
       m.sfx('click');
-      const s = over < 0 ? 1 + over / 90 : over <= 60 ? 1 : 1 - (over - 60) / 240;
-      const pct = Math.round(over / (m.te + 40) * 100);
-      finish(m, s, {overEtch: over}, [
-        over < 0 ? L('Zu früh gestoppt: Oxidreste in den Löchern.', 'Stopped too early: oxide left in the holes.')
-          : L(`Überätzung ${pct} %`, `Over-etch ${pct} %`),
-        L('Etwas Überätzung ist richtig, zu viel greift das Silizium an.', 'A little over-etch is right, too much attacks the silicon.')]);
+      const s = p < 0 ? 1 + p / 25 : p < 15 ? 0.8 + 0.2 * p / 15 : p <= 35 ? 1 : 1 - (p - 35) / 60;
+      finish(m, s, {overEtch: p}, [
+        p < 0 ? L('Zu früh gestoppt: Oxidreste in den Löchern.', 'Stopped too early: oxide left in the holes.') : L(`Überätzung ${Math.round(p)} %`, `Over-etch ${Math.round(p)} %`),
+        L('20 bis 30 % sind richtig, mehr greift das Silizium an.', '20 to 30 % is right, more attacks the silicon.')]);
     }
   },
   draw(m) {
-    const a = frame(m, L('ÄTZEN · PLASMA, ENDPUNKT', 'ETCH · PLASMA, ENDPOINT'), L('SHIFT: STOPP, WENN DAS SIGNAL FÄLLT', 'SHIFT: STOP WHEN THE SIGNAL DROPS'));
-    // Optical emission: the CO line while oxide is being etched.
-    const gx = a.x + 8, gy = a.y + 6, gw = a.w - 16, gh = 48;
+    const a = frame(m, L('ÄTZEN · PLASMA, ENDPUNKT', 'ETCH · PLASMA, ENDPOINT'), L('SHIFT: STOPP, ETWAS NACH DEM CO-ABFALL', 'SHIFT: STOP A LITTLE AFTER THE CO DROP'));
+    // Optical emission of the plasma: CN while nitride is etched, CO while oxide is etched.
+    const gx = a.x + 8, gy = a.y + 6, gw = a.w - 16, gh = 50;
     R('#0b0f18', gx, gy, gw, gh);
-    text('CO 483 nm', gx + 3, gy + 2, {color: '#c890ff'});
-    ctx.strokeStyle = '#d6a8ff'; ctx.lineWidth = 1; ctx.beginPath();
-    m.trace.forEach((v, i) => ctx[i ? 'lineTo' : 'moveTo'](gx + gw - m.trace.length + i, gy + gh - 4 - v * (gh - 14)));
-    ctx.stroke();
-    // The cross-section: resist mask, nitride and oxide opening up, then the silicon.
-    const sx = a.x + 20, sw = a.w - 40, sy = gy + gh + 8, si = a.y + a.h - 12, film = 18, holes = [0.2, 0.5, 0.8].map(f => sx + f * sw - 8);
-    R('#4f5866', sx, si, sw, 12); R('#cfe8ff', sx, si - film, sw, film - 4); R('#9fc4a8', sx, si - film, sw, 4); R('#d99a32', sx, si - film - 8, sw, 8);
-    const depth = clamp(m.g / (m.te + 40), 0, 1) * film, over = Math.max(0, m.g - m.te - 40);
-    holes.forEach(hx => {
-      R('#0b0f18', hx, si - film - 8, 16, 8 + depth);
-      if (over > 0) R('#1a1e28', hx - Math.min(3, over / 80), si, 16 + 2 * Math.min(3, over / 80), Math.min(6, over / 40));
+    [[m.cn, '#7fe0ff', 'CN 387 nm', 2], [m.co, '#d6a8ff', 'CO 483 nm', 12]].forEach(([tr, col, name, ly]) => {
+      text(name, gx + 3, gy + ly, {color: col});
+      ctx.strokeStyle = col; ctx.lineWidth = 1; ctx.beginPath();
+      tr.forEach((v, i) => ctx[i ? 'lineTo' : 'moveTo'](gx + gw - tr.length + i, gy + gh - 3 - v * (gh - 8)));
+      ctx.stroke();
     });
-    for (let k = 0; k < 16; k++) circle('#c890ff', sx + (k * 37) % sw, sy + ((F * 1.2 + k * 11) % Math.max(4, si - film - 10 - sy)), 1);
+    // Cross-section: resist mask, nitride, oxide; the holes go down, then into the silicon.
+    const sx = a.x + 20, sw = a.w - 40, si = a.y + a.h - 12, nit = 5, ox = 13, holes = [0.2, 0.5, 0.8].map(f => sx + f * sw - 8);
+    R('#4f5866', sx, si, sw, 12); R('#cfe8ff', sx, si - ox, sw, ox); R('#9fc4a8', sx, si - ox - nit, sw, nit); R('#d99a32', sx, si - ox - nit - 8, sw, 8);
+    const dn = clamp(m.g / (m.tn + 30), 0, 1) * nit, dox = clamp((m.g - m.tn - 30) / (m.te + 40 - m.tn - 30), 0, 1) * ox, over = Math.max(0, m.g - m.te - 40);
+    holes.forEach(hx => {
+      R('#0b0f18', hx, si - ox - nit - 8, 16, 8 + dn + dox);
+      if (over > 0) R('#1a1e28', hx, si, 16, Math.min(6, over / 60));
+    });
+    for (let k = 0; k < 16; k++) circle('#c890ff', sx + ((k * 97 + Math.floor(F / 40) * 31) % sw), gy + gh + 4 + ((F * 1.2 + k * 11) % Math.max(4, si - ox - nit - 12 - gy - gh)), 1);
     ctx.restore(); result(m, a);
   },
 };
 
-/* ---------- 6 Implant: set the magnet so that arsenic, and only arsenic, passes the slit ---------- */
-const ION = {B: [11, '#9fe0ff'], P: [31, '#d59cff'], As: [75, '#9cff9c']};
-const radius = (mass, B) => Math.sqrt(2 * mass * 1.66054e-27 * 40e3 * 1.602177e-19) / (1.602177e-19 * B);
-const R0 = 1.0, SLIT = 0.03, IMPLANT_FRAMES = 420;
+/* ---------- 6 Implant: the mass spectrum of the source. Set the magnet on As+ and keep it there ----------
+ * The arsine source also gives AsH+ right next to it, As2+ and leftovers of the last recipe (BF2+, P+). */
+const ION = {
+  'P+': [31, 1, '#d59cff', 0.25], 'As2+': [75, 2, '#7fd0ff', 0.2], 'BF2+': [49, 1, '#ffe08a', 0.15],
+  'As+': [75, 1, '#9cff9c', 1], 'AsH+': [76, 1, '#5fbf6f', 0.45],
+};
+const V = 40e3, AMU = 1.66054e-27, QE = 1.602177e-19;
+const radius = (mass, B, z = 1) => Math.sqrt(2 * mass * AMU * V * z * QE) / (z * QE * B);
+const fieldFor = (mass, z = 1, r = 1) => Math.sqrt(2 * mass * AMU * V * z * QE) / (z * QE * r);
+const R0 = 1.0, PASS = 0.0008, IMPLANT_FRAMES = 420, BMIN = 0.15, BMAX = 0.27;
 const implant = {
-  init(m) { m.B = 0.17 + Math.random() * 0.03; m.st = 'tune'; m.it = 0; m.good = 0; m.bad = 0; m.drift = Math.random() * 6; },
-  through(m) { return Object.keys(ION).find(k => Math.abs(radius(ION[k][0], m.B) - R0) < SLIT) || null; },
+  init(m) { m.B = 0.172 + Math.random() * 0.02; m.st = 'tune'; m.it = 0; m.good = 0; m.bad = 0; m.drift = Math.random() * 6; m.hold = 0; },
+  through(m) { return Object.keys(ION).find(k => Math.abs(m.B - fieldFor(ION[k][0], ION[k][1])) < PASS) || null; },
   update(m, inp) {
-    if (inp.up || inp.right) m.B = Math.min(0.45, m.B + 0.0006);
-    if (inp.down || inp.left) m.B = Math.max(0.1, m.B - 0.0006);
+    const dir = (inp.up || inp.right ? 1 : 0) - (inp.down || inp.left ? 1 : 0);
+    m.hold = dir ? m.hold + 1 : 0;
+    m.B = clamp(m.B + dir * (m.hold > 30 ? 0.0004 : 0.0001), BMIN, BMAX);
     if (m.st === 'tune') { if (inp.pressed) { m.st = 'implant'; m.sfx('click'); } return; }
     m.it++;
-    m.B += Math.sin(m.it / 45 + m.drift) * 0.00022;
+    m.B += Math.sin(m.it / 60 + m.drift) * 0.000012;
     const ion = this.through(m);
-    if (ion === 'As') m.good++; else if (ion) m.bad++;
+    if (ion === 'As+') m.good++; else if (ion) m.bad++;
     if (m.it >= IMPLANT_FRAMES) {
       const dose = m.good / IMPLANT_FRAMES, purity = 1 - Math.min(1, m.bad / 90);
       finish(m, dose * purity, {dose, purity}, [
         L(`Arsendosis ${Math.round(dose * 100)} % vom Soll`, `Arsenic dose ${Math.round(dose * 100)} % of target`),
-        m.bad ? L('Falsche Ionen sind mit hineingeflogen.', 'Wrong ions got in as well.') : L('Nur Arsen hat den Spalt passiert.', 'Only arsenic passed the slit.')]);
+        m.bad ? L('Falsche Ionen sind mit hineingeflogen.', 'Wrong ions got in as well.') : L('Nur As⁺ hat den Spalt passiert.', 'Only As⁺ passed the slit.')]);
     }
   },
   draw(m) {
     const a = frame(m, L('IMPLANTIEREN · ARSEN 40 KEV', 'IMPLANT · ARSENIC 40 KEV'),
-      m.st === 'tune' ? L('↑ ↓ MAGNETFELD · SHIFT: IMPLANTIEREN', '↑ ↓ MAGNET FIELD · SHIFT: IMPLANT') : L('↑ ↓ NACHREGELN, DAS FELD DRIFTET', '↑ ↓ KEEP IT ON, THE FIELD DRIFTS'));
-    const S = 62, ex = a.x + 52, ey = a.y + 14, slitX = ex + R0 * S, slitY = ey + R0 * S + 8;
-    // Source, magnet, slit.
-    R('#5a6270', a.x + 8, ey - 6, 30, 12); text(L('QUELLE', 'SOURCE'), a.x + 8, ey + 8, {color: '#6b7190'});
-    R('#3a2410', ex - 2, ey - 8, S + 34, S + 12); ctx.strokeStyle = '#b87333'; ctx.lineWidth = 2; ctx.strokeRect(ex - 1, ey - 7, S + 32, S + 10);
-    text(`B = ${num(m.B, 3)} T`, ex + S / 2 + 14, ey - 3, {align: 'center', color: '#ffcf5a'});
-    R('#7c8693', ex + 4, slitY, slitX - ex - 6, 3); R('#7c8693', slitX + SLIT * S + 2, slitY, 40, 3);
-    R(ION.B[1], a.x + 38, ey - 1, ex - a.x - 38, 2);
-    const ion = this.through(m);
-    // Each ion on its circle r = sqrt(2mE)/(qB): a quarter turn in the field, then straight down.
-    Object.keys(ION).forEach(k => {
-      const r = radius(ION[k][0], m.B) * S, pass = k === ion;
-      ctx.strokeStyle = ION[k][1]; ctx.globalAlpha = pass ? 1 : 0.55; ctx.lineWidth = pass ? 2 : 1;
+      m.st === 'tune' ? L('↑ ↓ MAGNETFELD AUF As⁺ · SHIFT: IMPLANTIEREN', '↑ ↓ MAGNET ON As⁺ · SHIFT: IMPLANT') : L('↑ ↓ NACHREGELN, DAS FELD DRIFTET', '↑ ↓ KEEP IT ON, THE FIELD DRIFTS'));
+    // The spectrum: beam current through the slit over the field.
+    const gx = a.x + 8, gy = a.y + 4, gw = a.w - 16, gh = 42, X = B => gx + (B - BMIN) / (BMAX - BMIN) * gw;
+    R('#0b0f18', gx, gy, gw, gh);
+    ctx.strokeStyle = '#4a5470'; ctx.lineWidth = 1; ctx.beginPath();
+    for (let px = 0; px <= gw; px++) {
+      const B = BMIN + px / gw * (BMAX - BMIN);
+      let I = 0; for (const k in ION) { const d = (B - fieldFor(ION[k][0], ION[k][1])) / 0.0007; I += ION[k][3] * Math.exp(-d * d); }
+      ctx[px ? 'lineTo' : 'moveTo'](gx + px, gy + gh - 3 - Math.min(1, I) * (gh - 12));
+    }
+    ctx.stroke();
+    for (const k in ION) { const bx = X(fieldFor(ION[k][0], ION[k][1])); text(k, bx + (k === 'AsH+' ? 3 : k === 'As+' ? -3 : 0), gy + gh - 12 - ION[k][3] * (gh - 14), {align: k === 'AsH+' ? 'left' : k === 'As+' ? 'right' : 'center', color: ION[k][2]}); }
+    R('#ffcf5a', X(m.B), gy, 1, gh);
+    // Beamline below: source, magnet, slit, wafer; each ion on its circle.
+    const ion = this.through(m), S = 46, ex = a.x + 44, ey = gy + gh + 10, slitX = ex + R0 * S, slitY = ey + R0 * S + 4;
+    R('#5a6270', a.x + 8, ey - 4, 24, 8);
+    R('#3a2410', ex - 2, ey - 6, S + 22, S + 8); ctx.strokeStyle = '#b87333'; ctx.strokeRect(ex - 1.5, ey - 5.5, S + 21, S + 7);
+    R('#7c8693', ex + 2, slitY, slitX - ex - 4, 2); R('#7c8693', slitX + 3, slitY, 30, 2);
+    R('#9aa3ad', a.x + 32, ey - 1, ex - a.x - 32, 2);
+    for (const k in ION) {
+      const r = radius(ION[k][0], m.B, ION[k][1]) * S, pass = k === ion;
+      ctx.strokeStyle = ION[k][2]; ctx.globalAlpha = pass ? 1 : 0.45; ctx.lineWidth = pass ? 2 : 1;
       ctx.beginPath(); ctx.moveTo(ex, ey);
-      for (let th = 0; th <= Math.PI / 2 + 0.001; th += 0.08) ctx.lineTo(ex + r * Math.sin(th), ey + r * (1 - Math.cos(th)));
-      ctx.lineTo(ex + r, pass ? a.y + a.h - 8 : slitY);
-      ctx.stroke(); ctx.globalAlpha = 1;
-      text(`${k}+ ${num(radius(ION[k][0], m.B), 2)} m`, a.x + a.w - 6, a.y + 8 + ['B', 'P', 'As'].indexOf(k) * 10, {align: 'right', color: ION[k][1]});
-    });
-    // The wafer below the slit, and the dose.
-    const wx = slitX, wy = a.y + a.h - 6;
-    ctx.fillStyle = '#c9ced6'; ctx.beginPath(); ctx.ellipse(wx, wy, 26, 5, 0, 0, 7); ctx.fill();
+      for (let th = 0; th <= Math.PI / 2 + 0.001; th += 0.1) ctx.lineTo(ex + r * Math.sin(th), ey + r * (1 - Math.cos(th)));
+      ctx.lineTo(ex + r, pass ? a.y + a.h - 6 : slitY); ctx.stroke(); ctx.globalAlpha = 1;
+    }
+    ctx.fillStyle = '#c9ced6'; ctx.beginPath(); ctx.ellipse(slitX, a.y + a.h - 4, 20, 4, 0, 0, 7); ctx.fill();
+    const rx = a.x + a.w - 80;
+    text(`B = ${num(m.B * 1000, 1)} mT`, rx, ey + 38, {color: '#ffcf5a', max: 76});
+    text(ion ? (ion === 'As+' ? L('As⁺ IM SPALT', 'As⁺ IN THE SLIT') : L(`${ion} IM SPALT`, `${ion} IN THE SLIT`)) : L('KEIN STRAHL', 'NO BEAM'), rx, ey + 2, {color: ion === 'As+' ? '#9cff9c' : ion ? '#e0402a' : '#6b7190', max: 76});
     if (m.st === 'implant') {
-      const dose = m.good / IMPLANT_FRAMES;
-      R('#1a2030', a.x + a.w - 74, a.y + a.h - 30, 66, 5); R('#9cff9c', a.x + a.w - 74, a.y + a.h - 30, 66 * dose, 5);
-      text(L('DOSIS', 'DOSE'), a.x + a.w - 74, a.y + a.h - 40, {color: '#6b7190'});
-      if (ion && ion !== 'As') text(L(`FALSCHES ION: ${ion}+`, `WRONG ION: ${ion}+`), wx, a.y + a.h - 24, {align: 'center', color: '#e0402a'});
+      R('#1a2030', rx, ey + 18, 72, 5); R('#9cff9c', rx, ey + 18, 72 * m.good / IMPLANT_FRAMES, 5);
+      text(L('DOSIS', 'DOSE'), rx, ey + 26, {color: '#6b7190'});
     }
     ctx.restore(); result(m, a);
   },
 };
 
 const GAMES = {clean, oxidize, coat, expose, etch, implant};
+// Skipped with Enter: the tool runs its standard recipe, which is never quite tuned for this lot.
+const SKIP = {clean: {particles: 12}, oxidize: {oxide: 52.4}, coat: {resist: 104, rpm: 1850}, expose: {defocus: 60}, etch: {overEtch: 8}, implant: {dose: 0.8, purity: 1}};
+function skip(m) {
+  if (m.phase !== 'play') return;
+  finish(m, 0.6, SKIP[m.type], [L('Übersprungen: Die Anlage fährt ihr Standardrezept.', 'Skipped: the tool runs its standard recipe.')]);
+}
 function create(type, o = {}) {
   const m = {type, t: 0, phase: 'play', score: 0, values: {}, closed: false, resultT: 0, sfx: o.sfx || (() => {})};
   GAMES[type].init(m);
@@ -389,5 +427,5 @@ function draw(c, m, language) {
   GAMES[m.type].draw(m);
 }
 
-window.SchichtMini = {has: type => !!GAMES[type], create, update, draw, grade, yieldOf, STEPS, radius};
+window.SchichtMini = {has: type => !!GAMES[type], create, update, draw, skip, grade, yieldOf, STEPS, radius, fieldFor};
 })();
