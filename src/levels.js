@@ -91,7 +91,7 @@
       pa: [
         {at: 5, it: 'Lotto 4471 in ritardo. Consegna alle sei.', de: 'Los 4471 im Verzug. Liefertermin sechs Uhr.', en: 'Lot 4471 behind schedule. Due at six.'},
       ],
-      note: {x: 10, y: 8, by: 'Colombo', text: {
+      note: {x: 13, y: 8, by: 'Colombo', text: {
         de: ['Die Öfen stehen auf 1000 °C.', 'Es läuft kein Rezept.', 'Ich hab es ins Schichtbuch geschrieben.', 'Danach war die Seite leer.'],
         en: ['The furnaces sit at 1000 °C.', 'No recipe is running.', 'I wrote it in the shift log.', 'Afterwards the page was blank.'],
       }},
@@ -102,9 +102,11 @@
         {x0: 11, y0: 1, type: 'wetbench', name: 'PURA W-6', baths: ['SPM', 'SC-1', 'SC-2', 'HF', 'DRY']},
         {x0: 16, y0: 4, type: 'metrology', name: 'ORSA EL-4', screen: 'thickness'},
         {x0: 1, y0: 5, type: 'gascab', gas: 'DCS'},
+        {x0: 10, y0: 6, type: 'metrology', name: 'ORSA SP-3', screen: 'particles'},
       ],
-      lamps: [[5, 3], [2, 7], [11, 7]],
-      // The previous shift walks its round along the only way through the wall.
+      lamps: [[5, 3], [2, 7], [13, 7]],
+      // The previous shift walks its round along the only way through the wall, the corridor you must take.
+      // The particle counter by the gap is there for its light.
       patrols: [{path: [[4, 8], [13, 8]], every: 2}],
       day: [
         '####################',
@@ -113,9 +115,9 @@
         '#...1....#.........#',
         '#........#......MM.#',
         '#M.......#......MM.#',
-        '#M.......#.......3.#',
-        '#........#......X..#',
-        '#........#......===#',
+        '#M.......#MM.....3.#',
+        '#........#MM....X..#',
+        '#........#===...===#',
         '####################',
       ],
       night: [
@@ -125,8 +127,8 @@
         '#.......2#ooooooooo#',
         '#..o.....#ooooooooo#',
         '#M.....o.#ooooooooo#',
-        '#M.......#.....oooo#',
-        '#....o...#.....oooo#',
+        '#M.......#MMo..oooo#',
+        '#....o...#MMo..oooo#',
         '#.............o.===#',
         '####################',
       ],
@@ -207,6 +209,7 @@
       // Announcements over the PA (step, Italian, translation), a note from shift B, one scare.
       pa: [
         {at: 6, it: 'Si ricorda: il turno di notte finisce alle sei.', de: 'Zur Erinnerung: Die Nachtschicht endet um sechs.', en: 'A reminder: the night shift ends at six.'},
+        {at: 16, it: "Inceneritore in funzione. Al rintocco, stare lontani.", de: 'Verascher in Betrieb. Beim Glockenschlag Abstand halten.', en: 'Asher running. Keep clear when the bell strikes.'},
       ],
       note: {x: 15, y: 3, by: 'Rossi', text: {
         de: ['Der Campanile hat geschlagen,', 'und ich stand woanders. Gleiche Bay, andere Schicht.', 'Colombo stand direkt neben mir.', 'Er hat mich nicht gehört.'],
@@ -216,6 +219,9 @@
       route: [{de: 'Ätzen', en: 'Etch', proc: 'etch'}, {de: 'Lack entfernen', en: 'Strip resist', proc: 'strip'}],
       enemyEvery: 6,
       bell: 30,
+      // In the shift before, the asher's O₂ plasma fills its room for the last steps before every bell:
+      // whoever only waits for the bell to carry them over burns. SHIFT yourself, or stop it at a plasma tool.
+      pulses: [{layer: 1, x0: 13, y0: 3, x1: 18, y1: 7, period: 30, on: [24, 30]}],
       tools: [
         {x0: 6, y0: 1, type: 'cluster', kind: 'etch', name: 'VALENTA C-5', chambers: 5},
         {x0: 15, y0: 1, type: 'wetbench', name: 'PURA W-6', baths: ['SPM', 'SPM', 'QDR', 'DRY']},
@@ -283,7 +289,7 @@
       lamps: [[4, 2], [8, 6], [12, 1]],
       // The station room is walled in by day: in through the shift before. The middle is open only by day,
       // across the beam; the way into the room is a round of the previous shift.
-      patrols: [{path: [[4, 3], [5, 3], [5, 5], [4, 5]], every: 2}],
+      patrols: [{path: [[2, 1], [5, 1], [5, 5], [4, 5], [4, 2], [2, 2]], every: 2}],
       day: [
         '####################',
         '#.....#....#......X#',
@@ -348,13 +354,13 @@
       ],
       lamps: [[2, 4], [10, 7], [17, 6]],
       // No way round at night any more: the furnace corridor is the way, with a round in the middle passage.
-      patrols: [{path: [[9, 2], [11, 2], [11, 4], [9, 4]], every: 2}],
+      patrols: [{path: [[6, 3], [12, 3]], every: 2, start: 6}],
       day: [
         '####################',
         '#P..#MM.MMMMMMMM#..#',
-        '#...#.....#.....#.1#',
-        '#.........#........#',
-        '#...#.....#.....#..#',
+        '#...#.#...#.....#.1#',
+        '#...#.#...#........#',
+        '#...#.#...#.....#..#',
         '#M..#MMMMMMMM.MM#..#',
         '#M..#...........#..#',
         '#...#...........#..#',
@@ -365,7 +371,7 @@
         '####################',
         '#...#ooooooooooo#..#',
         '#...#oooo...oooo#..#',
-        '#...#oooo...oooo#..#',
+        '#............ooo#..#',
         '#...#oooo...oooo#..#',
         '#M..#...........#..#',
         '#M..#...........#..#',
@@ -414,13 +420,13 @@
         {x0: 16, y0: 1, type: 'chamber', kind: 'etch', name: 'VALENTA E-1'},
       ],
       lamps: [[2, 3], [9, 7], [16, 6]],
-      patrols: [{path: [[6, 3], [13, 3], [13, 4], [6, 4]], every: 2}],
+      patrols: [{path: [[6, 3], [13, 3], [13, 4], [6, 4]], every: 1}, {path: [[6, 3], [13, 3], [13, 4], [6, 4]], every: 1, start: 8}],
       day: [
         '####################',
         '#P..MM....MM....MM.#',
         '#...MM....MM....MM.#',
-        '#........##2.......#',
-        '#........##........#',
+        '#.......#####......#',
+        '#.......#####......#',
         '####.#########.#####',
         '#MMM.....#.....MMM.#',
         '#MMM.....#.....MMM.#',
@@ -432,7 +438,7 @@
         '#...oo....oo....oo.#',
         '#...oo....oo....oo.#',
         '#...oo..........oo.#',
-        '#...oo..........oo.#',
+        '#...oo....2.....oo.#',
         '####.#########.#####',
         '#MMM.....#.........#',
         '#MMM.....#.........#',
@@ -441,7 +447,7 @@
       ],
     },
     {
-      id: 'me', reticle: [9, 2], time: '05:00',
+      id: 'me', reticle: [10, 5], time: '05:00',
       layer: {de: 'Metall', en: 'Metal'}, stack: {de: 'Aluminium · 500 nm', en: 'Aluminium · 500 nm'},
       title: {de: 'Schleuse', en: 'Airlock'},
       log: {
@@ -458,7 +464,7 @@
         {at: 2, it: 'Turno B: Rossi. Colombo. Ferrari.', de: 'Schicht B: Rossi. Colombo. Ferrari.', en: 'Shift B: Rossi. Colombo. Ferrari.'},
         {at: 24, it: '... e tu.', de: '... und du.', en: '... and you.'},
       ],
-      note: {x: 5, y: 8, layer: 'day', by: 'Rossi, Colombo, Ferrari', text: {
+      note: {x: 2, y: 8, layer: 'day', by: 'Rossi, Colombo, Ferrari', text: {
         de: ['Wenn du das liest, bist du schon lange hier.', 'Mach das Los fertig.', 'Und bleib nicht stehen,', 'wenn die Glocke schlägt.'],
         en: ['If you are reading this, you have been here long.', 'Finish the lot.', 'And do not stand still', 'when the bell strikes.'],
       }},
@@ -466,37 +472,42 @@
       route: [{de: 'Sputtern', en: 'Sputter', proc: 'sputter'}, {de: 'Schichtwiderstand', en: 'Sheet resistance', proc: 'rs'}],
       enemyEvery: 6,
       bell: 18,
-      pulses: [{x0: 8, y0: 2, x1: 11, y1: 7, period: 30, on: [0, 12]}],
+      // Three rooms by day, joined only through narrow passages in the shift before. When the bell warns,
+      // the passages fill with plasma: you cross by your own SHIFT, between two strikes, or stop it at a tool.
+      pulses: [
+        {x0: 8, y0: 2, x1: 11, y1: 7, period: 30, on: [0, 12]},
+        {layer: 1, x0: 5, y0: 1, x1: 6, y1: 8, period: 18, on: [12, 18]},
+        {layer: 1, x0: 12, y0: 1, x1: 13, y1: 8, period: 18, on: [12, 18]},
+        {layer: 1, x0: 15, y0: 1, x1: 18, y1: 8, period: 18, on: [12, 18]},
+      ],
       tools: [
         {x0: 8, y0: 1, type: 'cluster', kind: 'pvd', name: 'VALENTA S-4', chambers: 3},
         {x0: 2, y0: 3, type: 'stocker'},
         {x0: 2, y0: 6, type: 'chamber', kind: 'pvd', name: 'VALENTA S-4'},
-        {x0: 15, y0: 3, type: 'metrology', name: 'ORSA XR-2', screen: 'xrf'},
-        {x0: 15, y0: 6, type: 'metrology', name: 'ORSA RS-1', screen: 'rs', value: '54 mΩ/□'},
       ],
-      lamps: [[5, 5], [10, 4], [13, 8]],
+      lamps: [[3, 5], [9, 5], [16, 5]],
       day: [
         '####################',
-        '#P.....#MMMM#.....X#',
-        '#......#MMMM#......#',
-        '#.MMM..........MM..#',
-        '#.MMM...#..#...MM..#',
-        '#.......#..#.......#',
-        '#.MMM...#..#...MMM.#',
-        '#.MMM..........MMM.#',
-        '#..1...#....#...2..#',
+        '#P...#..MMMM#......#',
+        '#....#..MMMM#....2.#',
+        '#.MMM#......#..MM..#',
+        '#.MMM#......###MM###',
+        '#....#......#......#',
+        '#.MMM#......#..MMM.#',
+        '#.MMM#......#..MMM.#',
+        '#..1.#......#.....X#',
         '####################',
       ],
       night: [
         '####################',
-        '#..o...#oooo#...o..#',
-        '#......#....#......#',
-        '#.MMM.....V....MM..#',
-        '#.MMM...#..#...MM..#',
-        '#o......#..#......o#',
-        '#.MMM...#..#...MMM.#',
-        '#.MMM..........MMM.#',
-        '#......#....#...V..#',
+        '#..o.#.#MMMM#.#....#',
+        '#....#.#MMMM#.#....#',
+        '#.MMM#.#......#MM..#',
+        '#.MMM#.#....#o#MM.o#',
+        '#......#....#o#....#',
+        '#.MMM#.#....#o#MMM.#',
+        '#.MMM#.#.o.V#o#MMM.#',
+        '#o...#.#....#o#....#',
         '####################',
       ],
     },

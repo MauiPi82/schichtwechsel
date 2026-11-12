@@ -115,10 +115,9 @@ test('every hour after the first needs SHIFT, or at least the bell', () => {
 });
 
 test('every reticle can be collected and the hour still finished', () => {
-  // With chasers (05:00) this search needs gigabytes; there the reachability test above has to do.
+  // 05:00 too: its rooms are small enough now for the full search.
   for (const def of LEVELS) {
     const L = core.parseLevel(def);
-    if (L.enemyStarts.length) continue;
     assert.ok(core.solve(L, {reticle: true}), `${def.id}: reticle and airlock`);
   }
 });

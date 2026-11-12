@@ -398,13 +398,15 @@
       }
     }
 
-    // Grace after a shift into the night: time to shift back after a misjudgement.
-    if (state.layer === NIGHT && !safe && state.step - state.lastShift >= GRACE) {
+    // Grace after a shift into the night: time to shift back after a misjudgement. In it they cannot catch
+    // you, but whoever walks into one of them yourself is caught all the same: you cannot pass through them.
+    if (state.layer === NIGHT && !safe) {
+      const grace = state.step - state.lastShift < GRACE, walked = state.x !== state.px || state.y !== state.py;
       for (const e of state.enemies) {
         if (frozen(state, e)) continue;
         const onPlayer = e.x === state.x && e.y === state.y;
         const crossed = e.px === state.x && e.py === state.y && e.x === state.px && e.y === state.py;
-        if (onPlayer || crossed) return lose(state, 'caught');
+        if ((onPlayer || crossed) && (!grace || walked)) return lose(state, 'caught');
       }
     }
 
