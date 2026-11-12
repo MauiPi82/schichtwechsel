@@ -1,6 +1,7 @@
 /* Schichtwechsel - the fab, drawn at 640 x 360 (32 px per tile), oblique top-down: top faces plus front faces.
- * Tools are drawn after real equipment types (coater/developer track, immersion scanner, cluster platform,
- * vertical furnace, implanter beamline, wet bench, CD-SEM, stocker) under invented maker names. */
+ * Tools are drawn after real equipment types (coater/developer track, immersion scanner, cluster platforms for etch,
+ * CVD and sputtering, single plasma chambers, vertical and horizontal furnaces, implanter source and end station,
+ * wet bench, metrology, gas cabinets, stocker) under invented maker names. */
 (() => {
 'use strict';
 const C = window.SchichtCore;
@@ -176,6 +177,33 @@ function body(x, y, w, h, face, col = p.white) {
   return y + h - face;
 }
 
+// A process chamber seen from above. etch: copper TCP coil on a ceramic window; cvd: showerhead with its gas box;
+// pvd: aluminium target with the racetrack the magnetron erodes. A burning plasma glows through.
+function chamberLid(kind, cx, cy, r, on, i) {
+  circle('rgba(0,0,0,.2)', cx + 2, cy + 3, r);
+  circle(p.white2, cx, cy, r); ring(p.white3, cx, cy, r, 2);
+  for (let k = 0; k < 6; k++) { const a = k * Math.PI / 3 + 0.3; R(p.grey, cx + Math.cos(a) * (r - 2) - 1, cy + Math.sin(a) * (r - 2) - 1, 2, 2); }
+  const glow = on && !reduced ? 0.55 + 0.25 * Math.sin(F / 3 + i) : on ? 0.6 : 0;
+  if (kind === 'pvd') {
+    circle(night ? '#4a4030' : '#d9dee5', cx, cy, r * 0.72);
+    ring(night ? '#2a2216' : '#9aa3ad', cx, cy, r * 0.45, Math.max(2, r * 0.16));
+    if (glow) { ctx.strokeStyle = `rgba(170,120,255,${glow})`; ctx.lineWidth = Math.max(2, r * 0.18); ctx.beginPath(); ctx.arc(cx, cy, r * 0.45, 0, 7); ctx.stroke(); }
+    circle(p.grey, cx, cy, Math.max(1.5, r * 0.1));
+  } else if (kind === 'cvd') {
+    circle(night ? '#3a3020' : '#c6ccd4', cx, cy, r * 0.72);
+    for (let yy = -3; yy <= 3; yy++) for (let xx = -3; xx <= 3; xx++) if (xx * xx + yy * yy <= 9) R(glow ? `rgba(255,170,230,${glow})` : p.grey, cx + xx * r * 0.18 - 0.5, cy + yy * r * 0.18 - 0.5, 1, 1);
+    R(p.white3, cx - r * 0.25, cy - r * 0.95, r * 0.5, r * 0.3); R(p.grey, cx - 1, cy - r * 1.05, 2, r * 0.3);
+    if (glow) { ctx.fillStyle = `rgba(255,140,220,${glow * 0.35})`; ctx.beginPath(); ctx.arc(cx, cy, r * 0.75, 0, 7); ctx.fill(); }
+  } else {
+    circle(night ? '#4a3e28' : '#ece4d0', cx, cy, r * 0.72);
+    if (glow) { ctx.fillStyle = `rgba(190,110,255,${glow * 0.6})`; ctx.beginPath(); ctx.arc(cx, cy, r * 0.7, 0, 7); ctx.fill(); }
+    ctx.strokeStyle = night ? '#6a4a20' : '#c07a3a'; ctx.lineWidth = Math.max(1, r * 0.09); ctx.beginPath();
+    for (let a = 0; a < Math.PI * 5; a += 0.2) { const rr = r * (0.12 + a / (Math.PI * 5) * 0.55); ctx[a ? 'lineTo' : 'moveTo'](cx + Math.cos(a) * rr, cy + Math.sin(a) * rr); }
+    ctx.stroke();
+    R(p.white3, cx + r * 0.45, cy - r * 1.0, r * 0.55, r * 0.4); R(p.dark, cx + r * 0.55, cy - r * 0.9, r * 0.2, r * 0.2);
+  }
+}
+
 const TOOLS = {
   // Coater/developer track: white cabinet, blue band, spin cups behind glass, load ports at the left end.
   track(x, y, w, h, t) {
@@ -213,83 +241,195 @@ const TOOLS = {
     brand(t.name || 'LUMENA S193i', x + 22, fy + 4, w - 50);
     signalTower(x + w - 6, y + 2, 'g');
   },
-  // Cluster platform: transfer chamber with robot in the middle, process chambers around it, EFEM in front.
+  // Cluster platform: polygonal transfer chamber with a frog-leg robot, process chambers around it, EFEM in front.
+  // kind: etch (TCP coil on a ceramic window), cvd (showerhead), pvd (magnetron target with its racetrack).
   cluster(x, y, w, h, t, s) {
     R('rgba(0,0,0,.22)', x + 3, y + h, w, 4);
-    const cx = x + w / 2, cy = y + (h - 22) / 2 + 2, r = Math.min(w, h - 22) * 0.18;
-    const n = 4;
-    for (let i = 0; i < n; i++) {
-      const a = Math.PI + (i + 0.5) * Math.PI / n, ox = cx + Math.cos(a) * (r + 13), oy = cy + Math.sin(a) * (r + 10);
-      ctx.strokeStyle = p.white3; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(ox, oy); ctx.stroke();
-      circle(p.white2, ox, oy, 11); ring(p.white3, ox, oy, 11, 2); circle(p.white, ox, oy, 7);
-      const glow = t.plasma && s && s.plasmaOn;
-      circle(glow ? '#c890ff' : p.dark, ox, oy, 3);
-      if (glow) { ctx.fillStyle = 'rgba(190,110,255,.35)'; ctx.beginPath(); ctx.arc(ox, oy, 11, 0, 7); ctx.fill(); }
-      R(p.accent2, ox - 1, oy - 13, 2, 3);
+    const kind = t.kind || 'etch', efem = 22, area = h - efem;
+    const n = t.chambers || (w > 150 ? 5 : 4);
+    const cr = clamp(Math.min(w * 0.42, area * 0.5) * 0.36, 9, 21);
+    const cx = x + w / 2, cy = y + area - Math.max(8, cr * 0.6), ax = w / 2 - cr - 5, ay = Math.max(8, area - cr - 12);
+    const tr = clamp(Math.min(ax, ay) * 0.42, 8, 26);
+    R(p.white3, x + 4, y + 3, w - 8, area - 2); R(p.white2, x + 5, y + 4, w - 10, area - 4);
+    for (let i = 0; i < Math.floor((w - 16) / 8); i++) R(p.grey, x + 9 + i * 8, y + 6, 4, 1);
+    const pos = [...Array(n)].map((_, i) => { const a = Math.PI + (i + 0.5) * Math.PI / n; return [cx + Math.cos(a) * ax, cy + Math.sin(a) * ay]; });
+    for (const [ox, oy] of pos) {
+      const dx = ox - cx, dy = oy - cy, d = Math.hypot(dx, dy), ex = cx + dx / d * tr, ey = cy + dy / d * tr;
+      ctx.strokeStyle = p.white3; ctx.lineWidth = Math.max(5, cr * 0.5); ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(ox - dx / d * cr, oy - dy / d * cr); ctx.stroke();
+      ctx.strokeStyle = p.dark; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(ex + dx / d * 3, ey + dy / d * 3); ctx.lineTo(ox - dx / d * (cr + 2), oy - dy / d * (cr + 2)); ctx.stroke();
     }
+    const on = s ? s.plasmaOn : false;
+    pos.forEach(([ox, oy], i) => chamberLid(kind, ox, oy, cr, on && (s.allOn || i % 2 === (F >> 6) % 2 || s.hasPulses), i));
     ctx.fillStyle = p.white2; ctx.beginPath();
-    for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3 + Math.PI / 6; ctx[i ? 'lineTo' : 'moveTo'](cx + Math.cos(a) * r, cy + Math.sin(a) * r); }
-    ctx.closePath(); ctx.fill(); ctx.strokeStyle = p.white3; ctx.stroke();
-    const ra = night ? 1.2 : F / 30;
-    ctx.strokeStyle = p.dark; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(ra) * r * 0.8, cy + Math.sin(ra) * r * 0.8); ctx.stroke();
-    circle(p.dark, cx, cy, 3);
-    const fy = body(x + 2, y + h - 22, w - 4, 22, 14);
+    for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4 + Math.PI / 8; ctx[i ? 'lineTo' : 'moveTo'](cx + Math.cos(a) * tr, cy + Math.sin(a) * tr); }
+    ctx.closePath(); ctx.fill(); ctx.strokeStyle = p.white3; ctx.lineWidth = 2; ctx.stroke();
+    circle(p.white, cx, cy, tr * 0.7); ring(p.white3, cx, cy, tr * 0.7, 1);
+    // Frog-leg robot: two arms meeting at the end effector that carries a wafer.
+    const ra = night ? 1.2 : F / 40, reach = tr * (0.55 + 0.25 * Math.sin(F / 23));
+    const hx = cx + Math.cos(ra) * reach, hy = cy + Math.sin(ra) * reach;
+    ctx.strokeStyle = p.dark; ctx.lineWidth = 2;
+    for (const sg of [-1, 1]) { const ex = cx + Math.cos(ra + sg * 0.9) * tr * 0.38, ey = cy + Math.sin(ra + sg * 0.9) * tr * 0.38; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(ex, ey); ctx.lineTo(hx, hy); ctx.stroke(); }
+    circle(p.wafer, hx, hy, Math.max(3, tr * 0.22)); circle(p.dark, cx, cy, 2.5);
+    const fy = body(x + 2, y + h - efem, w - 4, efem, 14);
     R(p.accent, x + 2, fy - 2, w - 4, 2);
-    for (let i = 0; i < 3; i++) loadPort(x + 8 + i * 18, fy + 2, i !== 1);
+    const ports = clamp(Math.floor((w - 70) / 18), 1, 3);
+    for (let i = 0; i < ports; i++) loadPort(x + 8 + i * 18, fy + 2, i !== 1);
     tablet(x + w - 30, fy + 2); emo(x + w - 9, fy + 7);
-    brand(t.name || 'VALENTA C-5', x + 64, fy + 4, w - 100);
-    signalTower(x + w - 8, y + h - 20, t.plasma && s && s.plasmaSoon ? 'y' : 'g');
+    brand(t.name || 'VALENTA C-5', x + 12 + ports * 18, fy + 4, w - 48 - ports * 18);
+    signalTower(x + w - 8, y + 4, s && s.plasmaSoon ? 'y' : 'g');
   },
-  // Vertical furnace: tall cabinet, exhaust on top, a window onto the quartz boat full of wafers.
+  // Single-chamber tool: chamber on a frame, RF generator beside it, a viewport that shows the plasma.
+  chamber(x, y, w, h, t, s) {
+    const fy = body(x, y, w, h, 16);
+    const on = s && s.plasmaOn, cr = Math.min(w * 0.3, (h - 16) * 0.42);
+    const cx = x + w * 0.42, cy = y + (h - 16) / 2 + 1;
+    R(p.white3, x + w - 16, y + 4, 12, h - 26); R(p.grey, x + w - 14, y + 6, 8, 3); R(p.grey, x + w - 14, y + 11, 8, 1); R(p.grey, x + w - 14, y + 13, 8, 1);
+    ctx.strokeStyle = p.grey; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x + w - 16, y + 10); ctx.lineTo(cx + cr * 0.7, cy - cr * 0.5); ctx.stroke();
+    chamberLid(t.kind || 'etch', cx, cy, cr, on, 0);
+    const vx = x + 14, vy = fy + 8;
+    circle(p.white3, vx, vy, 5); circle(on ? '#d79cff' : p.darker, vx, vy, 3.5);
+    if (on) { ctx.fillStyle = 'rgba(200,120,255,.35)'; ctx.beginPath(); ctx.arc(vx, vy, 8, 0, 7); ctx.fill(); }
+    brand(t.name || 'VALENTA E-1', x + 22, fy + 4, w - 34);
+    emo(x + w - 8, fy + 8);
+    signalTower(x + 4, y + 4, s && s.plasmaSoon ? 'y' : on && s.hasPulses ? 'r' : 'g');
+  },
+  // Vertical furnaces in a bank: tall cabinets, exhaust on top, quartz boat behind a window, temperature display.
   furnace(x, y, w, h, t, s) {
-    const fy = body(x, y, w, h, 24);
-    R(p.accent, x, fy + 2, w, 2);
-    for (let i = 0; i < Math.floor(w / 22); i++) { circle(p.white3, x + 12 + i * 22, y + 9, 6); circle(p.grey, x + 12 + i * 22, y + 9, 3); }
-    const hot = t.hot ? t.hot(s) : 0;
-    const bx = x + w / 2 - 8, by = fy + 5;
-    R(p.darker, bx - 2, by - 1, 20, 17);
-    R(hot > 0.3 ? `rgba(255,${Math.round(120 + 80 * (1 - hot))},40,${0.5 + hot * 0.5})` : p.glass, bx - 1, by, 18, 15);
-    for (let i = 0; i < 6; i++) R(hot > 0.3 ? '#fff0c0' : p.wafer, bx + 2, by + 2 + i * 2, 12, 1);
-    brand(t.name || 'FORNO V-3', x + 4, fy + 6, bx - x - 8);
-    emo(x + w - 7, fy + 8);
-    signalTower(x + w - 5, y + 2, hot > 0.3 ? 'y' : 'g');
+    const n = t.n || Math.max(1, Math.round(w / 62)), cw = Math.floor((w - (n - 1) * 3) / n);
+    for (let k = 0; k < n; k++) {
+      const bx0 = x + k * (cw + 3), fy = body(bx0, y, cw, h, Math.min(30, Math.round(h * 0.45)));
+      R(p.accent, bx0, fy + 2, cw, 2);
+      circle(p.white3, bx0 + 9, y + 9, 6); circle(p.grey, bx0 + 9, y + 9, 3); circle(p.darker, bx0 + 9, y + 9, 1.5);
+      R(p.white3, bx0 + 18, y + 4, cw - 22, 10); for (let i = 0; i < 3; i++) R(p.grey, bx0 + 20, y + 6 + i * 3, cw - 26, 1);
+      R(p.white3, bx0 + 4, y + 18, cw - 8, fy - y - 22); R(p.grey, bx0 + 6, y + 20, cw - 12, 1);
+      const hot = t.hot ? t.hot(s, k) : 0, glow = night ? 0 : 0.35 + 0.15 * Math.sin(F / 30 + k * 2);
+      const wx = bx0 + 5, wy = fy + 6, ww = 15;
+      R(p.darker, wx - 1, wy - 1, ww + 2, 18);
+      R(hot > 0.3 ? `rgba(255,${Math.round(120 + 80 * (1 - hot))},40,${0.5 + hot * 0.5})` : `rgba(255,150,60,${glow})`, wx, wy, ww, 16);
+      if (night) R(p.glass, wx, wy, ww, 16);
+      for (let i = 0; i < 7; i++) R(hot > 0.3 || !night ? '#ffe6b0' : p.wafer, wx + 2, wy + 2 + i * 2, ww - 4, 1);
+      R(p.white3, wx + ww / 2 - 1, wy + 1, 2, 14);
+      const dx = bx0 + 24;
+      R(p.darker, dx, fy + 6, cw - 34, 9);
+      if (!night || (F >> 3) % 7) text(night ? '----' : t.temp || '1000°C', dx + (cw - 34) / 2, fy + 7, {align: 'center', size: 8, color: night ? '#5a3a10' : '#ff6a3a', max: cw - 36});
+      if (k === 0) brand(t.name || 'FORNO V-3', dx, fy + 17, cw - 30);
+      emo(bx0 + cw - 7, fy + 10);
+      signalTower(bx0 + cw - 5, y + 4, hot > 0.3 ? 'y' : 'g');
+    }
   },
-  // Wet bench: open baths with chemistry labels, exhaust slots along the back.
+  // Horizontal diffusion furnaces: a long bank, one quartz tube per mouth; an open door glows with the boat inside.
+  tubes(x, y, w, h, t, s) {
+    const fy = body(x, y, w, h, Math.round(h * 0.5));
+    R(p.accent, x, fy, w, 2);
+    R(p.white2, x + 3, y + 2, 66, fy - y - 4);
+    for (let i = 0; i < Math.floor((w - 78) / 6); i++) R(p.white3, x + 74 + i * 6, y + 3, 3, fy - y - 6);
+    const mouths = t.mouths || [];
+    mouths.forEach(m => {
+      const mx = m.px, my = fy + (h - (fy - y)) / 2 + 1, hot = m.hot;
+      R(p.darker, mx - 9, fy + 2, 18, h - (fy - y) - 3);
+      circle(p.white3, mx, my, 6);
+      circle(hot > 0.3 ? `rgb(255,${Math.round(150 + 90 * hot)},${Math.round(60 + 120 * hot)})` : p.dark, mx, my, 4.5);
+      if (hot > 0.3) {
+        R('#fff6d8', mx - 3, my - 1, 6, 1); R('#fff6d8', mx - 3, my + 1, 6, 1);
+        ctx.fillStyle = `rgba(255,170,60,${0.25 * hot})`; ctx.beginPath(); ctx.arc(mx, my, 14, 0, 7); ctx.fill();
+      }
+      R(hot > 0.3 ? '#ffc21a' : '#3fe06a', mx + 6, fy + 3, 2, 2);
+    });
+    for (let i = 0; i + 1 < mouths.length; i++) {
+      const dx = (mouths[i].px + mouths[i + 1].px) / 2 - 10;
+      R(p.darker, dx, fy + 3, 20, 8);
+      if (!night || (F >> 3) % 5) text(night ? '--' : '1050', dx + 10, fy + 3, {align: 'center', size: 8, color: night ? '#5a3a10' : '#ff6a3a', max: 19});
+    }
+    brand(t.name || 'FORNO H-12', x + 6, y + 3, 62);
+  },
+  // Wet bench: open baths with chemistry labels, exhaust slots along the back, a robot gantry over the baths.
   wetbench(x, y, w, h, t) {
     const fy = body(x, y, w, h, 14);
     for (let i = 0; i < Math.floor(w / 6); i++) R(p.grey, x + 3 + i * 6, y + 3, 3, 2);
-    const baths = ['HF', 'SC-1', 'SC-2', 'SPM', 'QDR'], n = Math.min(baths.length, Math.floor((w - 8) / 28));
+    const baths = t.baths || ['HF', 'SC-1', 'SC-2', 'SPM', 'QDR'], n = Math.min(baths.length, Math.floor((w - 8) / 28));
+    const tint = {HF: '#cfe6f5', 'SC-1': '#d8f0e0', 'SC-2': '#e6f0d8', SPM: '#f3e6c8', QDR: '#d8e8f8', DIW: '#d8e8f8', HOT: '#f3dcc8', DRY: '#e6e9ee'};
+    const bw = Math.floor((w - 12) / n);
     for (let i = 0; i < n; i++) {
-      const bx = x + 6 + i * 28, by = y + 9;
-      R(p.white3, bx, by, 24, h - 30); R(night ? '#1a2a1a' : ['#cfe6f5', '#d8f0e0', '#e6f0d8', '#f3e6c8', '#d8e8f8'][i], bx + 2, by + 2, 20, h - 34);
-      if (!night) R('rgba(255,255,255,.6)', bx + 4 + (F >> 3) % 12, by + 4, 3, 1);
-      R(i === 0 || i === 3 ? '#e0281a' : '#f2c21a', bx + 4, fy + 3, 16, 7);
-      text(baths[i], bx + 12, fy + 3, {align: 'center', size: 8, color: '#1a1004', max: 15});
+      const bx = x + 6 + i * bw, by = y + 9;
+      R(p.white3, bx, by, bw - 4, h - 39); R(night ? '#1a2a1a' : tint[baths[i]] || '#d8e8f8', bx + 2, by + 2, bw - 8, h - 43);
+      if (!night) { R('rgba(255,255,255,.6)', bx + 4 + (F >> 3) % Math.max(1, bw - 14), by + 4, 3, 1); if (baths[i] === 'SPM' || baths[i] === 'HOT') R('rgba(255,255,255,.5)', bx + 6 + (F >> 2) % 9, by + 8 + (F >> 3) % 5, 1, 1); }
+      const hazard = ['HF', 'SPM', 'HOT'].includes(baths[i]);
+      R(hazard ? '#e0281a' : '#f2c21a', bx + 2, fy + 3, bw - 8, 8);
+      text(baths[i], bx + bw / 2 - 2, fy + 3, {align: 'center', size: 8, color: hazard ? '#fff' : '#1a1004', max: bw - 10});
     }
+    const gx = night ? x + 6 + bw : x + 6 + ((Math.sin(F / 60) * 0.5 + 0.5) * (w - 12 - bw));
+    R(p.dark, x + 4, y + 7, w - 8, 2); R(p.grey, gx, y + 5, bw - 4, 5); R(p.wafer, gx + 4, y + 10, bw - 12, 3);
+    brand(t.name || 'PURA W-6', x + 6, fy - 10, 70);
     emo(x + w - 8, fy + 7);
     signalTower(x + 3, y + 2, 'g');
   },
-  // Implanter: source housing with high-voltage marking, analyser magnet, beamline to the end station.
+  // Implanter, two parts. source: high-voltage terminal behind a fence, the arc chamber glowing.
+  // end: the end station with its spinning batch disc of wafers, as in high-current implanters.
   implanter(x, y, w, h, t) {
-    const fy = body(x, y, w, h, 14, p.white2);
-    for (let i = 0; i < w; i += 6) R(i % 12 ? '#1a1a1a' : '#f2c21a', x + i, fy + 2, 6, 3);
-    text('HV', x + w / 2, fy + 6, {align: 'center', size: 8, color: night ? '#8a6a30' : '#e0281a'});
-    circle(night ? '#4a2a10' : '#b87333', x + w / 2, y + (h - 14) / 2, Math.min(w, h - 14) / 3);
-    circle(p.dark, x + w / 2, y + (h - 14) / 2, Math.min(w, h - 14) / 6);
-    signalTower(x + w - 5, y + 2, 'y');
+    if (t.part === 'source') {
+      const fy = body(x, y, w, h, 18, p.white2);
+      R(p.darker, x + 3, y + 3, w - 6, fy - y - 6);
+      for (let i = 0; i < w - 6; i += 4) R(night ? '#3a2a10' : '#8a94a2', x + 3 + i, y + 3, 1, fy - y - 6);
+      for (let i = 0; i < fy - y - 6; i += 4) R(night ? '#3a2a10' : '#8a94a2', x + 3, y + 3 + i, w - 6, 1);
+      const a = night ? 0.25 : 0.6 + 0.4 * Math.sin(F / 4);
+      circle(p.white3, x + w / 2, y + (fy - y) / 2, 6); circle(`rgba(255,140,40,${a})`, x + w / 2, y + (fy - y) / 2, 4);
+      for (let i = 0; i < w; i += 6) R(i % 12 ? '#1a1a1a' : '#f2c21a', x + i, fy + 2, Math.min(6, w - i), 3);
+      text('HV', x + w / 2, fy + 7, {align: 'center', size: 8, color: night ? '#8a6a30' : '#e0281a'});
+      R(p.darker, x + w - 3, y + h - 12, 4, 7);
+      signalTower(x + 4, y + 4, 'y');
+      return;
+    }
+    const fy = body(x, y, w, h, 16);
+    const dr = Math.min((fy - y) * 0.48, w * 0.22), dx = x + w * 0.62, dy = y + (fy - y) / 2 + 1;
+    circle(p.white3, dx, dy, dr + 3); circle(p.dark, dx, dy, dr);
+    const rot = night ? 0.3 : F / 9, k = Math.max(8, Math.floor(dr * 0.75));
+    for (let i = 0; i < k; i++) { const a = rot + i * Math.PI * 2 / k; circle(p.wafer, dx + Math.cos(a) * dr * 0.72, dy + Math.sin(a) * dr * 0.72, Math.max(2, dr * 0.17)); }
+    circle(p.white2, dx, dy, dr * 0.32); circle(p.grey, dx, dy, dr * 0.12);
+    R(p.white3, x + 4, dy - 4, dx - dr - x - 6, 8); R(p.darker, x + 4, dy - 1, dx - dr - x - 6, 2);
+    for (let i = 0; i < 2; i++) loadPort(x + 6 + i * 18, fy + 2, i === 0);
+    for (let i = 0; i < w - 50; i += 6) R(i % 12 ? '#1a1a1a' : '#f2c21a', x + 44 + i, fy + 2, 6, 2);
+    brand(t.name || 'AURIGA HC-3', x + 44, fy + 6, w - 70);
+    tablet(x + w - 24, fy + 3);
+    signalTower(x + w - 5, y + 4, 'g');
   },
-  // CD-SEM: electron column on top, the monitor shows lines and a measured critical dimension.
+  // Metrology: a measuring head on top, the monitor shows what it measures.
+  // screen: lines (CD-SEM), particles (wafer map), thickness (ellipsometer), rs (four-point probe).
   metrology(x, y, w, h, t) {
     const fy = body(x, y, w, h, 16);
-    const cx = x + w * 0.62, cy = y + (h - 16) / 2;
+    const cx = x + w * 0.66, cy = y + (h - 16) / 2;
     circle(p.white3, cx, cy, 11); ring(p.grey, cx, cy, 8, 2); circle(p.dark, cx, cy, 4); circle(night ? '#3a2a0a' : '#7fd0ff', cx, cy, 1.5);
-    const mx = x + 6, my = fy - 18;
-    R(p.darker, mx, my, 26, 18); R(night ? '#120c04' : '#1a1e24', mx + 1, my + 1, 24, 16);
-    for (let i = 0; i < 5; i++) R(night ? '#3a2f1a' : '#9aa3ad', mx + 3 + i * 5, my + 2, 2, 12);
-    if (!night) text('40.2nm', mx + 13, my + 13, {align: 'center', size: 8, color: '#7fd0ff', max: 24});
-    loadPort(x + w - 22, fy + 3, true);
-    brand(t.name || 'ORSA CD-9', x + 6, fy + 5, w - 34);
-    signalTower(x + 3, y + 2, 'g');
+    const mx = x + 5, my = y + 4, mw = Math.min(30, w * 0.45), mh = Math.min(22, fy - y - 8);
+    R(p.darker, mx, my, mw, mh); R(night ? '#120c04' : '#101820', mx + 1, my + 1, mw - 2, mh - 2);
+    const scr = t.screen || 'lines', ink = night ? '#3a2f1a' : '#9aa3ad', hi = night ? '#5a3a10' : '#7fd0ff';
+    if (scr === 'lines') {
+      for (let i = 0; i < 5; i++) R(ink, mx + 3 + i * ((mw - 6) / 5), my + 2, 2, mh - 9);
+      if (!night) text('40.2nm', mx + mw / 2, my + mh - 8, {align: 'center', size: 8, color: hi, max: mw - 2});
+    } else if (scr === 'particles') {
+      const r = Math.min(mw, mh) / 2 - 2; circle(night ? '#2a1e0a' : '#2a3a50', mx + mw / 2, my + mh / 2, r);
+      for (let i = 0; i < 9; i++) { const a = hash(i * 3.1) * 7, d = Math.sqrt(hash(i * 7.7)) * (r - 1); R(i < 2 && !night ? '#ff5a3a' : hi, mx + mw / 2 + Math.cos(a) * d, my + mh / 2 + Math.sin(a) * d, 1, 1); }
+    } else if (scr === 'thickness') {
+      for (let i = 0; i < mw - 6; i++) R(hi, mx + 3 + i, my + mh - 6 - Math.round((mh - 12) * (0.5 + 0.4 * Math.sin(i / 3))), 1, 1);
+      if (!night) text('50.1nm', mx + mw / 2, my + 1, {align: 'center', size: 8, color: '#e9eef5', max: mw - 2});
+    } else {
+      for (let i = 0; i < 4; i++) R(ink, mx + 4 + i * ((mw - 8) / 4), my + 3, 1, 6);
+      if (!night) text(t.value || '52Ω/□', mx + mw / 2, my + mh - 9, {align: 'center', size: 8, color: hi, max: mw - 2});
+    }
+    loadPort(x + w - 20, fy + 3, true);
+    brand(t.name || 'ORSA CD-9', x + 6, fy + 5, w - 30);
+    signalTower(x + w - 5, y + 4, 'g');
+  },
+  // Gas cabinet: steel cabinet with an exhaust on top, cylinders behind the door window, the gas on a hazard label.
+  gascab(x, y, w, h, t) {
+    const fy = body(x, y, w, h, Math.min(26, Math.round(h * 0.42)), p.white2);
+    R(p.grey, x + w / 2 - 6, y + 3, 12, 8); R(p.darker, x + w / 2 - 4, y + 5, 8, 4);
+    for (let i = 0; i < 3; i++) R(p.white3, x + 3, y + 15 + i * 4, w - 6, 2);
+    R(p.darker, x + 3, fy + 3, w - 6, h - (fy - y) - 8); R(p.glass, x + 4, fy + 4, w - 8, h - (fy - y) - 10);
+    const cyl = Math.max(1, Math.floor((w - 8) / 9));
+    for (let i = 0; i < cyl; i++) { const cx0 = x + 6 + i * 9; R(night ? '#3a2a14' : ['#8a5a3a', '#6a7a8a', '#9a9a5a'][i % 3], cx0, fy + 6, 6, h - (fy - y) - 13); R(p.white3, cx0 + 1, fy + 5, 4, 2); }
+    const lx = x + w / 2, ly = y + 25;
+    R(night ? '#4a1a0a' : '#e0281a', lx - 12, ly - 1, 24, 10);
+    text(t.gas || 'SiH₄', lx, ly, {align: 'center', size: 8, color: night ? '#8a5a2a' : '#ffffff', max: 22});
+    signalTower(x + w - 4, y + 4, night ? 'r' : 'g');
   },
   // Stocker: tall storage with FOUP shelves behind glass.
   stocker(x, y, w, h, t) {
@@ -351,10 +491,12 @@ function stations(L, layer, s, lang) {
       ctx.font = '400 8px "Silkscreen", monospace';
       // Below the port when a tool or wall stands right behind it, so the label never covers the tool.
       const blocked = ['M', '#'].includes(tileAt(L, layer, st.x, st.y - 1));
-      const lw = ctx.measureText(label).width + 8, ly = (blocked ? py + 34 : py - 14) + Math.round(Math.sin(F / 12) * 2);
-      R(night ? 'rgba(30,20,6,.92)' : 'rgba(10,16,26,.88)', px + 16 - lw / 2, ly, lw, 11);
-      R(night ? '#ffcf5a' : '#7fd0ff', px + 16 - lw / 2, ly + 10, lw, 1);
-      text(label, px + 16, ly + 1, {align: 'center', color: night ? '#ffcf5a' : '#e9eef5'});
+      const lw = ctx.measureText(label).width + 8, side = blocked && st.y >= C.H - 2;
+      const bob = Math.round(Math.sin(F / 12) * 2), ly = (side ? py + 10 : blocked ? py + 34 : py - 14) + bob;
+      const lx = side ? (st.x < C.W / 2 ? px + 34 + lw / 2 : px - 2 - lw / 2) : px + 16;
+      R(night ? 'rgba(30,20,6,.92)' : 'rgba(10,16,26,.88)', lx - lw / 2, ly, lw, 11);
+      R(night ? '#ffcf5a' : '#7fd0ff', lx - lw / 2, ly + 10, lw, 1);
+      text(label, lx, ly + 1, {align: 'center', color: night ? '#ffcf5a' : '#e9eef5'});
     }
   });
 }
@@ -538,8 +680,7 @@ function draw(c, s, o) {
   airlock(L, layer, s);
   heatAndPlasma(L, layer, s);
   const blocks = toolBlocks(L, layer);
-  const plasmaOn = L.pulses.some(pl => pl.layer === layer && C.pulseOn(pl, s.step));
-  const plasmaSoon = L.pulses.some(pl => pl.layer === layer && !C.pulseOn(pl, s.step) && C.pulseOn(pl, s.step + 6));
+  const hasPulses = L.pulses.some(pl => pl.layer === layer);
   const heatAt = (x, y) => L.heat ? clamp((L.heat.temps[s.step % L.heat.period][y * C.W + x] - 22) / 600, 0, 1) : 0;
   const k = o.k;
   const ppx = lerp(s.px, s.x, k) * T, ppy = FY + lerp(s.py, s.y, k) * T;
@@ -565,9 +706,20 @@ function draw(c, s, o) {
     for (const b of blocks) {
       if (b.y1 !== y) continue;
       const fn = TOOLS[b.type] || TOOLS.generic;
-      fn(b.x0 * T + 2, FY + b.y0 * T + 2, (b.x1 - b.x0 + 1) * T - 4, (b.y1 - b.y0 + 1) * T - 4,
-        {...b, hot: () => b.type === 'furnace' ? Math.max(...[...Array(b.x1 - b.x0 + 1)].map((_, i) => heatAt(b.x0 + i, b.y1 + 1 < C.H ? b.y1 + 1 : b.y1))) : 0},
-        {plasmaOn, plasmaSoon});
+      // Plasma: with pulses in this shift a tool burns with the pulse next to it; without, it runs by day.
+      const near = when => L.pulses.some(pl => pl.layer === layer && pl.x0 <= b.x1 + 1 && pl.x1 >= b.x0 - 1 && pl.y0 <= b.y1 + 2 && pl.y1 >= b.y0 - 2 && C.pulseOn(pl, when));
+      const paced = hasPulses && L.pulses.some((pl, i) => pl.layer === layer && pl.x0 <= b.x1 + 1 && pl.x1 >= b.x0 - 1 && pl.y0 <= b.y1 + 2 && pl.y1 >= b.y0 - 2);
+      const on = paced ? near(s.step) : !night;
+      const tw = b.x1 - b.x0 + 1, row = b.y1 + 1 < C.H ? b.y1 + 1 : b.y1;
+      const mouths = L.heat ? L.heat.sources.filter(([sx, sy]) => sx >= b.x0 && sx <= b.x1 && sy >= b.y0 && sy <= b.y1)
+        .map(([sx, sy]) => ({px: sx * T + 16, hot: heatAt(sx, sy)})) : [];
+      fn(b.x0 * T + 2, FY + b.y0 * T + 2, tw * T - 4, (b.y1 - b.y0 + 1) * T - 4,
+        {...b, mouths, hot: (_, k = 0) => {
+          if (!L.heat) return 0;
+          const n = b.n || Math.max(1, Math.round((tw * T - 4) / 62)), per = tw / n;
+          return Math.max(...[...Array(Math.ceil(per))].map((_, i) => heatAt(Math.min(b.x1, b.x0 + Math.floor(k * per) + i), row)));
+        }},
+        {plasmaOn: on, plasmaSoon: paced && !on && near(s.step + 6), hasPulses: paced, allOn: paced});
     }
     if (layer === 0 && y === C.H - 1) beams(L, s);
     for (const f of figures) if (Math.floor(f.y + 0.5) === y) f.draw();
