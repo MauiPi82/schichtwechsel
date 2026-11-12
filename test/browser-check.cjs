@@ -104,6 +104,13 @@ if (!url) throw new Error('Pass the URL of the served repository root.');
       assert.equal(await page.evaluate(() => __schicht.miniGame && __schicht.miniGame.phase), 'result', 'the coater dries and grades');
       await page.keyboard.press('Shift'); await settled('play');
       assert.ok(await page.evaluate(() => __schicht.lot.s.coat !== undefined), 'the coat result goes into the lot');
+      // H pauses first, a second H leads to the main menu; the page button does it in one click.
+      await page.keyboard.press('h');
+      assert.equal(await page.evaluate(() => __schicht.mode), 'paused', 'H pauses first');
+      await page.keyboard.press('h'); await settled('title');
+      assert.equal(await page.evaluate(() => __schicht.mode), 'title', 'a second H opens the main menu');
+      await page.evaluate(() => __schicht.card(2)); await page.click('#btnMenu'); await settled('title');
+      assert.equal(await page.evaluate(() => __schicht.mode), 'title', 'the menu button opens the main menu');
       // Reload with every saved state there is (finished night, secret ending, reticles, a lot): it must start.
       await page.evaluate(() => { for (const [k, v] of Object.entries({odenchip: '1', level: '7', reticles: '["si","ox","pr","st","im","an","ct","me"]', intro: '1', best: '91', lot: '{"s":{"clean":0.9},"v":{"particles":4}}'})) localStorage.setItem('schichtwechsel-' + k, v); });
       await page.reload(); await page.evaluate(() => document.fonts.ready);
@@ -113,6 +120,6 @@ if (!url) throw new Error('Pass the URL of the served repository root.');
       assert.deepEqual(errors, [], `no page errors in ${locale}`);
       await page.close();
     }
-    console.log('PASS: all levels won in the browser (DE and EN), rewind to the last process step, the gowning intro, keyboard input, a minigame with the keyboard, reload with saved states, no page errors.');
+    console.log('PASS: all levels won in the browser (DE and EN), rewind to the last process step, the gowning intro, keyboard input, a minigame with the keyboard, the way to the main menu, reload with saved states, no page errors.');
   } finally { await browser.close(); }
 })().catch(e => { console.error(e); process.exit(1); });

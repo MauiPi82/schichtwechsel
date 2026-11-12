@@ -24,7 +24,7 @@ const UI = {
     paused: 'PAUSE', pausedHint: 'P oder ESC: weiter', bell: 'GLOCKE', ion: 'IONEN', retry: 'R: neu versuchen',
     stats: (d, s) => `Erwischt: ${d}   Schichtwechsel: ${s}`, thanks: 'Danke fürs Spielen.',
     sub: 'TURNO DI NOTTE · LUINO', credit: 'Ein Spiel von Maurizio Odenwaeller für Game Off 2026 · entwickelt mit Claude',
-    sound: on => 'Ton: ' + (on ? 'an' : 'aus'), pause: 'Pause', full: 'Vollbild',
+    sound: on => 'Ton: ' + (on ? 'an' : 'aus'), pause: 'Pause', full: 'Vollbild', menu: 'Menü', home: 'H: Hauptmenü',
     noteHead: 'VOGT MICROELETTRONICA · BAY 7 · TURNO B', q: ['„', '“'],
     useLight: 'ANLAUFEN: LICHT', useStop: 'ANLAUFEN: NOT-AUS', charging: 'LÄDT',
     yieldWord: 'AUSBEUTE', best: 'BESTE AUSBEUTE', rewind: 'SHIFT: ZURÜCKSPULEN', slots: 'LOADPORT 1: 26 WAFER GEZÄHLT. DER FOUP HAT 25 PLÄTZE.', lightTip: 'LAUF GEGEN DIE ANLAGE: IHR LICHT HÄLT SIE AUF', yieldLog: y => `Ausbeute Los 4471: ${y} %`,
@@ -42,7 +42,7 @@ const UI = {
     paused: 'PAUSED', pausedHint: 'P or ESC: resume', bell: 'BELL', ion: 'IONS', retry: 'R: try again',
     stats: (d, s) => `Caught: ${d}   Shift changes: ${s}`, thanks: 'Thank you for playing.',
     sub: 'TURNO DI NOTTE · LUINO', credit: 'A game by Maurizio Odenwaeller for Game Off 2026 · made with Claude',
-    sound: on => 'Sound: ' + (on ? 'on' : 'off'), pause: 'Pause', full: 'Fullscreen',
+    sound: on => 'Sound: ' + (on ? 'on' : 'off'), pause: 'Pause', full: 'Fullscreen', menu: 'Menu', home: 'H: main menu',
     noteHead: 'VOGT MICROELETTRONICA · BAY 7 · TURNO B', q: ['“', '”'],
     useLight: 'WALK INTO: LIGHT', useStop: 'WALK INTO: STOP', charging: 'CHARGING',
     yieldWord: 'YIELD', best: 'BEST YIELD', rewind: 'SHIFT: REWIND', slots: 'LOADPORT 1: 26 WAFERS COUNTED. THE FOUP HAS 25 SLOTS.', lightTip: 'WALK INTO THE TOOL: ITS LIGHT STOPS THEM', yieldLog: y => `Yield of lot 4471: ${y} %`,
@@ -96,6 +96,7 @@ function applyLanguage() {
   btnSound.textContent = t().sound(audio.on);
   btnPause.textContent = t().pause;
   btnFull.textContent = t().full;
+  btnMenu.textContent = t().menu;
 }
 langSel.addEventListener('change', () => { lang = langSel.value; store.set('lang', lang); applyLanguage(); langSel.blur(); });
 
@@ -413,6 +414,8 @@ addEventListener('keydown', e => {
   if (e.code === 'Enter' || e.code === 'NumpadEnter') { e.preventDefault(); press('enter'); return; }
   const k = (e.key || '').toLowerCase(), is = (c, ch) => e.code === c || k === ch;
   if (is('KeyP', 'p') || e.code === 'Escape') { togglePause(); return; }
+  // H: in the fab it pauses first; from the pause (or any card or film) it goes to the main menu.
+  if (is('KeyH', 'h')) { if (mode === 'play') mode = 'paused'; else menu(); return; }
   if (is('KeyM', 'm')) { audio.toggle(); return; }
   if (CHEAT && is('KeyN', 'n') && mode === 'play' && !introMode) { cheatWin(); return; }
   if (CHEAT && is('KeyU', 'u')) { cheatSafe = !cheatSafe; toast(cheatSafe ? 'CHEAT: UNVERWUNDBAR' : 'CHEAT: VERWUNDBAR', 90); return; }
@@ -467,7 +470,7 @@ function pollPad() {
   if (!gp) return;
   const b = n => !!(gp.buttons[n] && gp.buttons[n].pressed), ax = n => gp.axes[n] || 0;
   const now = {up: b(12) || ax(1) < -0.5, down: b(13) || ax(1) > 0.5, left: b(14) || ax(0) < -0.5, right: b(15) || ax(0) > 0.5,
-    shift: b(0) || b(4) || b(5), start: b(9)};
+    shift: b(0) || b(4) || b(5), start: b(9), select: b(8)};
   for (const d of ['up', 'down', 'left', 'right']) {
     if (now[d] && !padPrev[d]) { held.add(d); lastDir = d; queuedDir = d; }
     if (!now[d] && padPrev[d]) held.delete(d);
@@ -475,6 +478,7 @@ function pollPad() {
   if (now.shift && !padPrev.shift) { audio.unlock(); press('shift'); }
   if (now.shift !== !!padPrev.shift) shiftHeld = now.shift;
   if (now.start && !padPrev.start) togglePause();
+  if (now.select && !padPrev.select) { if (mode === 'play') mode = 'paused'; else menu(); }
   padPrev = now;
 }
 
@@ -482,7 +486,7 @@ function pollPad() {
 let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0, shake = 0;
 let progress = clamp(+store.get('level') || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
 const deathsBy = levels.map(() => 0);
-const BUILD = '0.33 · 2026-11-12';
+const BUILD = '0.34 · 2026-11-12';
 // Testers can jump to an hour: ?stunde=3 or ?hour=3 opens the third hour.
 const jump = +(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || 0);
 if (jump >= 1 && jump <= levels.length) progress = jump - 1;
@@ -762,6 +766,14 @@ function startLevel(i, resume = false) {
   scare = null; freezeT = 0; history = [];
   queuedDir = null; queuedShift = false;
   audio.setLayer(state.layer);
+}
+// Back to the main menu from anywhere; the night's progress stays, the title offers to resume the hour.
+function menu() {
+  if (mode === 'title' || veilPhase === 'out') return;
+  transition(() => {
+    mode = 'title'; introMode = false; mini = null; pendingMode = null; scare = null; paNow = null; paQueue = []; toastT = 0;
+    audio.rain(0); audio.setLayer(0);
+  }, 24, 24);
 }
 function togglePause() {
   if (mode === 'play') mode = 'paused';
@@ -1474,11 +1486,13 @@ function renderMode() {
     txt(t().paused, W / 2, 70, {align: 'center', size: 16, font: 'Pixelify Sans', weight: 700, color: '#ffcf5a'});
     txt(t().pausedHint, W / 2, 96, {align: 'center', color: '#c9c2ae'});
     txt(t().retry, W / 2, 108, {align: 'center', color: '#6b7190'});
+    txt(t().home, W / 2, 118, {align: 'center', color: '#6b7190'});
   }
 }
 
 /* ---------- Page controls ---------- */
-const btnSound = document.getElementById('btnSound'), btnPause = document.getElementById('btnPause'), btnFull = document.getElementById('btnFull');
+const btnSound = document.getElementById('btnSound'), btnPause = document.getElementById('btnPause'), btnFull = document.getElementById('btnFull'), btnMenu = document.getElementById('btnMenu');
+btnMenu.addEventListener('click', e => { menu(); e.currentTarget.blur(); });
 btnSound.addEventListener('click', e => { audio.unlock(); audio.toggle(); e.currentTarget.blur(); });
 const volume = document.getElementById('volume');
 volume.value = Math.round(audio.vol * 100);
