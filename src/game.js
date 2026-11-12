@@ -431,7 +431,7 @@ addEventListener('blur', () => { held.clear(); shiftHeld = false; });
 function press(what) {
   if (veilPhase === 'out') return;
   if (mode === 'cinema') { if (cinemaT > 0.4) transition(() => startIntro(), 28, 60); return; }
-  if (introMode && (mode === 'play' || mode === 'shower')) { if (what === 'enter') transition(endIntro, 30, 1); return; }
+  if (introMode && (mode === 'play' || mode === 'shower' || mode === 'gown' || mode === 'locker')) { if (what === 'enter') transition(endIntro, 30, 1); return; }
   if (mode === 'mini') { if (what === 'enter') window.SchichtMini.skip(mini); else miniPressed = true; return; }
   // After a death the picture waits; a key brings you back to the last process step, in your own shift.
   if (mode === 'dead') { if (deadT > DEAD_LEN) { queuedDir = null; queuedShift = false; startRewind(); } return; }
@@ -481,7 +481,7 @@ function pollPad() {
 let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0, shake = 0;
 let progress = clamp(+store.get('level') || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
 const deathsBy = levels.map(() => 0);
-const BUILD = '0.30 · 2026-11-12';
+const BUILD = '0.31 · 2026-11-12';
 // Testers can jump to an hour: ?stunde=3 or ?hour=3 opens the third hour.
 const jump = +(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || 0);
 if (jump >= 1 && jump <= levels.length) progress = jump - 1;
@@ -523,7 +523,10 @@ function stickyCheck() {
   if (stickyTimes.length >= 4) { stickyWarned = true; store.set('sticky', '1'); toast(t().sticky, 420); }
 }
 /* ---------- Intro: corridor, gowning room, air shower ---------- */
-let introMode = false, suited = false, showerT = 0, showerDone = false, introSeen = new Set(), procT = 0, procType = '', introNote = null;
+let introMode = false, suited = false, showerT = 0, showerDone = false, introSeen = new Set(), procT = 0, procType = '', introNote = null, gownT = 0;
+let lockerT = 0, lockerDone = false, noteSrc = null;
+// Gowning: six pieces, GOWN_STEP frames each; the suit covers you from the top during the first four.
+const GOWN_STEP = 30, GOWN_REVEAL = [0.24, 0.36, 0.84, 1];
 // The tear into the shift before during the air shower: in at GL_IN, back at GL_OUT; the door opens SHOWER_END later.
 const GL_IN = 60, GL_OUT = 132, SHOWER_END = 200;
 const idx = (x, y) => y * C.W + x;
@@ -645,9 +648,10 @@ function updateCinema() {
 }
 function startIntro() {
   const L = C.parseLevel(INTRO);
-  const [entry] = introDoors(L);
-  L.open = new Set([entry]); L.walk[0][entry] = 1; L.showerT = 0;
-  introMode = true; suited = false; showerT = 0; showerDone = false; introSeen = new Set(); introNote = null;
+  // The door to the air shower opens once you wear the suit.
+  L.open = new Set(); L.showerT = 0;
+  introMode = true; suited = false; showerT = 0; showerDone = false; introSeen = new Set(); introNote = null; gownT = 0;
+  lockerT = 0; lockerDone = false; noteSrc = null;
   state = C.newState(L); mode = 'play'; stepFrame = 0; fx = 0; hintT = 999; toastT = 0; checkpoint = null;
   audio.setLayer(0);
 }
@@ -658,18 +662,57 @@ function endIntro() {
 function introStep() {
   const L = state.level;
   INTRO.triggers.forEach((tr, n) => {
-    if (!introSeen.has(n) && Math.abs(tr.x - state.x) + Math.abs(tr.y - state.y) <= 1) { introSeen.add(n); toast(tr.text[lang], 420); }
+    if (!introSeen.has(n) && (!tr.suited || suited) && Math.abs(tr.x - state.x) + Math.abs(tr.y - state.y) <= 1) { introSeen.add(n); toast(tr.text[lang], 420); }
   });
-  if (!suited && state.y <= 4 && state.x >= INTRO.suitAt) { audio.sfx('rustle'); transition(() => { suited = true; audio.sfx('rustle'); }, 18, 30); }
+  const lk = INTRO.locker;
+  if (!lockerDone && mode === 'play' && state.x === lk.at[0] && state.y === lk.at[1]) { mode = 'locker'; lockerT = 0; state.face = 'up'; audio.sfx('door'); }
+  if (!suited && mode === 'play' && state.x === INTRO.gownAt[0] && state.y === INTRO.gownAt[1]) {
+    if (lockerDone) { mode = 'gown'; gownT = 0; state.face = 'down'; }
+    else toast(lang === 'de' ? `Erst die Straßensachen in deinen Spind, Nr. ${lk.no}.` : `First your street clothes into your locker, no. ${lk.no}.`, 200);
+  }
   // The handover note of shift B, in front of the door to Bay 7 after the air shower.
   if (introNote && !introNote.read && state.x === introNote.x && state.y === introNote.y && mode === 'play') {
-    introNote.read = true; mode = 'note'; noteT = 0; audio.sfx('rustle');
+    introNote.read = true; mode = 'note'; noteT = 0; noteSrc = 'handover'; audio.sfx('rustle');
   }
   if (!showerDone && L.layers[0][idx(state.x, state.y)] === 'A' && suited) {
     const [entry] = introDoors(L);
     L.open.delete(entry); L.walk[0][entry] = 0;
     mode = 'shower'; showerT = 0; audio.sfx('door'); audio.sfx('shower');
   }
+}
+// Your locker: the door opens, jacket and bag go in, then the note inside the door.
+function updateLocker() {
+  if (++lockerT === 34) audio.sfx('rustle');
+  if (lockerT > 80) { lockerDone = true; mode = 'note'; noteT = 0; noteSrc = 'locker'; audio.sfx('sting'); }
+}
+function updateGown() {
+  if (gownT % GOWN_STEP === 0 && gownT < GOWN_STEP * 6) audio.sfx('rustle');
+  if (++gownT > GOWN_STEP * 6 + 30) {
+    suited = true; mode = 'play';
+    const [entry] = introDoors(state.level);
+    state.level.open.add(entry); state.level.walk[0][entry] = 1; audio.sfx('door');
+  }
+}
+// How far the suit covers you, 0..1, and where the gloves and goggles sparkle as they go on.
+function gownView() {
+  if (mode !== 'gown') return {};
+  const i = Math.floor(gownT / GOWN_STEP), f = (gownT % GOWN_STEP) / GOWN_STEP;
+  const gown = i >= 4 ? 1 : (i ? GOWN_REVEAL[i - 1] : 0) + (GOWN_REVEAL[i] - (i ? GOWN_REVEAL[i - 1] : 0)) * f;
+  const sparkle = i === 4 ? [[6, 18], [24, 18]] : i === 5 ? [[12, 4], [18, 4]] : null;
+  return {gown, sparkle};
+}
+// The checklist while gowning: six pieces, ticked one after the other.
+function drawGown() {
+  const items = INTRO.gown[lang], done = Math.floor(gownT / GOWN_STEP);
+  const w = 236, h = 34, x = W / 2 - w / 2, y = FY + C.H * T - h - 18;
+  R('rgba(5,6,10,.88)', x, y, w, h); R('#9fe0ff', x, y + h - 1, w, 1);
+  txt(lang === 'de' ? 'REINRAUMANZUG · VON OBEN NACH UNTEN' : 'CLEANROOM SUIT · TOP TO BOTTOM', W / 2, y + 3, {align: 'center', color: '#9fe0ff', max: w - 8});
+  items.forEach((it, n) => {
+    const cx = x + 8 + (n % 3) * 76, cy = y + 13 + Math.floor(n / 3) * 10, on = n < done, now = n === done;
+    ctx.strokeStyle = on ? '#3fe06a' : now ? '#ffcf5a' : '#3a4058'; ctx.lineWidth = 1; ctx.strokeRect(cx + 0.5, cy + 1.5, 6, 6);
+    if (on) R('#3fe06a', cx + 2, cy + 3, 3, 3);
+    txt(it, cx + 10, cy + 1, {color: on ? '#c9c2ae' : now ? '#ffcf5a' : '#5a6280', max: 64});
+  });
 }
 function updateShower() {
   const L = state.level;
@@ -813,6 +856,8 @@ function update() {
   if (mode === 'cinema') updateCinema();
   if (mode === 'process' && ++procT > window.SchichtProcess.duration(procType)) mode = 'play';
   if (mode === 'shower') updateShower();
+  if (mode === 'gown') updateGown();
+  if (mode === 'locker') updateLocker();
   if (mode === 'dead') deadT++;
   if (mode === 'rewind') updateRewind();
   if (mode === 'clear' && ++deadT > 60) {
@@ -880,11 +925,12 @@ function drawHUD() {
     txt(`${INTRO.time} · ${INTRO.layer[lang].toUpperCase()}`, 4, 4, {color: '#9fe0ff'});
     txt(lang === 'de' ? 'ENTER: ÜBERSPRINGEN' : 'ENTER: SKIP', W - 4, 4, {align: 'right', color: '#6b7190'});
     // In Bay 7 the goal: the lot first, then the way into the fab.
-    if (showerDone) {
+    {
       ctx.font = '400 8px "Silkscreen", monospace';
       const a = 4 + ctx.measureText(`${INTRO.time} · ${INTRO.layer[lang].toUpperCase()}`).width, b = W - 4 - ctx.measureText(lang === 'de' ? 'ENTER: ÜBERSPRINGEN' : 'ENTER: SKIP').width;
-      const got = state.got > 0;
-      txt(got ? 'HOT LOT · 06:00' : INTRO.route[0][lang].toUpperCase(), (a + b) / 2, 4, {align: 'center', color: got ? '#ff6a5a' : '#c9c2ae', max: b - a - 8});
+      const got = state.got > 0, de = lang === 'de';
+      const goal = !lockerDone ? `${de ? 'SPIND' : 'LOCKER'} ${INTRO.locker.no}` : !suited ? (de ? 'ANZUG ANZIEHEN' : 'PUT ON THE SUIT') : !showerDone ? (de ? 'LUFTDUSCHE' : 'AIR SHOWER') : got ? 'HOT LOT · 06:00' : INTRO.route[0][lang].toUpperCase();
+      txt(goal, (a + b) / 2, 4, {align: 'center', color: got ? '#ff6a5a' : '#c9c2ae', max: b - a - 8});
     }
     return;
   }
@@ -978,7 +1024,7 @@ function drawPA() {
 }
 // A note from shift B: torn ruled paper, a coffee ring, blue handwriting, the signature.
 function drawNote() {
-  const n = introMode ? INTRO.note : LEVELS[levelIndex].note, a = clamp(noteT / 10, 0, 1);
+  const n = introMode ? (noteSrc === 'locker' ? INTRO.locker.note : INTRO.note) : LEVELS[levelIndex].note, a = clamp(noteT / 10, 0, 1);
   ctx.globalAlpha = a;
   R('rgba(0,0,0,.62)', 0, FY, W, H - FY);
   const pw = 212, ph = 116, px = Math.round(W / 2 - pw / 2), py = Math.round(34 + (1 - a) * 6);
@@ -988,9 +1034,9 @@ function drawNote() {
   for (let yy = py + 30; yy < py + ph - 4; yy += 14) R('#bccadf', px + 4, yy, pw - 8, 1);
   R('#e3a8a0', px + 20, py + 2, 1, ph - 4);
   ctx.strokeStyle = 'rgba(140,96,50,.28)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(px + pw - 30, py + ph - 26, 15, 0.3, 5.9); ctx.stroke();
-  txt(t().noteHead, px + 26, py + 7, {font: 'IBM Plex Sans', size: 6, color: '#8a8470', shadow: null, max: pw - 32});
+  txt(n.head ? n.head[lang] : t().noteHead, px + 26, py + 7, {font: 'IBM Plex Sans', size: 6, color: '#8a8470', shadow: null, max: pw - 32});
   n.text[lang].forEach((line, i) => txt(line, px + 26, py + 20 + i * 14, {font: 'IBM Plex Sans', size: 9, italic: true, color: '#1f2c6e', shadow: null, max: pw - 34}));
-  txt(`— ${n.by}`, px + pw - 10, py + ph - 14, {font: 'IBM Plex Sans', size: 9, italic: true, weight: 600, align: 'right', color: '#1f2c6e', shadow: null, max: pw - 30});
+  txt(`— ${typeof n.by === 'string' ? n.by : n.by[lang]}`, px + pw - 10, py + ph - 14, {font: 'IBM Plex Sans', size: 9, italic: true, weight: 600, align: 'right', color: '#1f2c6e', shadow: null, max: pw - 30});
   if (noteT > 25 && (frame >> 5) % 2) txt(t().cont, W / 2, py + ph + 8, {align: 'center', color: '#8c93a8'});
   ctx.globalAlpha = 1;
 }
@@ -1012,7 +1058,9 @@ function renderPlay() {
   if (shake > 0) ctx.translate(Math.round((hash(frame * 3) - 0.5) * shake * 0.8), Math.round((hash(frame * 5) - 0.5) * shake * 0.6));
   const rt = state.level.reticle && !state.reticle && !introMode && !found.has(LEVELS[levelIndex].id) ? state.level.reticle : null;
   window.SchichtWorld.draw(ctx, state, {reticle: rt, reticleN: levelIndex,k: mode === 'play' ? k : 1, frame, reduced, lang, enemies: introGhosts() || state.enemies.map(enemyPos),
-    playerVisible: cheatSafe || !(state.step < state.safeUntil && (frame >> 2) % 2), shiftHint: shiftHintT > 0 && !introMode, civilian: introMode && !suited,
+    playerVisible: cheatSafe || !(state.step < state.safeUntil && (frame >> 2) % 2), shiftHint: shiftHintT > 0 && !introMode, civilian: introMode && !suited, gownSpot: introMode && lockerDone && !suited && mode !== 'gown', ...gownView(),
+    lockerDone: introMode && lockerDone, lockerSpot: introMode && !lockerDone && mode !== 'locker' ? INTRO.locker.at : null,
+    locker: introMode && (mode === 'locker' || (mode === 'note' && noteSrc === 'locker')) ? {no: INTRO.locker.no, t: mode === 'locker' ? lockerT : 99} : null,
     frozen: state.enemies.map(e => C.frozen(state, e)), flash: flashFx && {...flashFx, a: 1 - flashFx.t / 34},
     grace: !introMode && state.layer === 1 && state.enemies.length ? clamp(1 - ((state.step - state.lastShift) * STEP_FRAMES + stepFrame) / (C.GRACE * STEP_FRAMES), 0, 1) : 0,
     ...storyView()});
@@ -1026,6 +1074,7 @@ function renderPlay() {
   }
   drawHUD();
   drawPA();
+  if (mode === 'gown') drawGown();
   if (toastT > 0 && !toastHeld() && mode !== 'note') {
     ctx.globalAlpha = clamp(toastT / 20, 0, 1);
     ctx.font = '400 8px "Silkscreen", monospace';
@@ -1435,7 +1484,7 @@ if (new URLSearchParams(location.search).has('test')) {
   // Test hook: deterministic control for the browser check, only with ?test in the URL.
   window.__schicht = {
     levels, get state() { return state; }, get mode() { return mode; },
-    card: i => startCard(i), start: i => startLevel(i), act: a => doStep(a), render, update, intro: () => startIntro(), get showerT() { return showerT; }, get introNote() { return introNote; }, cinema: () => startCinema(), get cinemaT() { return cinemaT; },
+    card: i => startCard(i), start: i => startLevel(i), act: a => doStep(a), render, update, intro: () => startIntro(), get showerT() { return showerT; }, get gownT() { return gownT; }, get lockerT() { return lockerT; }, get introNote() { return introNote; }, cinema: () => startCinema(), get cinemaT() { return cinemaT; },
     finale: () => { mode = 'finale'; finT = 0; }, get finT() { return finT; }, found,
     process: (type, tt) => { procType = type; procT = tt; mode = 'process'; },
     setLayer: l => audio.setLayer(l), lang: l => { lang = l; applyLanguage(); },

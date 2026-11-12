@@ -50,6 +50,32 @@ if (!url) throw new Error('Pass the URL of the served repository root.');
         assert.deepEqual(r.after, r.at, `${LEVELS[i].time}: the rewind stops at the last process step`);
         assert.ok(r.safe && r.mode === 'play', `${LEVELS[i].time}: the hour resumes with a moment of safety`);
       }
+      // The gowning intro end to end: the door stays shut without the suit, street clothes go into the locker first,
+      // the suit goes on at the rack,
+      // the air shower tears into the shift before, the note of shift B, the lot from the cart, then the airlock.
+      if (locale === 'de-DE') {
+        const r = await page.evaluate(() => {
+          const S = __schicht, log = [];
+          const settle = () => { let g = 0; while (S.mode !== 'play' && g++ < 2000) { if (S.mode === 'note' && S.noteT > 30) S.press('shift'); S.update(); } };
+          const walk = moves => { for (const m of moves) { S.act(m); for (let f = 0; f < 10; f++) S.update(); settle(); } return [S.state.x, S.state.y]; };
+          S.intro();
+          walk(['up', 'right', 'up', 'up', 'right', 'right', 'right', 'right', 'up', 'right']);
+          log.push(S.state.x === 6 && S.state.y === 3 ? 'door shut' : `door open at ${S.state.x},${S.state.y}`);
+          walk(['up']); log.push(S.mode === 'play' ? 'locker first' : 'suit without locker');
+          S.act('left'); for (let f = 0; f < 10; f++) S.update(); S.act('left'); log.push(S.mode === 'locker' ? 'locker' : 'no locker'); settle();
+          walk(['right']); S.act('right'); log.push(S.mode === 'gown' ? 'gowning' : 'no gowning'); settle();
+          walk(['down', 'right', 'right']);
+          walk(['right', 'right', 'right', 'right', 'right']);
+          log.push(S.introNote && S.introNote.read ? 'note read' : 'note missed');
+          walk(['right', 'right', 'down', 'right']);
+          log.push(S.state.got === 1 ? 'lot picked up' : 'no lot');
+          walk(['up', 'up', 'up', 'right', 'right']);
+          for (let f = 0; f < 120; f++) S.update();
+          log.push(S.mode);
+          return log;
+        });
+        assert.deepEqual(r, ['door shut', 'locker first', 'locker', 'gowning', 'note read', 'lot picked up', 'card'], 'the gowning intro plays through');
+      }
       // Real keyboard input reaches the game: start from the title and walk.
       // A fresh night (no stored progress) starts with the gowning intro.
       await page.evaluate(() => { try { localStorage.clear(); } catch (_) { /* blocked */ } });
@@ -84,6 +110,6 @@ if (!url) throw new Error('Pass the URL of the served repository root.');
       assert.deepEqual(errors, [], `no page errors in ${locale}`);
       await page.close();
     }
-    console.log('PASS: all levels won in the browser (DE and EN), rewind to the last process step, keyboard input, a minigame with the keyboard, reload with saved states, no page errors.');
+    console.log('PASS: all levels won in the browser (DE and EN), rewind to the last process step, the gowning intro, keyboard input, a minigame with the keyboard, reload with saved states, no page errors.');
   } finally { await browser.close(); }
 })().catch(e => { console.error(e); process.exit(1); });

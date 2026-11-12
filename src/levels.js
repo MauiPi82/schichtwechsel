@@ -509,8 +509,8 @@
     title: {de: 'Einschleusen', en: 'Gowning'}, log: {de: [], en: []}, fact: {de: [], en: []}, hint: {de: '', en: ''},
     triggers: [
       {x: 1, y: 7, text: {de: 'Vogt Microelettronica, Luino. 21:56. Du übernimmst Bay 7 von Turno B. Keiner von ihnen hat ausgestempelt.', en: 'Vogt Microelettronica, Luino. 21:56. You take over Bay 7 from shift B. None of them clocked out.'}},
-      {x: 2, y: 5, text: {de: 'Umkleide: Overall, Haube, Mundschutz, Brille, Handschuhe, Überschuhe. Ein Mensch verliert Millionen Partikel pro Minute.', en: 'Gowning room: coverall, hood, face mask, goggles, gloves, boot covers. A person sheds millions of particles a minute.'}},
-      {x: 6, y: 3, text: {de: 'Luftdusche: Düsen blasen gefilterte Luft mit etwa 25 m/s und lösen die letzten Partikel vom Anzug.', en: 'Air shower: nozzles blow filtered air at about 25 m/s and loosen the last particles from the suit.'}},
+      {x: 2, y: 5, text: {de: 'Umkleide. Straßensachen in deinen Spind, Nr. 18. Der Reinraumanzug hängt hinten an der Stange. Ein Mensch verliert Millionen Partikel pro Minute.', en: 'Gowning room. Street clothes go into your locker, no. 18. The cleanroom suit hangs on the rail at the back. A person sheds millions of particles a minute.'}},
+      {x: 7, y: 3, suited: true, text: {de: 'Luftdusche: Düsen blasen gefilterte Luft mit etwa 25 m/s und lösen die letzten Partikel vom Anzug.', en: 'Air shower: nozzles blow filtered air at about 25 m/s and loosen the last particles from the suit.'}},
       {x: 13, y: 3, text: {de: 'Bay 7. Die Anlagen laufen. Niemand ist hier. Am Übergabewagen steht ein Los.', en: 'Bay 7. The tools are running. Nobody is here. A lot stands on the handover cart.'}},
     ],
     // The handover: lot 4471 on its cart, where shift B left it at 21:40. Read when it is picked up.
@@ -519,7 +519,15 @@
       en: 'Lot 4471. Red tag: HOT LOT, due at 06:00. Traveller: last booked at 21:40 by shift B. Nothing after that.',
     },
     route: [{de: 'Los 4471 abholen', en: 'Pick up lot 4471'}],
-    suitAt: 6,
+    // The suit hangs on the gowning rack (G); standing in front of it you put it on, top to bottom.
+    gownAt: [6, 2],
+    // Before that, your locker: jacket and bag go in. Inside the door a note in your own handwriting, from 06:12.
+    locker: {at: [4, 2], no: 18, note: {
+      head: {de: 'SPIND 18 · INNEN AN DER TÜR', en: 'LOCKER 18 · INSIDE THE DOOR'},
+      by: {de: 'deine Handschrift', en: 'your handwriting'},
+      text: {de: ['06:12.', 'Los 4471 ist fertig.', 'Ich bin noch drin.'], en: ['06:12.', 'Lot 4471 is done.', 'I am still inside.']},
+    }},
+    gown: {de: ['HAUBE', 'MUNDSCHUTZ', 'OVERALL', 'ÜBERSCHUHE', 'HANDSCHUHE', 'BRILLE'], en: ['HOOD', 'FACE MASK', 'COVERALL', 'BOOT COVERS', 'GLOVES', 'GOGGLES']},
     // In the air shower the picture tears into the shift before for a moment: shift B stands in the cabin with you,
     // one, two, three. Afterwards their handover note lies in front of the door to Bay 7.
     ghosts: [[11, 3], [10, 3], [9, 3]],
@@ -534,7 +542,7 @@
     ],
     day: [
       '####################',
-      '#KKKKKK#####......X#',
+      '#KKKKKG#####......X#',
       '#......#####.......#',
       '#.BBBB.DAAAAD......#',
       '#......#####....1..#',

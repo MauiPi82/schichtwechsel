@@ -82,7 +82,7 @@ function holeTile(L, layer, x, y, px, py) {
 }
 
 /* ---------- Gowning room and air shower ---------- */
-function lockers(x, y, px, py) {
+function lockers(x, y, px, py, open) {
   R('rgba(0,0,0,.25)', px, py + T, T, 3);
   R('#8d97a4', px, py - 10, T, T + 10); R('#a7b0bc', px, py - 10, T, 3);
   for (const dx of [1, 16]) {
@@ -91,6 +91,15 @@ function lockers(x, y, px, py) {
     R('#4a525e', px + dx + 11, py + 10, 2, 4);
     const no = 10 + x * 2 + (dx > 1 ? 1 : 0);
     text(String(no), px + dx + 3, py + 20, {size: 8, color: '#4a525e'});
+    // Your locker, open: the door swung aside, jacket and bag on the hook, a note taped inside the door.
+    if (open && open.no === no && !night) {
+      const k = Math.min(1, open.t / 16);
+      R('#2a2e36', px + dx + 1, py - 5, 13, T + 2); R('#3a404a', px + dx + 1, py - 5, 13, 1);
+      R('#9aa3ae', px + dx + 6, py - 3, 3, 1);
+      if (open.t > 30) { R('#24324e', px + dx + 3, py - 2, 9, 12); R('#1a2438', px + dx + 7, py - 2, 1, 12); R('#6a4a2a', px + dx + 8, py + 9, 5, 5); }
+      R('#b8c0cb', px + dx - Math.round(11 * k), py - 6, 3 + Math.round(9 * (1 - k)), T + 4);
+      if (open.t > 60) { R('#f3eedc', px + dx - Math.round(11 * k) + 1, py, 3, 4); if ((F >> 4) % 2) R('#fff6dc', px + dx - Math.round(11 * k) + 1, py, 1, 1); }
+    }
     // In the shift before three lockers stand open, the street clothes of shift B still inside.
     if (night && no >= 15 && no <= 17) {
       R('#14100a', px + dx + 1, py - 5, 13, T + 2); R('#3a2e1c', px + dx + 4, py - 3, 7, 1);
@@ -99,6 +108,32 @@ function lockers(x, y, px, py) {
     }
   }
   if (night) R('rgba(16,11,4,.7)', px, py - 10, T, T + 10);
+}
+// The gowning rack: a steel rail, a hanger, the cleanroom suit with its hood; boot covers and gloves on the shelf.
+function gownRack(px, py, taken, glow) {
+  R('rgba(0,0,0,.25)', px + 2, py + T, T - 4, 3);
+  R('#8d97a4', px + 3, py - 10, 2, T + 10); R('#8d97a4', px + T - 5, py - 10, 2, T + 10); R('#b8c0cb', px + 2, py - 9, T - 4, 2);
+  R('#7c8693', px + 15, py - 7, 2, 3);
+  ctx.strokeStyle = '#5a6370'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(px + 9.5, py - 1.5); ctx.lineTo(px + 16, py - 4.5); ctx.lineTo(px + 22.5, py - 1.5); ctx.stroke();
+  if (!taken) {
+    // An empty suit: the hood hangs over the hanger with its face opening, arms and legs limp, folds in the cloth.
+    const c = SUIT.day, sw = Math.round(Math.sin(F / 40));
+    R(c.suit, px + 12 + sw, py - 4, 8, 6); R(c.pleat, px + 14 + sw, py - 2, 4, 3); R(c.shade, px + 12 + sw, py + 1, 8, 1);
+    R(c.suit, px + 10 + sw, py + 2, 12, 15); R(c.zip, px + 16 + sw, py + 3, 1, 13); R(c.badge, px + 18 + sw, py + 5, 2, 2);
+    R(c.pleat, px + 12 + sw, py + 9, 3, 1); R(c.pleat, px + 18 + sw, py + 12, 3, 1);
+    R(c.suit, px + 8 + sw, py + 3, 3, 12); R(c.suit, px + 21 + sw, py + 3, 3, 12); R(c.shade, px + 8 + sw, py + 14, 3, 1); R(c.shade, px + 21 + sw, py + 14, 3, 1);
+    R(c.suit, px + 11 + sw, py + 17, 4, 6); R(c.suit, px + 17 + sw, py + 17, 4, 6); R(c.shade, px + 10 + sw, py + 16, 12, 1);
+    R(c.frame, px + 23, py + 20, 5, 2); R(c.lens, px + 24, py + 20, 1, 1); R(c.lens, px + 26, py + 20, 1, 1);
+  }
+  R('#a9b1bc', px + 3, py + 25, T - 6, 2);
+  if (!taken) { R('#cfe6f5', px + 6, py + 22, 6, 3); R('#cfe6f5', px + 13, py + 22, 6, 3); R(SUIT.day.glove, px + 21, py + 21, 6, 4); }
+  if (night) R('rgba(16,11,4,.7)', px, py - 10, T, T + 10);
+  // Until the suit is on, the place in front of the rack glows like the next process station.
+  if (glow) glowSpot(px, py + T);
+}
+function glowSpot(px, py) {
+  const a = 0.45 + 0.4 * Math.sin(F / 8);
+  ctx.strokeStyle = `rgba(127,208,255,${a})`; ctx.lineWidth = 2; ctx.strokeRect(px + 1, py + 1, T - 2, T - 2);
 }
 function bench(x, y, px, py) {
   floorTile(x, y, px, py);
@@ -664,15 +699,17 @@ function bunny(px, py, face, walk, c, o = {}) {
 }
 
 // Street clothes before gowning: dark jacket, jeans, a bag over the shoulder.
-function civilian(px, py, face, walk) {
+function civilian(px, py, face, walk, light) {
   const sw = walk ? [0, 1, 0, -1][walk] : 0;
   ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(px + 16, py + 30, 8, 3, 0, 0, 7); ctx.fill();
   R('#3a5a8a', px + 11, py + 21, 4, 8 - Math.max(0, sw)); R('#3a5a8a', px + 17, py + 21, 4, 8 - Math.max(0, -sw));
   R('#1a1e24', px + 11, py + 28, 4, 2); R('#1a1e24', px + 17, py + 28, 4, 2);
-  R('#24324e', px + 9, py + 10, 14, 12); R('#1a2438', px + 15, py + 10, 1, 12); R('#2e4064', px + 9, py + 10, 14, 1);
-  R('#24324e', px + 6, py + 11 + sw, 3, 9); R('#24324e', px + 23, py + 11 - sw, 3, 9);
+  // Jacket and bag; once they are in the locker, a grey jumper.
+  const top = light ? '#7a8594' : '#24324e';
+  R(top, px + 9, py + 10, 14, 12); R(light ? '#6a7584' : '#1a2438', px + 15, py + 10, 1, light ? 2 : 12); R(light ? '#8a96a6' : '#2e4064', px + 9, py + 10, 14, 1);
+  R(top, px + 6, py + 11 + sw, 3, 9); R(top, px + 23, py + 11 - sw, 3, 9);
   R('#e2b896', px + 6, py + 20 + sw, 3, 2); R('#e2b896', px + 23, py + 20 - sw, 3, 2);
-  R('#5a3a1a', px + 21, py + 11, 2, 10); R('#6a4a2a', px + 20, py + 18, 6, 5);
+  if (!light) { R('#5a3a1a', px + 21, py + 11, 2, 10); R('#6a4a2a', px + 20, py + 18, 6, 5); }
   R('#e2b896', px + 11, py + 2, 10, 9); R('#5a3a1a', px + 11, py + 1, 10, 3); R('#5a3a1a', px + 10, py + 2, 2, 5); R('#5a3a1a', px + 20, py + 2, 2, 4);
   if (face === 'down') { R('#2a1a0a', px + 13, py + 5, 1, 1); R('#2a1a0a', px + 18, py + 5, 1, 1); R('#c0907a', px + 15, py + 8, 2, 1); }
   if (face === 'up') R('#5a3a1a', px + 11, py + 2, 10, 8);
@@ -808,8 +845,18 @@ function draw(c, s, o) {
   const ppx = lerp(s.px, s.x, k) * T, ppy = FY + lerp(s.py, s.y, k) * T;
   const figures = [];
   const walkF = (s.px !== s.x || s.py !== s.y) ? (Math.floor(k * 4) % 4) : 0;
-  if (o.playerVisible) figures.push({y: lerp(s.py, s.y, k), draw: () => o.civilian ? civilian(ppx, ppy - 4, s.face, walkF)
-    : bunny(ppx, ppy - 4, s.face, walkF, night ? SUIT.night : SUIT.day, {carry: !L.intro || s.got > 0, night})});
+  if (o.playerVisible) figures.push({y: lerp(s.py, s.y, k), draw: () => {
+    if (o.gown !== undefined) {
+      // Putting on the suit: it covers the street clothes from the top down, hood first, boot covers last.
+      civilian(ppx, ppy - 4, 'down', 0, true);
+      const edge = ppy - 8 + 42 * o.gown;
+      ctx.save(); ctx.beginPath(); ctx.rect(ppx, ppy - 10, T, edge - (ppy - 10)); ctx.clip();
+      bunny(ppx, ppy - 4, 'down', 0, SUIT.day, {carry: false, night}); ctx.restore();
+      if (o.gown < 1) R('rgba(255,255,255,.75)', ppx + 7, Math.round(edge), 18, 1);
+      if (o.sparkle) for (const [sx, sy] of o.sparkle) { const a = 0.5 + 0.5 * Math.sin(F / 3); R(`rgba(255,255,255,${a})`, ppx + sx, ppy - 4 + sy, 2, 2); }
+    } else if (o.civilian) civilian(ppx, ppy - 4, s.face, walkF, o.lockerDone);
+    else bunny(ppx, ppy - 4, s.face, walkF, night ? SUIT.night : SUIT.day, {carry: !L.intro || s.got > 0, night});
+  }});
   const isSet = i => !!(o.frozen && o.frozen[i]);
   if (night) o.enemies.forEach(([ex, ey], i) => figures.push({y: ey, draw: () => {
     const jit = !reduced && !isSet(i) && hash(F + i * 9) > 0.97 ? 2 : 0;
@@ -823,7 +870,8 @@ function draw(c, s, o) {
       const c2 = tileAt(L, layer, x, y), px = x * T, py = FY + y * T;
       if (c2 === '#') { wallTile(L, layer, x, y, px, py); showerNozzles(L, layer, x, y, px, py); }
       else if (c2 === '=') lakeWindow(x, y, px, py);
-      else if (c2 === 'K') lockers(x, y, px, py);
+      else if (c2 === 'K') lockers(x, y, px, py, o.locker);
+      else if (c2 === 'G') gownRack(px, py, !o.civilian || o.gown > 0.05, o.gownSpot);
       else if (c2 === 'B') bench(x, y, px, py);
       else if (c2 === 'D') door(L, x, y, px, py);
     }
@@ -849,6 +897,7 @@ function draw(c, s, o) {
     for (const f of figures) if (Math.floor(f.y + 0.5) === y) f.draw();
   }
   stations(L, layer, s, o.lang);
+  if (o.lockerSpot) glowSpot(o.lockerSpot[0] * T, FY + o.lockerSpot[1] * T);
   if (o.reticle && night && window.SchichtOdenchip) {
     const rx = o.reticle.x * T, ry = FY + o.reticle.y * T, bob = Math.round(Math.sin(F / 14) * 2);
     R('rgba(0,0,0,.35)', rx + 8, ry + 26, 18, 3);
