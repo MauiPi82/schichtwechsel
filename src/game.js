@@ -489,7 +489,7 @@ function pollPad() {
 let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0, shake = 0;
 let progress = clamp(+store.get('level') || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
 const deathsBy = levels.map(() => 0);
-const BUILD = '0.42 · 2026-11-12';
+const BUILD = '0.43 · 2026-11-12';
 // Testers can jump to an hour: ?stunde=3 or ?hour=3 opens the third hour.
 const jump = +(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || 0);
 if (jump >= 1 && jump <= levels.length) progress = jump - 1;
@@ -610,6 +610,8 @@ function updateFinale() {
   finT += 1 / 60;
   const [id, u] = window.SchichtOdenchip.phaseAt(finT);
   if (id !== before[0]) audio.sfx(id === 'dawn' ? 'won' : 'reticle');
+  if (id === 'bond' && frame % 8 === 0) audio.sfx('zap');
+  if (id === 'mold' && u > 1 && u < 2.6 && frame % 4 === 0) audio.sfx('zap');
   // The time clock stamps the four cards one after another; the ferry sounds while they walk out.
   if (id === 'clock') for (let i = 0; i < 4; i++) { const at = 0.4 + i * 1.3 + 0.65; if (u >= at && (before[0] !== 'clock' || before[1] < at)) audio.sfx('station'); }
   if (id === 'gate' && u >= 5.2 && before[1] < 5.2) audio.horn();

@@ -108,9 +108,10 @@ function board(u) {
 }
 
 /* ---------- Sequence ---------- */
-// The chip comes together, then the story ends: the time clock takes all four cards, four leave by the lake.
+// The chip comes together (exposed, cut, bonded, moulded, on its board), then the story ends: the time clock takes all four cards, four leave by the lake.
 const PHASES = [
-  {id: 'expose', d: 3.4}, {id: 'wafer', d: 2.6}, {id: 'die', d: 3.4}, {id: 'board', d: 4.2}, {id: 'clock', d: 6.2}, {id: 'gate', d: 9.0}, {id: 'dawn', d: 999},
+  {id: 'expose', d: 3.4}, {id: 'wafer', d: 2.6}, {id: 'die', d: 3.4}, {id: 'bond', d: 3.6}, {id: 'mold', d: 2.8}, {id: 'board', d: 4.2},
+  {id: 'clock', d: 6.2}, {id: 'gate', d: 9.0}, {id: 'dawn', d: 999},
 ];
 function phaseAt(t) {
   for (const p of PHASES) { if (t < p.d) return [p.id, t, p.d]; t -= p.d; }
@@ -149,6 +150,10 @@ function draw(c, t, frame, lang, texts) {
       const zk = ease(clamp((u - 1.0) / 4, 0, 1)), s = 230 + zk * 40;
       die(ctx, W / 2 - 0.5 * s, 190 - 0.5 * s, s);
     }
+  } else if (id === 'bond') {
+    pack({wires: ease(k) * 4 * PK.n, mold: 0, mark: 0});
+  } else if (id === 'mold') {
+    pack({wires: 99, mold: ease(k * 2.5), mark: clamp((u - 1.0) / 1.6, 0, 1)});
   } else if (id === 'board') {
     board(k);
   } else if (id === 'clock' || id === 'gate') {
