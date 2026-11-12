@@ -96,6 +96,32 @@ function serve() {
   }, {day, night});
   await save('cover-1260x1000.png', cover[0]); await save('cover-630x500.png', cover[1]);
 
+  // Banner for the top of the itch page (1920 x 480, and 960 x 240): the same split, wide, the title in the middle.
+  const banner = await page.evaluate(async ({day, night}) => {
+    const load = src => new Promise(r => { const im = new Image(); im.onload = () => r(im); im.src = src; });
+    const [a, b] = await Promise.all([load(day), load(night)]);
+    const c = document.createElement('canvas'); c.width = 1920; c.height = 480;
+    const x = c.getContext('2d');
+    const sw = 1280, sh = 320, sx = 0, sy = 230;
+    x.textBaseline = 'top'; x.font = '700 120px "Pixelify Sans"';
+    const w1 = x.measureText('SCHICHT').width, w2 = x.measureText('WECHSEL').width, left = 960 - (w1 + w2) / 2;
+    const mid = left + w1, ty = 150 + 60, slope = 140 / 480, top = mid + slope * ty, bottom = mid - slope * (480 - ty);
+    x.drawImage(a, sx, sy, sw, sh, 0, 0, 1920, 480);
+    x.save(); x.beginPath(); x.moveTo(top, 0); x.lineTo(1920, 0); x.lineTo(1920, 480); x.lineTo(bottom, 480); x.closePath(); x.clip();
+    x.drawImage(b, sx, sy, sw, sh, 0, 0, 1920, 480); x.restore();
+    x.strokeStyle = '#ffb43a'; x.lineWidth = 6; x.beginPath(); x.moveTo(top, 0); x.lineTo(bottom, 480); x.stroke();
+    const g = x.createRadialGradient(960, 220, 60, 960, 220, 760); g.addColorStop(0, 'rgba(5,6,10,.78)'); g.addColorStop(1, 'rgba(5,6,10,.15)');
+    x.fillStyle = g; x.fillRect(0, 0, 1920, 480);
+    x.textAlign = 'left';
+    x.fillStyle = '#2f6db3'; x.fillText('SCHICHT', left + 6, 156); x.fillStyle = '#e9eef5'; x.fillText('SCHICHT', left, 150);
+    x.fillStyle = '#3a2200'; x.fillText('WECHSEL', left + w1 + 6, 156); x.fillStyle = '#ffb43a'; x.fillText('WECHSEL', left + w1, 150);
+    x.textAlign = 'center'; x.font = '400 36px "Silkscreen"'; x.fillStyle = '#c9c2ae'; x.fillText('TURNO DI NOTTE', 960, 290);
+    const half = document.createElement('canvas'); half.width = 960; half.height = 240;
+    const h = half.getContext('2d'); h.imageSmoothingEnabled = true; h.imageSmoothingQuality = 'high'; h.drawImage(c, 0, 0, 960, 240);
+    return [c.toDataURL('image/png'), half.toDataURL('image/png')];
+  }, {day, night});
+  await save('banner-1920x480.png', banner[0]); await save('banner-960x240.png', banner[1]);
+
   // GIFs from frames, through ffmpeg with an optimised palette.
   const gif = async (name, setup, frames, perFrame) => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sw-gif-'));
