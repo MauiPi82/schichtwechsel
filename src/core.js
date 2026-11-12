@@ -73,6 +73,12 @@
     };
     level.beams = (def.beams || []).map(b => ({...b, phases: b.species.map(sp => traceBeam(level, b, sp))}));
     level.heat = def.heat ? simulateHeat(level, def.heat) : null;
+    // One hidden reticle per layer, always in the shift before. Optional; all eight open the secret finale.
+    if (def.reticle) {
+      const [rx, ry] = def.reticle;
+      if (!walkable(level, NIGHT, rx, ry)) throw new Error(`Level ${def.id}: reticle on a solid night tile`);
+      level.reticle = {x: rx, y: ry, layer: NIGHT};
+    }
     level.pulses = (def.pulses || []).map(p => {
       const cells = new Uint8Array(N);
       for (let y = p.y0; y <= p.y1; y++) for (let x = p.x0; x <= p.x1; x++) cells[idx(x, y)] = 1;
@@ -197,7 +203,7 @@
       level, step: 0, layer: level.start.layer,
       x: level.start.x, y: level.start.y, px: level.start.x, py: level.start.y, face: 'down',
       got: 0, enemies: level.enemyStarts.map(e => ({x: e.x, y: e.y, px: e.x, py: e.y, moved: -1})),
-      lastShift: -SHIFT_COOLDOWN, shifts: 0, status: 'play', cause: '', events: [], safeUntil: 0,
+      lastShift: -SHIFT_COOLDOWN, shifts: 0, status: 'play', cause: '', events: [], safeUntil: 0, reticle: false,
     };
   }
 
@@ -265,6 +271,8 @@
       }
     }
 
+    const rt = L.reticle;
+    if (rt && !state.reticle && rt.layer === state.layer && rt.x === state.x && rt.y === state.y) { state.reticle = true; state.events.push('reticle'); }
     const st = L.stations[state.got];
     if (st && st.layer === state.layer && st.x === state.x && st.y === state.y) {
       state.got++; state.events.push('station');

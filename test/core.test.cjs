@@ -120,3 +120,32 @@ test('grace after shifting next to the previous shift is long enough to shift ba
   core.step(s, 'shift');
   assert.equal(s.status, 'play'); assert.equal(s.layer, core.DAY);
 });
+
+test('every layer hides one reticle in the shift before, reachable from the start', () => {
+  for (const level of levels) {
+    assert.ok(level.reticle, `${level.id} has a reticle`);
+    const {x, y} = level.reticle;
+    assert.ok(!level.stations.some(t => t.x === x && t.y === y) && !level.exits.some(t => t.x === x && t.y === y), `${level.id}: reticle not on a station or exit`);
+    const seen = new Set([`${level.start.x},${level.start.y},${level.start.layer}`]), q = [[level.start.x, level.start.y, level.start.layer]];
+    while (q.length) {
+      const [cx, cy, l] = q.shift();
+      const next = [[cx + 1, cy, l], [cx - 1, cy, l], [cx, cy + 1, l], [cx, cy - 1, l], [cx, cy, 1 - l]];
+      for (const [nx, ny, nl] of next) {
+        const k = `${nx},${ny},${nl}`;
+        if (!seen.has(k) && core.walkable(level, nl, nx, ny) && (nl === l || core.walkable(level, l, nx, ny))) { seen.add(k); q.push([nx, ny, nl]); }
+      }
+    }
+    assert.ok(seen.has(`${x},${y},${core.NIGHT}`), `${level.id}: reticle reachable in the shift before`);
+  }
+});
+
+test('a reticle is picked up only in the shift before', () => {
+  const day = ['####################', '#P.................#', '#..................#', '#..................#', '#..................#',
+    '#..................#', '#..................#', '#..................#', '#.................X#', '####################'];
+  const L = core.parseLevel({id: 't6', time: '', title: {}, day, night: day.map(r => r.replace(/[PX]/g, '.')), reticle: [2, 1]});
+  const s = core.newState(L);
+  core.step(s, 'right');
+  assert.equal(s.reticle, false, 'not by day');
+  core.step(s, 'shift');
+  assert.equal(s.reticle, true); assert.ok(s.events.includes('reticle'));
+});

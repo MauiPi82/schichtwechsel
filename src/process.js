@@ -224,8 +224,26 @@ function measure(t, x, y, w, h) {
 }
 
 let lang = 'de';
-function draw(c, type, t, language) {
+function drawReticleFound(t, info) {
+  const appear = ease(t / 14), y0 = PY + (1 - appear) * 20;
+  ctx.fillStyle = `rgba(3,4,8,${0.55 * appear})`; ctx.fillRect(0, 0, W, 180);
+  R('#0b0f18', PX - 2, y0 - 2, PW + 4, PH + 4); R('#7fd0ff', PX - 2, y0 - 2, PW + 4, 1);
+  R('#141a28', PX, y0, PW, 12);
+  text(lang === 'de' ? `RETIKEL · MASKE FÜR SCHICHT ${info.n}` : `RETICLE · MASK FOR LAYER ${info.n}`, PX + 6, y0 + 2, {color: '#9fe0ff'});
+  text(`${info.found}/${info.total}`, PX + PW - 6, y0 + 2, {align: 'right', color: '#ffcf5a'});
+  R('#0d111a', PX, y0 + 12, PW, PH - 28);
+  const s = 64 + Math.sin(t / 20) * 2, cx = PX + PW / 2, cy = y0 + 12 + (PH - 28) / 2;
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate(Math.sin(t / 40) * 0.08); ctx.translate(-s / 2, -s / 2);
+  window.SchichtOdenchip.reticle(ctx, 0, 0, s, info.n);
+  ctx.restore();
+  for (let i = 0; i < 6; i++) { const a = t / 15 + i; R('#e6f6ff', cx + Math.cos(a) * 44, cy + Math.sin(a * 1.3) * 34, 1, 1); }
+  R('#141a28', PX, y0 + PH - 16, PW, 16);
+  text(lang === 'de' ? 'Jede Schicht braucht ihre eigene Maske. Chrom auf Quarz, 4:1.' : 'Every layer needs its own mask. Chrome on quartz, 4:1.', PX + 6, y0 + PH - 12, {font: 'IBM Plex Sans', size: 7, color: '#c9c8cf', max: PW - 12});
+  if (t > 40 && (t >> 5) % 2) text(lang === 'de' ? 'SHIFT: WEITER' : 'SHIFT: CONTINUE', W / 2, y0 + PH + 6, {align: 'center', color: '#6b7190'});
+}
+function draw(c, type, t, language, info) {
   ctx = c; F = t; lang = language;
+  if (type === 'reticle') return drawReticleFound(t, info || {n: 1, found: 1, total: 8});
   const appear = ease(t / 14), cap = (CAP[type] || CAP.etch)[language];
   ctx.fillStyle = `rgba(3,4,8,${0.55 * appear})`; ctx.fillRect(0, 0, W, 180);
   const y0 = PY + (1 - appear) * 20;

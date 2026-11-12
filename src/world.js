@@ -573,6 +573,12 @@ function draw(c, s, o) {
     for (const f of figures) if (Math.floor(f.y + 0.5) === y) f.draw();
   }
   stations(L, layer, s, o.lang);
+  if (o.reticle && night && window.SchichtOdenchip) {
+    const rx = o.reticle.x * T, ry = FY + o.reticle.y * T, bob = Math.round(Math.sin(F / 14) * 2);
+    R('rgba(0,0,0,.35)', rx + 8, ry + 26, 18, 3);
+    window.SchichtOdenchip.reticle(ctx, rx + 7, ry + 5 + bob, 18, o.reticleN);
+    ctx = c;
+  }
   wallSigns(L, layer, o.lang);
   if (L.showerT > 0) showerAir(L);
   // Shadows of the previous shift on your floor, a little stretched, as if cast from the other shift.
@@ -605,6 +611,13 @@ function draw(c, s, o) {
       ctx.fillStyle = lg; ctx.fillRect(cx - 70, cy - 70, 140, 140);
     });
     ctx.globalCompositeOperation = 'source-over';
+    if (o.reticle) {
+      // A glint of quartz in the dark, visible from afar.
+      const gx = o.reticle.x * T + 16, gy = FY + o.reticle.y * T + 12, tw = (F % 50) / 50;
+      ctx.globalAlpha = 0.5 + 0.5 * Math.sin(tw * Math.PI);
+      R('#dff6ff', gx - 4 + tw * 8, gy, 3, 1); R('#dff6ff', gx, gy - 2, 1, 5); R('#ffffff', gx, gy, 1, 1);
+      ctx.globalAlpha = 1;
+    }
     o.enemies.forEach(([ex, ey]) => {
       const d = Math.hypot(ex - s.x, ey - s.y);
       if (d > 8) return;

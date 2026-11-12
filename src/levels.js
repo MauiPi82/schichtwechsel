@@ -16,7 +16,7 @@
 
   const LEVELS = [
     {
-      id: 'si', time: '22:00',
+      id: 'si', reticle: [5, 8], time: '22:00',
       layer: {de: 'Silizium', en: 'Silicon'}, stack: {de: 'Wafer · 775 µm', en: 'Wafer · 775 µm'},
       title: {de: 'Übergabe', en: 'Handover'},
       log: {
@@ -54,7 +54,7 @@
       ],
     },
     {
-      id: 'ox', time: '23:00',
+      id: 'ox', reticle: [1, 8], time: '23:00',
       layer: {de: 'Oxid', en: 'Oxide'}, stack: {de: 'SiO₂ · 50 nm', en: 'SiO₂ · 50 nm'},
       title: {de: 'Schatten', en: 'Shadows'},
       log: {
@@ -93,7 +93,7 @@
       ],
     },
     {
-      id: 'pr', time: '00:00',
+      id: 'pr', reticle: [2, 8], time: '00:00',
       layer: {de: 'Fotolack', en: 'Photoresist'}, stack: {de: 'Fotolack · 1,2 µm', en: 'Resist · 1.2 µm'},
       title: {de: 'Gelblicht', en: 'Yellow Light'},
       log: {
@@ -139,7 +139,7 @@
       ],
     },
     {
-      id: 'st', time: '01:00',
+      id: 'st', reticle: [9, 7], time: '01:00',
       layer: {de: 'Struktur', en: 'Pattern'}, stack: {de: 'Linien · 40 nm', en: 'Lines · 40 nm'},
       title: {de: 'Campanile', en: 'Campanile'},
       log: {
@@ -180,7 +180,7 @@
       ],
     },
     {
-      id: 'im', time: '02:00',
+      id: 'im', reticle: [1, 8], time: '02:00',
       layer: {de: 'Dotierung', en: 'Doping'}, stack: {de: 'Arsen · 10¹⁵ cm⁻²', en: 'Arsenic · 10¹⁵ cm⁻²'},
       title: {de: 'Implanter', en: 'Implanter'},
       log: {
@@ -221,7 +221,7 @@
       ],
     },
     {
-      id: 'an', time: '03:00',
+      id: 'an', reticle: [1, 8], time: '03:00',
       layer: {de: 'Ausheilen', en: 'Anneal'}, stack: {de: '1050 °C · 10 s', en: '1050 °C · 10 s'},
       title: {de: 'Ofenreihe', en: 'Furnace Row'},
       log: {
@@ -265,7 +265,7 @@
       ],
     },
     {
-      id: 'ct', time: '04:00',
+      id: 'ct', reticle: [18, 1], time: '04:00',
       layer: {de: 'Kontakte', en: 'Contacts'}, stack: {de: 'Kontaktloch · 60 nm', en: 'Contact hole · 60 nm'},
       title: {de: 'Plasma', en: 'Plasma'},
       log: {
@@ -310,7 +310,7 @@
       ],
     },
     {
-      id: 'me', time: '05:00',
+      id: 'me', reticle: [9, 2], time: '05:00',
       layer: {de: 'Metall', en: 'Metal'}, stack: {de: 'Aluminium · 500 nm', en: 'Aluminium · 500 nm'},
       title: {de: 'Schleuse', en: 'Airlock'},
       log: {
@@ -386,6 +386,22 @@
   };
   INTRO.night = INTRO.day.map(r => r.replace('P', '.').replace('X', '.'));
 
+  // The secret finale with all eight reticles: lot 4471 becomes the Odenchip from Elektronenreise.
+  const FINALE = {
+    caps: {
+      expose: {de: 'Acht Retikel, acht Schichten. Los 4471 wird ein letztes Mal belichtet.', en: 'Eight reticles, eight layers. Lot 4471 is exposed one last time.'},
+      wafer: {de: 'Auf dem Wafer: Hunderte gleicher Chips.', en: 'On the wafer: hundreds of identical chips.'},
+      die: {de: 'Der Odenchip. Zwischen den Bondpads steht etwas in der obersten Metallebene.', en: 'The Odenchip. Between the bond pads, something is written in the top metal.'},
+      bond: {de: 'Gesägt, aufgeklebt, gebondet: Golddrähte, dünner als ein Haar.', en: 'Sawn, attached, bonded: gold wires thinner than a hair.'},
+      mold: {de: 'Vergossen. Der Laser schreibt den Namen.', en: 'Moulded. The laser writes its name.'},
+      board: {de: 'Acht LEDs. Eine für jede Schicht.', en: 'Eight LEDs. One for every layer.'},
+    },
+    log: {
+      de: ['06:00. Über dem See wird es hell.', '', 'Schichtbuch, 06:00:', 'Turno B ausgestempelt: Rossi, Colombo, Ferrari.', 'Los 4471 fertig. Odenchip, Revision A.'],
+      en: ['06:00. Dawn over the lake.', '', 'Shift log, 06:00:', 'Shift B clocked out: Rossi, Colombo, Ferrari.', 'Lot 4471 finished. Odenchip, revision A.'],
+    },
+  };
+
   const ENDING = {
     time: '06:00',
     layer: {de: 'Passivierung', en: 'Passivation'}, stack: {de: '12 nm', en: '12 nm'},
@@ -395,5 +411,5 @@
     },
   };
 
-  return {LEVELS, ENDING, INTRO};
+  return {LEVELS, ENDING, INTRO, FINALE};
 });

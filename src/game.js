@@ -1,7 +1,7 @@
 /* Schichtwechsel - rendering, audio, input and screens. Rules live in core.js, levels in levels.js. */
 (() => {
 'use strict';
-const C = window.SchichtCore, {LEVELS, ENDING, INTRO} = window.SchichtLevels;
+const C = window.SchichtCore, {LEVELS, ENDING, INTRO, FINALE} = window.SchichtLevels;
 const cv = document.getElementById('game'), ctx = cv.getContext('2d');
 const W = 320, H = 180, Z = 4, T = 16, FY = 16;
 const STEP_FRAMES = 7;
@@ -14,7 +14,7 @@ const UI = {
   de: {
     day: 'DEINE SCHICHT', night: 'VORSCHICHT', open: 'SCHLEUSE OFFEN', airlock: 'ZUR SCHLEUSE', layerWord: 'SCHICHT',
     press: isTouch ? 'SHIFT TIPPEN' : 'SHIFT DRÜCKEN', orSpace: 'oder Leertaste', cont: isTouch ? 'SHIFT: WEITER' : 'SHIFT ODER ENTER: WEITER',
-    tagline: 'Die Vorschicht ist nie gegangen. Sie ist eine Schicht geworden.', checkpoint: 'PROZESSSCHRITT GESICHERT',
+    tagline: 'Die Vorschicht ist nie gegangen. Sie ist eine Schicht geworden.', reticles: 'RETIKEL', missing: 'Die Vorschicht wartet noch.', checkpoint: 'PROZESSSCHRITT GESICHERT',
     sticky: 'Tipp: Die Leertaste wechselt auch die Schicht (Windows-Einrastfunktion).',
     resume: 'Weiter ab', fresh: 'N: neue Nacht ab 22:00', physics: 'PHYSIK DER SCHICHT',
     caught: 'ERWISCHT', crushed: 'EINGEMAUERT', robot: 'ÜBERFAHREN', beam: 'IM STRAHL', heat: 'VERBRANNT', plasma: 'IM PLASMA',
@@ -26,7 +26,7 @@ const UI = {
   en: {
     day: 'YOUR SHIFT', night: 'THE SHIFT BEFORE', open: 'AIRLOCK OPEN', airlock: 'TO THE AIRLOCK', layerWord: 'LAYER',
     press: isTouch ? 'TAP SHIFT' : 'PRESS SHIFT', orSpace: 'or Space', cont: isTouch ? 'SHIFT: CONTINUE' : 'SHIFT OR ENTER: CONTINUE',
-    tagline: 'The previous shift never left. They became a layer.', checkpoint: 'PROCESS STEP SAVED',
+    tagline: 'The previous shift never left. They became a layer.', reticles: 'RETICLES', missing: 'The shift before is still waiting.', checkpoint: 'PROCESS STEP SAVED',
     sticky: 'Tip: Space changes the shift too (Windows Sticky Keys).',
     resume: 'Continue from', fresh: 'N: new night from 22:00', physics: 'PHYSICS OF THE SHIFT',
     caught: 'CAUGHT', crushed: 'WALLED IN', robot: 'RUN OVER', beam: 'IN THE BEAM', heat: 'BURNED', plasma: 'IN THE PLASMA',
@@ -198,6 +198,7 @@ const audio = {
         this.tone('sawtooth', 160, t0, 0.8, 0.25, null, 30);
         break;
       case 'won': this.burst(t0, 1.2, 0.16, 'highpass', 1200); this.tone('square', 70, t0 + 1.1, 0.12, 0.12); break;
+      case 'reticle': [1320, 1760, 2640].forEach((f, i) => this.tone('sine', f, t0 + i * 0.07, 0.4, 0.06)); break;
       case 'zap': this.tone('sawtooth', 1800, t0, 0.05, 0.03, null, 900); break;
       case 'error': this.tone('square', 880, t0, 0.15, 0.08); this.tone('square', 880, t0 + 0.25, 0.15, 0.08); this.tone('sine', 300, t0, 1.8, 0.05, null, 2400); break;
       case 'click': this.tone('square', 160, t0, 0.03, 0.2); this.burst(t0, 0.05, 0.2, 'highpass', 3000); break;
@@ -279,6 +280,7 @@ function press(what) {
   if (mode === 'title') { audio.unlock(); if (progress === 0) startCinema(); else startCard(progress); return; }
   if (mode === 'card' && cardT > 20) { checkpoint = null; startLevel(levelIndex); return; }
   if (mode === 'ending' && cardT > 120) { mode = 'title'; audio.setLayer(0); }
+  if (mode === 'finale') { if (finT < window.SchichtOdenchip.TOTAL) finT = window.SchichtOdenchip.TOTAL; else if (finT > window.SchichtOdenchip.TOTAL + 5) { mode = 'title'; audio.setLayer(0); } }
 }
 // Touch pad: hold a direction, tap SHIFT.
 document.querySelectorAll('.pad [data-dir]').forEach(b => {
@@ -314,7 +316,7 @@ function pollPad() {
 let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0, shake = 0;
 let progress = clamp(+store.get('level') || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
 const deathsBy = levels.map(() => 0);
-const BUILD = '0.7 · 2026-11-12';
+const BUILD = '0.8 · 2026-11-12';
 // Testers can jump to an hour: ?stunde=3 or ?hour=3 opens the third hour.
 const jump = +(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || 0);
 if (jump >= 1 && jump <= levels.length) progress = jump - 1;
@@ -334,6 +336,20 @@ function stickyCheck() {
 let introMode = false, suited = false, showerT = 0, showerDone = false, introSeen = new Set(), procT = 0, procType = '';
 const idx = (x, y) => y * C.W + x;
 function introDoors(L) { const d = []; for (let i = 0; i < L.layers[0].length; i++) if (L.layers[0][i] === 'D') d.push(i); return d.sort((a, b) => a - b); }
+/* ---------- Reticles and the secret finale ---------- */
+let found = new Set(), finT = 0;
+try { found = new Set(JSON.parse(store.get('reticles') || '[]')); } catch (_) { found = new Set(); }
+function updateFinale() {
+  const before = window.SchichtOdenchip.phaseAt(finT);
+  finT += 1 / 60;
+  const [id, u] = window.SchichtOdenchip.phaseAt(finT);
+  if (id !== before[0]) audio.sfx(id === 'dawn' ? 'won' : 'reticle');
+  if (id === 'bond' && frame % 8 === 0) audio.sfx('zap');
+  if (id === 'mold' && u > 1 && u < 2.6 && frame % 4 === 0) audio.sfx('zap');
+  if (id === 'board' && frame % 33 === 0) audio.sfx('station');
+  if (id === 'dawn' && before[0] !== 'dawn') audio.horn();
+}
+
 /* ---------- Prologue (no words) ---------- */
 let cinemaT = 0;
 function startCinema() { mode = 'cinema'; cinemaT = 0; audio.setLayer(0); audio.rain(0.09); }
@@ -432,6 +448,10 @@ function doStep(action) {
     }
   }
   if (state.layer !== before) { fx = reduced ? 6 : 12; fxLayer = state.layer; audio.setLayer(state.layer); }
+  if (state.events.includes('reticle') && !introMode) {
+    found.add(LEVELS[levelIndex].id); store.set('reticles', JSON.stringify([...found]));
+    audio.sfx('reticle'); procType = 'reticle'; procT = 0; mode = 'process';
+  }
   if (state.events.includes('station') && state.status === 'play') {
     checkpoint = C.clone(state); toast(t().checkpoint, 100);
     const step = LEVELS[levelIndex].route && LEVELS[levelIndex].route[state.got - 1];
@@ -454,6 +474,7 @@ function doStep(action) {
 function update() {
   frame++; pollPad();
   if (mode === 'card' || mode === 'ending') cardT++;
+  if (mode === 'finale') updateFinale();
   if (mode === 'play') {
     hintT++;
     if (++stepFrame >= STEP_FRAMES) { stepFrame = 0; doStep(nextAction()); }
@@ -475,6 +496,7 @@ function update() {
   if (mode === 'clear' && ++deadT > 60) {
     checkpoint = null;
     if (levelIndex + 1 < levels.length) startCard(levelIndex + 1);
+    else if (found.size >= LEVELS.length) { mode = 'finale'; finT = 0; store.set('odenchip', '1'); audio.setLayer(0); audio.bell(0.25); }
     else { mode = 'ending'; cardT = 0; audio.setLayer(0); audio.horn(); }
   }
 }
@@ -573,7 +595,8 @@ function renderPlay() {
   ctx.setTransform(Z / 2, 0, 0, Z / 2, 0, 0);
   if (fx > 0 && !reduced) ctx.translate(Math.round((hash(frame) - 0.5) * 6), 0);
   if (shake > 0) ctx.translate(Math.round((hash(frame * 3) - 0.5) * shake * 0.8), Math.round((hash(frame * 5) - 0.5) * shake * 0.6));
-  window.SchichtWorld.draw(ctx, state, {k: mode === 'play' ? k : 1, frame, reduced, lang, enemies: state.enemies.map(enemyPos),
+  const rt = state.level.reticle && !state.reticle && !introMode && !found.has(LEVELS[levelIndex].id) ? state.level.reticle : null;
+  window.SchichtWorld.draw(ctx, state, {reticle: rt, reticleN: levelIndex,k: mode === 'play' ? k : 1, frame, reduced, lang, enemies: state.enemies.map(enemyPos),
     playerVisible: !(state.step < state.safeUntil && (frame >> 2) % 2), shiftHint: shiftHintT > 0 && !introMode, civilian: introMode && !suited});
   ctx.restore();
   ctx.setTransform(Z, 0, 0, Z, 0, 0);
@@ -634,6 +657,7 @@ function renderCard() {
     txt(part, 16, 72 + i * 10, {color: '#e9e4d6', font: 'IBM Plex Sans', size: 8, max: 176});
   });
   drawStack(204, 22, 100, 72, levelIndex);
+  txt(`${t().reticles} ${found.size}/${LEVELS.length}`, 254, 8, {align: 'center', color: found.size ? '#9fe0ff' : '#3a4058'});
   txt(def.stack[lang], 254, 100, {align: 'center', color: '#c9c2ae', font: 'IBM Plex Sans', size: 7});
   const y0 = 116;
   R('#0f1422', 10, y0 - 4, W - 20, 46); R('#2f6db3', 10, y0 - 4, 2, 46);
@@ -676,6 +700,11 @@ function renderTitle() {
   }
   txt(t().credit, W / 2, H - 10, {align: 'center', color: '#4c5470', font: 'IBM Plex Sans', size: 6});
   txt('v' + BUILD, W - 3, 3, {align: 'right', color: '#2c3248', font: 'IBM Plex Sans', size: 6, shadow: null});
+  if (store.get('odenchip') === '1') {
+    ctx.save(); ctx.translate(20, 20); ctx.scale(0.06, 0.06); ctx.translate(-window.SchichtOdenchip.PK.cx, -window.SchichtOdenchip.PK.cy);
+    window.SchichtOdenchip.pack({wires: 99, mold: 1, mark: 1}); ctx.restore();
+    txt('ODENCHIP', 34, 16, {color: '#ffd27a', shadow: null});
+  } else if (found.size) txt(`${t().reticles} ${found.size}/${LEVELS.length}`, 6, 6, {color: '#4c5470', shadow: null});
 }
 
 function renderEnding() {
@@ -700,6 +729,7 @@ function renderEnding() {
     txt(LEVELS.map((d, i) => `${i + 1}:${deathsBy[i]}`).join('  '), W / 2, 146, {align: 'center', color: '#6b7190', max: W - 20});
   }
   if (cardT > 300) txt(t().thanks, W / 2, 158, {align: 'center', color: '#c9c2ae'});
+  if (cardT > 330) txt(`${t().reticles} ${found.size}/${LEVELS.length} · ${t().missing}`, W / 2, 104, {align: 'center', color: '#6b7190', max: 180});
   txt(t().credit, W / 2, H - 9, {align: 'center', color: '#4c5470', font: 'IBM Plex Sans', size: 6});
 }
 
@@ -715,9 +745,13 @@ function render() {
   if (mode === 'title') return renderTitle();
   if (mode === 'card') return renderCard();
   if (mode === 'ending') return renderEnding();
+  if (mode === 'finale') {
+    ctx.setTransform(Z / 2, 0, 0, Z / 2, 0, 0); window.SchichtOdenchip.draw(ctx, finT, frame, lang, FINALE);
+    ctx.setTransform(Z, 0, 0, Z, 0, 0); return;
+  }
   if (mode === 'dead') return renderDead();
   renderPlay();
-  if (mode === 'process') window.SchichtProcess.draw(ctx, procType, procT, lang);
+  if (mode === 'process') window.SchichtProcess.draw(ctx, procType, procT, lang, {n: levelIndex + 1, found: found.size, total: LEVELS.length});
   if (mode === 'clear') {
     ctx.fillStyle = `rgba(0,0,0,${clamp(deadT / 60, 0, 1)})`; ctx.fillRect(0, 0, W, H);
   }
@@ -762,6 +796,7 @@ if (new URLSearchParams(location.search).has('test')) {
   window.__schicht = {
     levels, get state() { return state; }, get mode() { return mode; },
     card: i => startCard(i), start: i => startLevel(i), act: a => doStep(a), render, update, intro: () => startIntro(), cinema: () => startCinema(), get cinemaT() { return cinemaT; },
+    finale: () => { mode = 'finale'; finT = 0; }, get finT() { return finT; }, found,
     process: (type, tt) => { procType = type; procT = tt; mode = 'process'; },
     setLayer: l => audio.setLayer(l), lang: l => { lang = l; applyLanguage(); },
   };
