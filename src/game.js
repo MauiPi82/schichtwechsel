@@ -23,7 +23,7 @@ const UI = {
     resume: 'Weiter ab', fresh: 'N: neue Nacht ab 22:00', physics: 'PHYSIK DER SCHICHT',
     caught: 'ERWISCHT', noticed: 'BEMERKT', crushed: 'EINGEMAUERT', robot: 'ÜBERFAHREN', beam: 'IM STRAHL', heat: 'VERBRANNT', plasma: 'IM PLASMA',
     paused: 'PAUSE', pausedHint: 'P oder ESC: weiter', bell: 'GLOCKE', ion: 'IONEN', retry: 'R: neu versuchen',
-    stats: (d, s) => `Erwischt: ${d}   Schichtwechsel: ${s}`, perHour: 'ERWISCHT JE STUNDE', thanks: 'Danke fürs Spielen.',
+    stats: (d, s) => `Erwischt: ${d}   Schichtwechsel: ${s}`, perHour: 'Je Stunde:', thanks: 'Danke fürs Spielen.',
     sub: 'TURNO DI NOTTE · LUINO', credit: 'Ein Spiel von Maurizio Odenwaeller für Game Off 2026 · entwickelt mit Claude',
     sound: on => 'Ton: ' + (on ? 'an' : 'aus'), pause: 'Pause', full: 'Vollbild', menu: 'Menü', home: 'H: Hauptmenü',
     noteHead: 'VOGT MICROELETTRONICA · BAY 7 · TURNO B', q: ['„', '“'],
@@ -43,7 +43,7 @@ const UI = {
     resume: 'Continue from', fresh: 'N: new night from 22:00', physics: 'PHYSICS OF THE SHIFT',
     caught: 'CAUGHT', noticed: 'NOTICED', crushed: 'WALLED IN', robot: 'RUN OVER', beam: 'IN THE BEAM', heat: 'BURNED', plasma: 'IN THE PLASMA',
     paused: 'PAUSED', pausedHint: 'P or ESC: resume', bell: 'BELL', ion: 'IONS', retry: 'R: try again',
-    stats: (d, s) => `Caught: ${d}   Shift changes: ${s}`, perHour: 'CAUGHT PER HOUR', thanks: 'Thank you for playing.',
+    stats: (d, s) => `Caught: ${d}   Shift changes: ${s}`, perHour: 'Per hour:', thanks: 'Thank you for playing.',
     sub: 'TURNO DI NOTTE · LUINO', credit: 'A game by Maurizio Odenwaeller for Game Off 2026 · made with Claude',
     sound: on => 'Sound: ' + (on ? 'on' : 'off'), pause: 'Pause', full: 'Fullscreen', menu: 'Menu', home: 'H: main menu',
     noteHead: 'VOGT MICROELETTRONICA · BAY 7 · TURNO B', q: ['“', '”'],
@@ -457,7 +457,8 @@ addEventListener('keyup', e => {
 });
 // Losing focus pauses: the fab with its pause screen, a minigame or a film by holding still until a key or tap.
 let blurHold = false;
-addEventListener('blur', () => { held.clear(); shiftHeld = false; if (mode === 'play') mode = 'paused'; else if (['mini', 'process', 'note', 'cinema', 'epilogue', 'finale', 'shower', 'gown', 'locker'].includes(mode)) blurHold = true; });
+const HOLD_MODES = ['mini', 'process', 'note', 'cinema', 'epilogue', 'finale', 'shower', 'gown', 'locker'];
+addEventListener('blur', () => { held.clear(); shiftHeld = false; if (mode === 'play') mode = 'paused'; else if (HOLD_MODES.includes(mode)) blurHold = true; });
 function press(what) {
   if (veilPhase === 'out') return;
   // Skipping is ENTER everywhere (a tap on touch): SHIFT, the key of the game, never throws a scene away.
@@ -467,7 +468,10 @@ function press(what) {
   if (mode === 'mini') {
     // ENTER skips while playing; on the result it plays the step once more (without the briefing).
     if (what === 'enter') {
-      if (mini.phase === 'result' && !mini.retried && mini.resultT > 20) { const {type, variant} = mini; startMini(type, variant, false); mini.retried = true; }
+      if (mini.phase === 'result' && !mini.retried && mini.resultT > 20) {
+        const {type, variant, score, values} = mini;
+        startMini(type, variant); mini.retried = true; mini.first = {score, values};
+      }
       else window.SchichtMini.skip(mini);
     } else miniPressed = true;
     return;
@@ -477,7 +481,7 @@ function press(what) {
   if (mode === 'process') { if (procT > 20) endProcess(); return; }
   if (mode === 'note') { if (noteT > 25) { mode = 'play'; queuedDir = null; queuedShift = false; } return; }
   if (mode === 'paused') { if (what === 'enter') mode = 'play'; return; }
-  if (mode === 'play') { if (what === 'shift' && frame - windowClosedAt > 15) { queuedShift = true; shiftQueuedAt = frame; } return; }
+  if (mode === 'play') { if (what === 'shift' && frame - windowClosedAt > 15 && frame - bellAt > 10) { queuedShift = true; shiftQueuedAt = frame; } return; }
   if (mode === 'book') {
     if (bookSel === LEVELS.length) transition(() => { mode = 'finale'; finT = 0; audio.setLayer(0); audio.bell(0.25); }, 24, 40);
     else if (bookSel <= openUpTo()) transition(() => { fromBook = true; startCard(bookSel); }, 24, 30);
@@ -563,7 +567,7 @@ function pollPad() {
 let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0, shake = 0;
 let progress = clamp(parseInt(store.get('level'), 10) || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
 const deathsBy = levels.map(() => 0);
-const BUILD = '0.61 · 2026-11-12';
+const BUILD = '0.62 · 2026-11-12';
 // Testers can jump to an hour: ?stunde=3 or ?hour=3 opens the third hour.
 const jump = parseInt(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || '0', 10) || 0;
 if (jump >= 1 && jump <= levels.length) progress = jump - 1;
@@ -644,7 +648,10 @@ function startMini(type, variant, brief = true) {
   mode = 'mini'; miniPressed = false;
 }
 function endMini() {
-  lot.s[mini.type] = mini.score; Object.assign(lot.v, mini.values); saveLot();
+  // After a retry the better of the two tries goes into the lot.
+  const keep = mini.first && mini.first.score > mini.score ? mini.first : mini;
+  lot.s[mini.type] = keep.score; Object.assign(lot.v, keep.values); saveLot();
+  if (keep !== mini) toast(lang === 'de' ? 'Der erste Versuch war besser: Er zählt.' : 'The first try was better: it counts.', 200);
   // A loadport that counts one wafer too many.
   if (mini.type === 'clean') toast(t().slots, 330);
   mini = null; mode = 'play'; queuedDir = null; queuedShift = false;
@@ -860,7 +867,7 @@ function updateShower() {
 
 // After a death the hour resumes at the last process step; the previous shift returns to its posts.
 function startLevel(i, resume = false) {
-  introMode = false; audio.rain(0); pendingMode = null;
+  introMode = false; audio.rain(0); pendingMode = null; waitKey = false;
   levelIndex = i; mode = 'play'; stepFrame = 0; fx = 0; deadT = 0;
   if (resume && checkpoint) {
     state = C.clone(checkpoint);
@@ -882,13 +889,15 @@ function startLevel(i, resume = false) {
 function menu() {
   if (mode === 'title' || veilPhase === 'out') return;
   transition(() => {
-    mode = 'title'; introMode = false; mini = null; pendingMode = null; scare = null; paNow = null; paQueue = []; toastT = 0; fromBook = false; reading = null;
+    mode = 'title'; introMode = false; waitKey = false; mini = null; pendingMode = null; scare = null; paNow = null; paQueue = []; toastT = 0; fromBook = false; reading = null;
     audio.rain(0); audio.setLayer(0);
   }, 24, 24);
 }
 function togglePause() {
   if (mode === 'play') mode = 'paused';
   else if (mode === 'paused') mode = 'play';
+  // In a minigame, an animation or a film the picture holds still until the next key or tap.
+  else if (HOLD_MODES.includes(mode)) blurHold = true;
 }
 document.addEventListener('visibilitychange', () => {
   if (document.hidden && mode === 'play') mode = 'paused';
@@ -916,6 +925,7 @@ function doStep(action) {
   if (!introMode) { history.push(C.clone(state)); if (history.length > 600) history.shift(); }
   if (cheatSafe && !introMode) state.safeUntil = Math.max(state.safeUntil, state.step + 2);
   C.step(state, action);
+  if (state.events.includes('bell')) { queuedShift = false; bellAt = frame; }
   state.enemies.forEach((e, i) => { if (e.moved === state.step) { e.fx = from[i][0]; e.fy = from[i][1]; } });
   totalShifts += state.events.filter(e => e === 'shift').length;
   for (const ev of state.events) {
@@ -986,7 +996,7 @@ function doStep(action) {
 }
 
 // The SHIFT that closes a window must not also shift the layer: for a moment after it, SHIFT is ignored.
-let lastMode = null, windowClosedAt = -99;
+let lastMode = null, windowClosedAt = -99, waitKey = false, bellAt = -99;
 const CLOSERS = new Set(['mini', 'process', 'note', 'locker', 'gown', 'shower', 'card', 'paused']);
 function update() {
   frame++; pollPad();
@@ -1006,7 +1016,8 @@ function update() {
   if (mode === 'finale') updateFinale();
   if (mode === 'play') {
     hintT++;
-    if (freezeT > 0) freezeT--;
+    if (waitKey && (queuedDir || queuedShift || held.size || shiftHeld)) waitKey = false;
+    if (freezeT > 0 || waitKey) { if (freezeT > 0) freezeT--; }
     else if (++stepFrame >= STEP_FRAMES) {
       // A window that a step opened waits until the figure stands on the field, then opens; afterwards the
       // figure is already there and walks on from it.
@@ -1042,7 +1053,7 @@ function update() {
   if (flashFx && ++flashFx.t > 34) flashFx = null;
   if (mode === 'cinema') updateCinema();
   if (mode === 'epilogue') updateEpilogue();
-  if (mode === 'process' && (procT += procFast ? 2 : 1) > window.SchichtProcess.duration(procType)) endProcess();
+  if (mode === 'process' && (procT += procFast ? 2 : 1) > window.SchichtProcess.duration(procType)) { endProcess(); if (!introMode) { waitKey = true; queuedDir = null; queuedShift = false; } }
   if (reading && mode === 'play' && ++reading.t > READING_LEN) reading = null;
   if (mode === 'play' && state && !introMode) {
     const k = clamp(stepFrame / STEP_FRAMES, 0, 1);
@@ -1342,7 +1353,13 @@ function renderPlay() {
     lines.forEach((l, i) => txt(l, W / 2, ty + 3 + i * 10, {align: 'center', color: '#e9e4d6', max: w - 10}));
     ctx.globalAlpha = 1;
   }
-
+  // After an animation the hour stands still until you move or shift: nothing happens while you read.
+  if (waitKey && mode === 'play' && !introMode && (frame >> 5) % 2 === 0) {
+    const s = isTouch ? (lang === 'de' ? 'DIE STUNDE WARTET AUF DICH' : 'THE HOUR WAITS FOR YOU') : (lang === 'de' ? 'DIE STUNDE WARTET: PFEIL ODER SHIFT' : 'THE HOUR WAITS: ARROW OR SHIFT');
+    ctx.font = '400 8px "Silkscreen", monospace';
+    const w = ctx.measureText(s).width + 12, y = FY + C.H * T - 14;
+    R('rgba(5,6,10,.8)', W / 2 - w / 2, y, w, 11); txt(s, W / 2, y + 2, {align: 'center', color: '#c9c2ae'});
+  }
 }
 
 // Before the bell: a double exposure of the other layer around the player. Its walls show through in red,
@@ -1670,30 +1687,30 @@ function renderEnding() {
   let used = 0;
   ENDING.log[lang].forEach((line, i) => {
     const part = line.slice(0, Math.max(0, shown - used)); used += line.length + 4;
-    txt(part, 16, 72 + i * 10, {color: i >= 4 ? '#e0402a' : '#e9e4d6', font: 'IBM Plex Sans', size: 8, max: 180});
+    txt(part, 16, 70 + i * 9, {color: i >= 4 ? '#e0402a' : '#e9e4d6', font: 'IBM Plex Sans', size: 8, max: 180});
   });
-  drawStack(204, 22, 100, 72, cardT > 200 ? LEVELS.length : LEVELS.length - 1);
-  if (cardT > 200) txt(ENDING.stack[lang], 254, 100, {align: 'center', color: '#e0402a', font: 'IBM Plex Sans', size: 7});
+  drawStack(204, 20, 100, 70, cardT > 200 ? LEVELS.length : LEVELS.length - 1);
+  if (cardT > 200) txt(ENDING.stack[lang], 254, 94, {align: 'center', color: '#e0402a', font: 'IBM Plex Sans', size: 7});
+  // Left column: the night in numbers, each line with room to breathe.
   if (cardT > 260) {
-    txt(t().stats(deaths, totalShifts), 16, 134, {color: '#8c93a8', max: 180});
-    txt(t().perHour, 16, 143, {color: '#6b7190', font: 'IBM Plex Sans', size: 6});
-    txt(LEVELS.map((d, i) => `${d.time.slice(0, 2)}h ${deathsBy[i]}`).join('  '), 16, 150, {color: '#8c93a8', font: 'IBM Plex Sans', size: 7, max: 176});
+    txt(t().stats(deaths, totalShifts), 16, 130, {color: '#8c93a8', max: 180});
+    txt(`${t().perHour}  ` + LEVELS.map((d, i) => `${d.time.slice(0, 2)}h ${deathsBy[i]}`).join(' · '), 16, 142, {color: '#8c93a8', font: 'IBM Plex Sans', size: 6, max: 180});
   }
+  // Right column: the lot, then the reticles.
   if (cardT > 280 && Object.keys(lot.s).length) {
     const y = lotYield(), g = window.SchichtMini.grade((y - 26) / 71);
-    txt(`${t().yieldWord} ${y} %`, 254, 108, {align: 'center', color: '#ffcf5a', max: 100});
-    txt(g.word, 254, 117, {align: 'center', color: g.color, max: 100});
+    txt(`${t().yieldWord} ${y} %`, 254, 106, {align: 'center', color: '#ffcf5a', max: 100});
+    txt(`${g.word} · ${lang === 'de' ? g.de : g.en}`, 254, 116, {align: 'center', color: g.color, font: 'IBM Plex Sans', size: 7, max: 110});
     const worst = Object.keys(lot.s).filter(p => STEP_NAME[p]).sort((a, b) => lot.s[a] - lot.s[b])[0];
-    if (worst && lossOf(lot.s[worst]) > 0) txt(`${STEP_NAME[worst][lang === 'de' ? 0 : 1]} −${lossOf(lot.s[worst])} %`, 254, 126, {align: 'center', color: '#8a7a5a', font: 'IBM Plex Sans', size: 7, max: 100});
+    if (worst && lossOf(lot.s[worst]) > 0) txt(`${lang === 'de' ? 'Größter Verlust' : 'Biggest loss'}: ${STEP_NAME[worst][lang === 'de' ? 0 : 1]} −${lossOf(lot.s[worst])} %`, 254, 125, {align: 'center', color: '#c2ab80', font: 'IBM Plex Sans', size: 6, max: 110});
   }
-  // Left column, under the statistics: it never meets the reticle note on the right.
-  if (cardT > 300) txt(t().thanks, 16, 161, {color: '#c9c2ae', max: 176});
+  if (cardT > 300) txt(t().thanks, 16, 155, {color: '#c9c2ae', max: 176});
   if (cardT > 330) {
     // Below the yield: how many reticles, and what all eight would have done.
-    txt(`${t().reticles} ${found.size}/${LEVELS.length}`, 254, 140, {align: 'center', color: '#6b7190', max: 100});
+    txt(`${t().reticles} ${found.size}/${LEVELS.length}`, 254, 138, {align: 'center', color: '#6b7190', max: 100});
     if (found.size < LEVELS.length) {
       ctx.font = '400 6px "IBM Plex Sans", monospace';
-      wrapLine(t().missing, 116).forEach((l, i) => txt(l, 254, 149 + i * 7, {align: 'center', color: '#8c93a8', font: 'IBM Plex Sans', size: 6, max: 120}));
+      wrapLine(t().missing, 116).forEach((l, i) => txt(l, 254, 148 + i * 7, {align: 'center', color: '#8c93a8', font: 'IBM Plex Sans', size: 6, max: 120}));
     }
   }
   txt(t().credit, W / 2, H - 9, {align: 'center', color: '#4c5470', font: 'IBM Plex Sans', size: 6});

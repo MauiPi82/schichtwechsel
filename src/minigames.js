@@ -238,8 +238,12 @@ const oxide = g => OX_A * (Math.sqrt(1 + g / OX_TAU) - 1);
 const OX_IN = 120, OX_UP = 300, OX_HOLD = 480, OX_DOWN = 180, OX_LAG = 90, OX_EA = 1.23;
 const oxGoal = f => f < OX_IN ? 700 : f < OX_IN + OX_UP ? 700 + 300 * (f - OX_IN) / OX_UP : f < OX_IN + OX_UP + OX_HOLD ? 1000
   : f < OX_IN + OX_UP + OX_HOLD + OX_DOWN ? 1000 - 200 * (f - OX_IN - OX_UP - OX_HOLD) / OX_DOWN : 800;
-const oxSS = P => 400 + 70 * P;                         // where the tube settles at heater power P (0 to 10)
-const oxRate = T => 540 / OX_HOLD * Math.exp(OX_EA / KB_EV * (1 / 1273.15 - 1 / (T + 273.15)));
+const oxSS = P => 400 + 70 * P;
+// What the tube holds right now: the hold's oxide, plus the nanometre that grows while it cools.
+const oxNow = m => oxide(m.g) + RAMP * clamp((m.f - OX_IN - OX_UP - OX_HOLD) / OX_DOWN, 0, 1);                         // where the tube settles at heater power P (0 to 10)
+// The hold alone gives 49 nm; the last nanometre grows while the tube cools down (RAMP), so the curve gives 50.
+const OX_G = OX_TAU * ((1 + (50 - RAMP) / OX_A) ** 2 - 1);
+const oxRate = T => OX_G / OX_HOLD * Math.exp(OX_EA / KB_EV * (1 / 1273.15 - 1 / (T + 273.15)));
 const KB_EV = 8.617e-5;
 const oxidize = {
   init(m) { m.f = 0; m.T = 700; m.P = (700 - 400) / 70; m.g = 0; m.err = 0; m.n = 0; m.goal = 700; m.slope = 0; m.hist = []; },
@@ -255,7 +259,7 @@ const oxidize = {
     const hold = m.f >= OX_IN + OX_UP && m.f < OX_IN + OX_UP + OX_HOLD;
     if (hold) m.g += oxRate(m.T);
     if (m.f >= OX_IN + OX_UP + OX_HOLD + OX_DOWN) {
-      const fin = oxide(m.g) + RAMP, rms = Math.sqrt(m.err / m.n);
+      const fin = oxNow(m), rms = Math.sqrt(m.err / m.n);
       const thick = clamp(1 - Math.abs(fin - 50) / 10, 0, 1), track = clamp(1 - rms / 40, 0, 1);
       m.sfx('click');
       finish(m, 0.65 * thick + 0.35 * track, {oxide: fin}, [
@@ -285,7 +289,7 @@ const oxidize = {
     const off = m.T - m.goal, okT = Math.abs(off) < 10;
     text(`${Math.round(m.T)} °C`, px + pw / 2 - 30, a.y + 4, {align: 'center', size: 16, font: 'Pixelify Sans', weight: 700, color: okT ? '#3fe06a' : Math.abs(off) < 30 ? '#ffcf5a' : '#ff8a5a'});
     text(`${L('SOLL', 'SET')} ${Math.round(m.goal)} °C`, px + pw / 2 + 36, a.y + 4, {align: 'center', color: '#ffcf5a', max: 70});
-    text(`SiO₂ ${num(oxide(m.g))} nm`, px + pw / 2 + 36, a.y + 14, {align: 'center', color: '#cfe8ff', max: 70});
+    text(`SiO₂ ${num(oxNow(m))} / 50 nm`, px + pw / 2 + 36, a.y + 14, {align: 'center', color: '#cfe8ff', max: 80});
     // Heater power as a bar under the graph.
     R('#1a2030', gx, gy + gh + 6, gw, 4); R('#ff9a4a', gx, gy + gh + 6, gw * m.P / 10, 4);
     text(L('HEIZUNG', 'HEATER'), gx, gy + gh + 11, {color: '#8c93a8', font: 'IBM Plex Sans', size: 6});
@@ -851,7 +855,9 @@ const sputter = {
       const q = m.al ? m.q / m.al : 0, score = q * (m.al / SP_TARGET);
       finish(m, score, {al: m.al, alQ: q}, [
         L(`Al ${Math.round(m.al)} nm · ${Math.round(q * 100)} % im Band`, `Al ${Math.round(m.al)} nm · ${Math.round(q * 100)} % in the band`),
-        q > 0.8 ? L('Dichte, glatte Schicht. Der Vierspitzer misst gleich nach.', 'A dense, smooth film. The four-point probe checks it next.')
+        // The verdict names what cost the most: too little metal, or metal grown at the wrong pressure.
+        m.al < SP_TARGET * 0.9 ? L('Zu dünn: Das Plasma war zu oft aus, die Bahnen leiten schlecht.', 'Too thin: the plasma was off too often, the lines conduct badly.')
+          : q > 0.8 ? L('Dichte, glatte Schicht. Der Vierspitzer misst gleich nach.', 'A dense, smooth film. The four-point probe checks it next.')
           : L('Gestreute Atome: Die Schicht ist porös, ihr Widerstand höher.', 'Scattered atoms: the film is porous, its resistance higher.')]);
     }
   },
@@ -959,7 +965,8 @@ function update(m, inp) {
   if (m.phase === 'brief') { if (inp.pressed && m.ft > 20) { m.phase = 'play'; m.sfx('click'); } return; }
   m.t++;
   if (m.phase === 'play') GAMES[m.type].update(m, inp);
-  else { m.resultT++; if ((inp.pressed && m.resultT > 24) || m.resultT > 600) m.closed = true; }
+  // The result stays until you have read it: only SHIFT (or a tap) closes it.
+  else { m.resultT++; if (inp.pressed && m.resultT > 24) m.closed = true; }
 }
 function draw(c, m, language) {
   ctx = c; F = m.t; lang = language;
