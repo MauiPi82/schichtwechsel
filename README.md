@@ -6,7 +6,7 @@ Shift B at Vogt Microelettronica, a chip fab near Luino on Lago Maggiore, never 
 
 Press **SHIFT** to change between them.
 
-- In your shift you are safe, but walls block your way. You see the shadows of the previous shift walking their rounds; watch them before you shift. In the last hour they come for you.
+- In your shift you are safe, but walls block your way. You see the shadows of the previous shift walking their rounds; watch them before you shift. Slip past them quickly: linger close to one of them in their shift and they notice you and follow for a few steps.
 - In the shift before you pass where walls stand in yours. You only see what your helmet lamp shows.
 - Take lot 4471 through the process steps in the right order, then reach the airlock.
 
