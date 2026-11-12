@@ -365,6 +365,68 @@ function layersScene(t) {
   if (k >= 1) { txt('9', x0 - 16, yy - 3, 8, '#e0402a'); txt('12 nm', x0 + w + 46, yy - 6, 16, '#e0402a'); R('#e0402a', x0 + w + 4, yy + 3, 16, 1); }
   txt('LOT 4471', x0 + w / 2, base + 10, 16, '#6b7190');
 }
+/* ---------- Scenes for the Odenchip ending ---------- */
+// 06:00, the time clock takes all four cards, one after another: ROSSI, COLOMBO, FERRARI, then yours.
+function clockOutScene(t) {
+  R('#1a1e24', 0, 0, W, H); for (let y = 0; y < H; y += 32) R('#20252c', 0, y, W, 1); for (let x = 0; x < W; x += 48) R('#20252c', x, 0, 1, H);
+  const names = ['ROSSI', 'COLOMBO', 'FERRARI', '18'], per = 1.3, cur = Math.min(3, Math.floor(Math.max(0, t - 0.4) / per)), k = ((t - 0.4) % per) / per;
+  const done = t < 0.4 ? 0 : Math.min(4, Math.floor((t - 0.4) / per) + (k > 0.75 ? 1 : 0));
+  // The rack: cards move from ENTRATA to USCITA once stamped.
+  R('#3a3226', 450, 80, 120, 200); R('#4a4032', 450, 80, 120, 6);
+  txt('ENTRATA', 480, 90, 8, '#c9b98a'); txt('USCITA', 540, 90, 8, '#c9b98a');
+  for (let r = 0; r < 8; r++) { R('#2a2418', 456, 104 + r * 21, 50, 16); R('#2a2418', 514, 104 + r * 21, 50, 16); }
+  names.forEach((n, i) => {
+    const out = i < done, row = [1, 4, 6, 2][i], x = out ? 514 : 456;
+    if (i === cur && !out && t >= 0.4) return;
+    R('#efe6c8', x, 98 + row * 21, 50, 20); R('#c9b98a', x, 98 + row * 21, 50, 4); txt(n, x + 25, 108 + row * 21, 8, '#5a4a2a');
+    if (out) R('#2a8a3a', x + 38, 100 + row * 21, 8, 4);
+  });
+  // The clock: dial at six, the display green this time.
+  R('#d8cfb8', 200, 70, 200, 220); R('#c4bba4', 200, 70, 200, 8); R('#b8ae96', 200, 282, 200, 8);
+  circle('#2a2418', 300, 62, 30); circle('#efe4be', 300, 62, 27); clockFace(300, 62, 25, 6, 0);
+  txt('VOGT · TIMBRATRICE', 300, 96, 8, '#7a6e56');
+  R('#0b0f18', 224, 108, 152, 46);
+  if (t >= 0.4) { txt('USCITA 06:00', 300, 116, 16, '#3fe06a'); txt(names[cur], 300, 136, 8, '#3fe06a'); }
+  // The slot low on the front. The card of the moment goes in, the clock stamps it, it comes back out.
+  const slot = 236;
+  R('#2a2418', 280, slot, 40, 6); txt('▼', 300, slot + 10, 8, '#7a6e56');
+  if (t >= 0.4 && done < 4) {
+    const dip = k < 0.45 ? ease(k / 0.45) : k < 0.55 ? 1 : 1 - ease((k - 0.55) / 0.3), visible = 56 - dip * 44, top = slot - visible;
+    R('#efe6c8', 284, top, 32, visible); R('#c9b98a', 284, top, 32, 5);
+    if (visible > 30) txt(names[cur], 300, top + 9, 8, '#5a4a2a');
+    if (k > 0.55 && visible > 40) { R('#2a8a3a', 290, top + 24, 20, 9); txt('06:00', 300, top + 25, 8, '#e8ffe8'); }
+    R('#8a5cd6', 282, top - 12, 36, 14); R('#6a40b0', 282, top - 2, 36, 3);
+  }
+}
+// The gate by the lake at first light, the prologue walked backwards: four come out. Three of them, still in
+// the tan suits of shift B, thin into the morning one after the other; the fourth, in a jacket, walks on alone.
+function gateOutScene(t) {
+  lakeScene(t, [6, 5], 140);
+  const g = ctx.createLinearGradient(0, 40, 0, 220);
+  g.addColorStop(0, 'rgba(60,80,130,.35)'); g.addColorStop(0.7, 'rgba(240,160,100,.38)'); g.addColorStop(1, 'rgba(255,200,130,.5)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, 212); ctx.fillStyle = 'rgba(255,180,120,.14)'; ctx.fillRect(0, 212, W, H - 212);
+  R('#1a1c24', 0, 286, W, 74); R('#2a2c38', 0, 286, W, 2);
+  for (let x = 30; x < W; x += 110) { R('#14161e', x, 230, 3, 56); R('#14161e', x - 4, 228, 11, 3); }
+  // The gate, open.
+  R('#141820', 520, 230, 6, 56); R('#05070b', 546, 236, 38, 50); R('#1a1f2a', 506, 214, 120, 14); txt('VOGT MICROELETTRONICA', 566, 217, 8, '#c9ced6');
+  R('#141820', 600, 230, 6, 56); for (let gx = 584; gx < 600; gx += 6) R('#1a1f2a', gx, 246, 2, 40);
+  const walker = (i, delay, fadeAt, suit) => {
+    const tt = Math.max(0, t - delay), x = 556 - Math.min(tt, 7.5) / 7.5 * 420 - i * 4, moving = tt > 0 && tt < 7.5;
+    const fade = fadeAt ? clamp((t - fadeAt) / 1.2, 0, 1) : 0, step = moving ? Math.floor((F + i * 3) / 8) % 2 : 0;
+    if (t < delay || fade >= 1) return;
+    ctx.globalAlpha = (1 - fade) * clamp((x < 546 ? 1 : (556 - x) / 10), 0, 1);
+    const body = suit ? '#d8c08a' : '#1a2438', legs = suit ? '#cdb888' : '#2a3a5a';
+    ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(x + 8, 287, 10, 3, 0, 0, 7); ctx.fill();
+    R(body, x + 2, 254, 14, 18); R(legs, x + 4 + step * 2, 272, 4, 14); R(legs, x + 10 - step * 2, 272, 4, 14);
+    R(suit ? '#e3cf9a' : '#1a2438', x + 4, 242, 10, 12);
+    if (suit) R('#2a1e0a', x + 5, 245, 7, 3); else { R('#0e1420', x + 5, 240, 8, 3); R('#4a3420', x + 13, 258, 5, 8); }
+    ctx.globalAlpha = 1;
+    // As they go, a little light rises from where they were.
+    if (fade > 0 && fade < 1) for (let k = 0; k < 6; k++) R(`rgba(255,240,200,${0.8 * (1 - fade)})`, x + 2 + k * 3, 270 - fade * 50 - k * 4, 1, 2);
+  };
+  walker(0, 0.2, 3.4, true); walker(1, 0.7, 4.4, true); walker(2, 1.2, 5.4, true); walker(3, 1.8, 0, false);
+}
+
 const END_SHOTS = [
   {dur: 5.6, xin: 0, draw: stockerScene},
   {dur: 6.0, xin: 1.2, draw: dawnScene},
@@ -425,5 +487,7 @@ function drawEnd(c, time, frame, captions) {
   ctx.globalAlpha = 1;
 }
 
-window.SchichtCinema = {draw, TOTAL, shotAt, SHOTS, drawEnd, END_TOTAL, endShotAt: time => shotAt(time, END_SHOTS, END_TOTAL)};
+// One scene of the Odenchip ending, drawn into the finale's own sequence.
+function scene(c, name, t, frame) { ctx = c; F = frame; ({clockOut: clockOutScene, gateOut: gateOutScene})[name](t); }
+window.SchichtCinema = {draw, TOTAL, shotAt, SHOTS, drawEnd, END_TOTAL, scene, endShotAt: time => shotAt(time, END_SHOTS, END_TOTAL)};
 })();

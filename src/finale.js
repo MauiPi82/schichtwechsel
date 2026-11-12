@@ -108,8 +108,9 @@ function board(u) {
 }
 
 /* ---------- Sequence ---------- */
+// The chip comes together, then the story ends: the time clock takes all four cards, four leave by the lake.
 const PHASES = [
-  {id: 'expose', d: 3.4}, {id: 'wafer', d: 2.8}, {id: 'die', d: 4.4}, {id: 'bond', d: 3.6}, {id: 'mold', d: 2.8}, {id: 'board', d: 4.4}, {id: 'dawn', d: 999},
+  {id: 'expose', d: 3.4}, {id: 'wafer', d: 2.6}, {id: 'die', d: 3.4}, {id: 'board', d: 4.2}, {id: 'clock', d: 6.2}, {id: 'gate', d: 9.0}, {id: 'dawn', d: 999},
 ];
 function phaseAt(t) {
   for (const p of PHASES) { if (t < p.d) return [p.id, t, p.d]; t -= p.d; }
@@ -148,12 +149,10 @@ function draw(c, t, frame, lang, texts) {
       const zk = ease(clamp((u - 1.0) / 4, 0, 1)), s = 230 + zk * 40;
       die(ctx, W / 2 - 0.5 * s, 190 - 0.5 * s, s);
     }
-  } else if (id === 'bond') {
-    pack({wires: ease(k) * 4 * PK.n, mold: 0, mark: 0});
-  } else if (id === 'mold') {
-    pack({wires: 99, mold: ease(k * 2.5), mark: clamp((u - 1.0) / 1.6, 0, 1)});
   } else if (id === 'board') {
     board(k);
+  } else if (id === 'clock' || id === 'gate') {
+    window.SchichtCinema.scene(ctx, id === 'clock' ? 'clockOut' : 'gateOut', u, frame);
   } else {
     // Dawn over the lake; the three of shift B walk out and fade.
     const g = ctx.createLinearGradient(0, 0, 0, H);
@@ -164,14 +163,8 @@ function draw(c, t, frame, lang, texts) {
     R('#1a1a28', 0, 214, W, H - 214);
     for (let y = 216; y < H; y += 3) { ctx.fillStyle = `rgba(255,200,120,${0.25 * (1 - (y - 214) / 146)})`; ctx.fillRect(440 + Math.sin(F / 9 + y) * 6, y, 60, 1); }
     R('#14141e', 120, 120, 14, 94); R('#14141e', 116, 112, 22, 10);
-    const walk = clamp(u / 8, 0, 1);
-    [0, 1, 2].forEach(i => {
-      const x = 250 + i * 34 + walk * 140, a = clamp(1 - walk * 1.1 + i * 0.05, 0, 1);
-      ctx.globalAlpha = a * 0.85;
-      R('#f2ead8', x, 236, 14, 26); R('#f2ead8', x + 1, 224, 12, 12); R('#2a1e0a', x + 3, 228, 8, 3);
-      R('#e2d8c0', x + 2, 262, 4, 12); R('#e2d8c0', x + 8, 262, 4, 12);
-      ctx.globalAlpha = 1;
-    });
+    // You, alone at the railing, looking at the lake.
+    R('#14141e', 300, 236, 14, 26); R('#14141e', 302, 224, 10, 12); R('#14141e', 302, 262, 4, 12); R('#14141e', 308, 262, 4, 12); R('#14141e', 240, 254, 140, 2);
     texts.log[lang].forEach((l, i) => {
       const shown = Math.floor(u * 24) - i * 12;
       if (shown > 0) txt(l.slice(0, shown), W / 2, 58 + i * 16, 12, i >= 3 ? '#fff4d8' : '#f2e6d0', {font: 'IBM Plex Sans'});

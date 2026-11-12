@@ -419,6 +419,9 @@ addEventListener('keydown', e => {
   if (is('KeyM', 'm')) { audio.toggle(); return; }
   if (CHEAT && is('KeyN', 'n') && mode === 'play' && !introMode) { cheatWin(); return; }
   if (CHEAT && is('KeyU', 'u')) { cheatSafe = !cheatSafe; toast(cheatSafe ? 'CHEAT: UNVERWUNDBAR' : 'CHEAT: VERWUNDBAR', 90); return; }
+  // With the cheat, both endings can be watched from the title: E the normal one, F the Odenchip.
+  if (CHEAT && mode === 'title' && is('KeyE', 'e')) { transition(() => { mode = 'epilogue'; epiT = 0; audio.setLayer(0); }, 24, 24); return; }
+  if (CHEAT && mode === 'title' && is('KeyF', 'f')) { transition(() => { mode = 'finale'; finT = 0; audio.setLayer(0); }, 24, 24); return; }
   if (CHEAT && is('KeyO', 'o')) { for (const d of LEVELS) found.add(d.id); store.set('reticles', JSON.stringify([...found])); toast('CHEAT: 8/8 RETIKEL', 90); return; }
   if (is('KeyR', 'r') && (mode === 'play' || mode === 'paused') && !introMode) { checkpoint = null; startLevel(levelIndex); return; }
   if (is('KeyB', 'b') && mode === 'title' && veilPhase !== 'out') { audio.unlock(); bookSel = Math.min(openUpTo(), levelIndex); transition(() => { mode = 'book'; }, 16, 16); return; }
@@ -486,7 +489,7 @@ function pollPad() {
 let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0, shake = 0;
 let progress = clamp(+store.get('level') || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
 const deathsBy = levels.map(() => 0);
-const BUILD = '0.39 · 2026-11-12';
+const BUILD = '0.40 · 2026-11-12';
 // Testers can jump to an hour: ?stunde=3 or ?hour=3 opens the third hour.
 const jump = +(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || 0);
 if (jump >= 1 && jump <= levels.length) progress = jump - 1;
@@ -607,10 +610,11 @@ function updateFinale() {
   finT += 1 / 60;
   const [id, u] = window.SchichtOdenchip.phaseAt(finT);
   if (id !== before[0]) audio.sfx(id === 'dawn' ? 'won' : 'reticle');
-  if (id === 'bond' && frame % 8 === 0) audio.sfx('zap');
-  if (id === 'mold' && u > 1 && u < 2.6 && frame % 4 === 0) audio.sfx('zap');
+  // The time clock stamps the four cards one after another; the ferry sounds while they walk out.
+  if (id === 'clock') for (let i = 0; i < 4; i++) { const at = 0.4 + i * 1.3 + 0.65; if (u >= at && (before[0] !== 'clock' || before[1] < at)) audio.sfx('station'); }
+  if (id === 'gate' && u >= 5.2 && before[1] < 5.2) audio.horn();
   if (id === 'board' && frame % 33 === 0) audio.sfx('station');
-  if (id === 'dawn' && before[0] !== 'dawn') audio.horn();
+  if (id === 'gate' && before[0] !== 'gate') audio.bell(0.25);
 }
 
 /* ---------- Prologue (no words) ---------- */
@@ -1399,7 +1403,7 @@ function renderTitle() {
   if (embedded && !document.hasFocus() && (frame >> 5) % 2) txt(lang === 'de' ? 'INS SPIEL KLICKEN' : 'CLICK INTO THE GAME', W / 2, 146, {align: 'center', color: '#9fe0ff'});
   if (embedded) txt(lang === 'de' ? 'L: ENGLISH · M: TON' : 'L: DEUTSCH · M: SOUND', W - 4, H - 20, {align: 'right', color: '#4c5470', font: 'IBM Plex Sans', size: 6, shadow: null});
   if (!isTouch && (progress > 0 || Object.keys(lot.s).length || CHEAT)) txt(lang === 'de' ? 'B: SCHICHTBUCH' : 'B: SHIFT LOG', W / 2, 146, {align: 'center', color: '#6b7190'});
-  if (CHEAT) txt('CHEAT · N: STUNDE GESCHAFFT · U: UNVERWUNDBAR · O: ALLE RETIKEL · B: JEDE STUNDE', W / 2, 158, {align: 'center', color: '#c9a5ff', max: W - 8});
+  if (CHEAT) txt('CHEAT · N: STUNDE GESCHAFFT · U: UNVERWUNDBAR · O: ALLE RETIKEL · B: JEDE STUNDE · E/F: ENDEN', W / 2, 158, {align: 'center', color: '#c9a5ff', max: W - 8});
   if (store.get('odenchip') === '1') {
     ctx.save(); ctx.translate(20, 20); ctx.scale(0.06, 0.06); ctx.translate(-window.SchichtOdenchip.PK.cx, -window.SchichtOdenchip.PK.cy);
     window.SchichtOdenchip.pack({wires: 99, mold: 1, mark: 1}, ctx); ctx.restore();

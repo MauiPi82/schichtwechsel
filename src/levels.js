@@ -558,16 +558,16 @@
   // The secret finale with all eight reticles: lot 4471 becomes the Odenchip from Elektronenreise.
   const FINALE = {
     caps: {
-      expose: {de: 'Acht Retikel, acht Schichten. Los 4471 wird ein letztes Mal belichtet.', en: 'Eight reticles, eight layers. Lot 4471 is exposed one last time.'},
+      expose: {de: 'Acht Retikel, acht Schichten. Diesmal liegt ein Wafer auf dem Tisch.', en: 'Eight reticles, eight layers. This time there is a wafer on the stage.'},
       wafer: {de: 'Auf dem Wafer: Hunderte gleicher Chips.', en: 'On the wafer: hundreds of identical chips.'},
       die: {de: 'Der Odenchip. Acht Schichten aus dieser Nacht, auf jedem einzelnen Chip.', en: 'The Odenchip. Eight layers from tonight, on every single chip.'},
-      bond: {de: 'Gesägt, aufgeklebt, gebondet: Golddrähte, dünner als ein Haar.', en: 'Sawn, attached, bonded: gold wires thinner than a hair.'},
-      mold: {de: 'Vergossen. Der Laser schreibt den Namen.', en: 'Moulded. The laser writes its name.'},
       board: {de: 'Acht LEDs, eine je Schicht. Wie viele leuchten, entscheidet die Ausbeute.', en: 'Eight LEDs, one per layer. The yield decides how many light up.'},
+      clock: {de: 'Um sechs nimmt die Stempeluhr alle vier Karten.', en: 'At six the time clock takes all four cards.'},
+      gate: {de: 'Rossi. Colombo. Ferrari. Dann nur noch du, und das erste Schiff.', en: 'Rossi. Colombo. Ferrari. Then only you, and the first ferry.'},
     },
     log: {
-      de: ['06:00. Über dem See wird es hell.', '', 'Schichtbuch, 06:00:', 'Turno B ausgestempelt: Rossi, Colombo, Ferrari.', 'Los 4471 fertig. Odenchip, Revision A.'],
-      en: ['06:00. Dawn over the lake.', '', 'Shift log, 06:00:', 'Shift B clocked out: Rossi, Colombo, Ferrari.', 'Lot 4471 finished. Odenchip, revision A.'],
+      de: ['06:00. Über dem See wird es hell.', '', 'Schichtbuch, 06:00:', 'Turno B ausgestempelt: Rossi, Colombo, Ferrari.', 'Nachtschicht ausgestempelt.', 'Los 4471 fertig. Odenchip, Revision A.'],
+      en: ['06:00. Dawn over the lake.', '', 'Shift log, 06:00:', 'Shift B clocked out: Rossi, Colombo, Ferrari.', 'Night shift clocked out.', 'Lot 4471 finished. Odenchip, revision A.'],
     },
   };
 
