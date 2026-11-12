@@ -73,8 +73,10 @@ function clean(t, x, y, w, h) {
   });
   // The carrier: down into the bath, wait, up, over to the next.
   const from = x + 10 + phase * tw + (tw - 6) / 2, to = x + 10 + Math.min(3, phase + 1) * tw + (tw - 6) / 2;
-  const cx = pt > 46 && phase < 3 ? from + (to - from) * ease((pt - 46) / 9) : from;
-  const dip = pt < 12 ? ease(pt / 12) : pt < 40 ? 1 : pt < 46 ? 1 - ease((pt - 40) / 6) : 0;
+  // Gently: down, wait in the bath, up, and a calm glide to the next bath.
+  const glide = k => k * k * (3 - 2 * clamp(k, 0, 1));
+  const cx = pt > 43 && phase < 3 ? from + (to - from) * glide(clamp((pt - 43) / 12, 0, 1)) : from;
+  const dip = pt < 14 ? glide(pt / 14) : pt < 35 ? 1 : pt < 43 ? 1 - glide((pt - 35) / 8) : 0;
   const cy = y + 8 + dip * 18;
   R('#9aa3ad', cx - 1, y + 7, 2, cy - y - 6);
   R('#4a525e', cx - 11, cy, 22, 18); for (let k = 0; k < 6; k++) R('#c9ced6', cx - 9 + k * 3.5, cy + 2, 1, 14);
@@ -386,12 +388,19 @@ function drawReticleFound(t, info) {
   for (let i = 0; i < 6; i++) { const a = t / 15 + i; R('#e6f6ff', cx + Math.cos(a) * 44, cy + Math.sin(a * 1.3) * 34, 1, 1); }
   R('#141a28', PX, y0 + PH - 16, PW, 16);
   text(lang === 'de' ? 'Jede Schicht braucht ihre eigene Maske. Chrom auf Quarz, 4:1.' : 'Every layer needs its own mask. Chrome on quartz, 4:1.', PX + 6, y0 + PH - 12, {font: 'IBM Plex Sans', size: 7, color: '#c9c8cf', max: PW - 12});
-  if (t > 40 && (t >> 5) % 2) text(lang === 'de' ? 'SHIFT: WEITER' : 'SHIFT: CONTINUE', W / 2, y0 + PH + 6, {align: 'center', color: '#6b7190'});
+  if (t > 40) text(lang === 'de' ? 'SHIFT: WEITER' : 'SHIFT: CONTINUE', W / 2, y0 + PH + 6, {align: 'center', color: '#4c5470'});
 }
+// The animations are written for 230 frames. Each one plays slower than that, so there is time to look:
+// the clean takes about ten seconds, one bath after another. At the end the picture rests a moment.
+const BASE = 230, HOLD = 150;
+const DUR = {clean: 620, inspect: 480, oxidize: 540, nitride: 480, ellipso: 460, reticle: 230};
+function duration(type) { return (DUR[type] || 330) + (type === 'reticle' ? 0 : HOLD); }
 function draw(c, type, t, language, info) {
-  ctx = c; F = t; lang = language;
-  if (type === 'reticle') return drawReticleFound(t, info || {n: 1, found: 1, total: 8});
-  const appear = ease(t / 14), cap = (CAP[type] || CAP.etch)[language];
+  ctx = c; lang = language;
+  if (type === 'reticle') { F = t; return drawReticleFound(t, info || {n: 1, found: 1, total: 8}); }
+  const tt = t * BASE / (DUR[type] || 330);
+  F = tt;
+  const appear = ease(t / 24), cap = (CAP[type] || CAP.etch)[language];
   ctx.fillStyle = `rgba(3,4,8,${0.55 * appear})`; ctx.fillRect(0, 0, W, 180);
   const y0 = PY + (1 - appear) * 20;
   R('#0b0f18', PX - 2, y0 - 2, PW + 4, PH + 4); R('#2f6db3', PX - 2, y0 - 2, PW + 4, 1);
@@ -401,12 +410,13 @@ function draw(c, type, t, language, info) {
   ctx.save(); ctx.beginPath(); ctx.rect(PX, y0 + 12, PW, PH - 28); ctx.clip();
   R('#0d111a', PX, y0 + 12, PW, PH - 28);
   const fn = {clean, inspect, oxidize, nitride, ellipso, coat, expose, develop, measure}[type];
-  if (fn) fn(t, PX, y0 + 12, PW, PH - 28); else section(t, PX, y0 + 12, PW, PH - 28, type);
+  const tp = Math.min(tt, BASE + 10);
+  if (fn) fn(tp, PX, y0 + 12, PW, PH - 28); else section(tp, PX, y0 + 12, PW, PH - 28, type);
   ctx.restore();
   R('#141a28', PX, y0 + PH - 16, PW, 16);
   text(cap[1], PX + 6, y0 + PH - 12, {font: 'IBM Plex Sans', size: 7, color: '#c9c8cf', max: PW - 12});
-  if (t > 40 && (t >> 5) % 2) text(language === 'de' ? 'SHIFT: WEITER' : 'SHIFT: CONTINUE', W / 2, y0 + PH + 6, {align: 'center', color: '#6b7190'});
+  if (t > 40) text(language === 'de' ? 'SHIFT: WEITER' : 'SHIFT: CONTINUE', W / 2, y0 + PH + 6, {align: 'center', color: '#4c5470'});
 }
 
-window.SchichtProcess = {draw, DURATION: 230};
+window.SchichtProcess = {draw, duration, DURATION: BASE};
 })();
