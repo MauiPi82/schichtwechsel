@@ -470,8 +470,8 @@
         {x0: 8, y0: 1, type: 'cluster', kind: 'pvd', name: 'VALENTA S-4', chambers: 3},
         {x0: 2, y0: 3, type: 'stocker'},
         {x0: 2, y0: 6, type: 'chamber', kind: 'pvd', name: 'VALENTA S-4'},
-        {x0: 15, y0: 3, type: 'metrology', name: 'ORSA EL-4', screen: 'thickness'},
-        {x0: 15, y0: 6, type: 'metrology', name: 'ORSA RS-1', screen: 'rs', value: '0.054Ω'},
+        {x0: 15, y0: 3, type: 'metrology', name: 'ORSA XR-2', screen: 'xrf'},
+        {x0: 15, y0: 6, type: 'metrology', name: 'ORSA RS-1', screen: 'rs', value: '54 mΩ/□'},
       ],
       lamps: [[5, 5], [10, 4], [13, 8]],
       day: [
@@ -531,7 +531,7 @@
       by: {de: 'deine Handschrift', en: 'your handwriting'},
       text: {de: ['06:12.', 'Los 4471 ist fertig.', 'Ich bin noch drin.'], en: ['06:12.', 'Lot 4471 is done.', 'I am still inside.']},
     }},
-    gown: {de: ['HAUBE', 'MUNDSCHUTZ', 'OVERALL', 'ÜBERSCHUHE', 'HANDSCHUHE', 'BRILLE'], en: ['HOOD', 'FACE MASK', 'COVERALL', 'BOOT COVERS', 'GLOVES', 'GOGGLES']},
+    gown: {de: ['HAUBE', 'MUNDSCHUTZ', 'OVERALL', 'ÜBERSCHUHE', 'BRILLE', 'HANDSCHUHE'], en: ['HOOD', 'FACE MASK', 'COVERALL', 'BOOT COVERS', 'GOGGLES', 'GLOVES']},
     // In the air shower the picture tears into the shift before for a moment: shift B stands in the cabin with you,
     // one, two, three. Afterwards their handover note lies in front of the door to Bay 7.
     ghosts: [[11, 3], [10, 3], [9, 3]],

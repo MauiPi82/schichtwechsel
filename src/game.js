@@ -69,6 +69,7 @@ const TOOL_INFO = {
   'metrology-lines': ['CD-SEM: misst Linienbreiten mit Elektronen', 'CD-SEM: measures line widths with electrons'],
   'metrology-particles': ['Partikelmessung: ein Laser sucht Staub', 'Particle scanner: a laser looks for dust'],
   'metrology-thickness': ['Ellipsometer: misst Schichtdicken mit Licht', 'Ellipsometer: measures film thickness with light'],
+  'metrology-xrf': ['Röntgenfluoreszenz: misst die Dicke der Metallschicht', 'X-ray fluorescence: measures the thickness of the metal film'],
   'metrology-rs': ['Vierspitzenmessung: Schichtwiderstand', 'Four-point probe: sheet resistance'],
   stocker: ['Stocker: hier warten die FOUPs', 'Stocker: where the FOUPs wait'],
   gascab: ['Gasschrank: Prozessgas, abgesaugt und überwacht', 'Gas cabinet: process gas, exhausted and monitored'],
@@ -517,7 +518,7 @@ function pollPad() {
 let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0, shake = 0;
 let progress = clamp(parseInt(store.get('level'), 10) || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
 const deathsBy = levels.map(() => 0);
-const BUILD = '0.46 · 2026-11-12';
+const BUILD = '0.47 · 2026-11-12';
 // Testers can jump to an hour: ?stunde=3 or ?hour=3 opens the third hour.
 const jump = parseInt(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || '0', 10) || 0;
 if (jump >= 1 && jump <= levels.length) progress = jump - 1;
@@ -761,7 +762,7 @@ function gownView() {
   if (mode !== 'gown') return {};
   const i = Math.floor(gownT / GOWN_STEP), f = (gownT % GOWN_STEP) / GOWN_STEP;
   const gown = i >= 4 ? 1 : (i ? GOWN_REVEAL[i - 1] : 0) + (GOWN_REVEAL[i] - (i ? GOWN_REVEAL[i - 1] : 0)) * f;
-  const sparkle = i === 4 ? [[6, 18], [24, 18]] : i === 5 ? [[12, 4], [18, 4]] : null;
+  const sparkle = i === 4 ? [[12, 4], [18, 4]] : i === 5 ? [[6, 18], [24, 18]] : null;
   return {gown, sparkle};
 }
 // The checklist while gowning: six pieces, ticked one after the other.

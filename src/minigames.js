@@ -66,9 +66,9 @@ function finish(m, score, values, lines) {
 /* ---------- 1 Clean: lift the carrier out of each bath while the time is in the green ---------- */
 const BATHS = [
   // SC-1 1:1:5 at 75 °C about 10 min, SC-2 the same, HF 1 % about a minute (30 to 120 s still fine).
-  {name: 'SC-1', col: '#bfe3d0', max: 15, unit: 'min', zone: [8, 12], what: ['PARTIKEL', 'PARTICLES']},
-  {name: 'SC-2', col: '#dfe8b8', max: 15, unit: 'min', zone: [8, 12], what: ['METALLE', 'METALS']},
-  {name: 'HF 1%', col: '#cfe3f5', max: 150, unit: 's', zone: [45, 90], what: ['NATIVES OXID', 'NATIVE OXIDE']},
+  {name: 'SC-1', col: '#bfe3d0', max: 15, unit: 'min', zone: [8, 12], what: ['HEBT PARTIKEL AB', 'LIFTS PARTICLES']},
+  {name: 'SC-2', col: '#dfe8b8', max: 15, unit: 'min', zone: [8, 12], what: ['LÖST METALLE', 'DISSOLVES METALS']},
+  {name: 'HF 1%', col: '#cfe3f5', max: 150, unit: 's', zone: [45, 90], what: ['LÖST NATIVES OXID', 'STRIPS NATIVE OXIDE']},
 ];
 const BATH_FRAMES = 420;
 // The bench: a load station, three chemical baths, the rinse and the dryer. The robot moves the 25 wafers from the
@@ -189,6 +189,12 @@ const clean = {
     }
     if (tank === 4 && dip > 0.3) { const lv = ty + 20; if (cy + 17 > lv) { ctx.globalAlpha = 0.5; R(tanks[4].col, cx - 14, lv, 28, Math.min(ty + th - 2, cy + 18) - lv); ctx.globalAlpha = 1; } }
     if ((m.st === 'up' && m.bt < 30) || (m.st === 'rinse' && m.bt > 125)) for (let k = 0; k < 4; k++) { const dy = ((m.bt * 2 + k * 9) % 20); circle('rgba(190,220,255,.85)', cx - 9 + k * 6, cy + 18 + dy, 1); }
+    // Between the baths the gantry passes spray nozzles: DI water stops the chemistry before the next bath.
+    const between = m.st === 'up' && m.bath < 2 && m.bt > 16;
+    if (between) for (let k = 0; k < 6; k++) {
+      const p = ((m.bt * 3 + k * 7) % 14) / 14, yy = cy + 3 + k * 2 + p * 3;
+      circle('rgba(190,220,255,.9)', cx - 20 + p * 9, yy, 1); circle('rgba(190,220,255,.9)', cx + 20 - p * 9, yy, 1);
+    }
     // What the step does to the surface.
     const k = m.st === 'in' && m.bath < 3 ? m.bt / BATH_FRAMES : 0;
     const zy = a.y + a.h - 18, zx = a.x + 10, zw = a.w - 20;
@@ -197,9 +203,11 @@ const clean = {
       const say = {load: L('25 WAFER AUS DER BOX IN DEN TRÄGER', '25 WAFERS FROM THE BOX INTO THE CARRIER'), rinse: L('DI-WASSER SPÜLT DIE SÄURE AB', 'DI WATER RINSES THE ACID OFF'),
         dry: L('IPA-DAMPF: DAS WASSER LÄUFT OHNE TROPFEN AB', 'IPA VAPOUR: THE WATER RUNS OFF WITHOUT DROPS'), back: L('ZURÜCK ZUR BOX', 'BACK TO THE BOX'), unload: L('25 WAFER ZURÜCK IN DER BOX', '25 WAFERS BACK IN THE BOX')}[m.st];
       text(say, zx + 3, zy + 1, {color: '#9fe0ff', max: zw - 10});
+    } else if (between) {
+      text(L('ZWISCHENSPÜLEN: DI-WASSER STOPPT DIE CHEMIE', 'RINSE BETWEEN BATHS: DI WATER STOPS THE CHEMISTRY'), zx + 3, zy + 1, {color: '#9fe0ff', max: zw - 10});
     } else if (m.bath < 3) {
       const b = BATHS[m.bath], part = b.zone[0] / b.max;
-      text(L(`${b.name} LÖST ${b.what[0]}`, `${b.name} REMOVES ${b.what[1]}`), zx + 3, zy + 1, {color: '#9fe0ff', max: zw - 10});
+      text(`${b.name} ${b.what[lang === 'de' ? 0 : 1]}`, zx + 3, zy + 1, {color: '#9fe0ff', max: zw - 10});
       for (let j = 0; j < 9; j++) {
         const gone = clamp(k / part - j * 0.05, 0, 1);
         if (gone < 1) { ctx.globalAlpha = 1 - gone; circle(m.bath === 1 ? '#e0402a' : '#8a7a5a', zx + zw - 90 + j * 10, zy + 10 - gone * 6, m.bath === 1 ? 1 : 1.6); ctx.globalAlpha = 1; }
@@ -229,12 +237,12 @@ const oxidize = {
       const fin = d + RAMP;
       m.sfx('click');
       finish(m, 1 - Math.abs(fin - 50) / 10, {oxide: fin}, [
-        L(`SiO₂ ${num(fin)} nm (${num(d)} + ${num(RAMP)} beim Abrampen)`, `SiO₂ ${num(fin)} nm (${num(d)} + ${num(RAMP)} on ramp-down)`),
+        L(`SiO₂ ${num(fin)} nm (${num(d)} + ${num(RAMP)} beim Spülen mit N₂)`, `SiO₂ ${num(fin)} nm (${num(d)} + ${num(RAMP)} during the N₂ purge)`),
         L('Das Ellipsometer misst es nach dem Nitrid nach.', 'The ellipsometer checks it after the nitride.')]);
     }
   },
   draw(m) {
-    const a = frame(m, L('OXIDIEREN · 1000 °C, TROCKEN', 'OXIDISE · 1000 °C, DRY'), L('SHIFT: SAUERSTOFF AUS BEI 50 NM', 'SHIFT: OXYGEN OFF AT 50 NM'));
+    const a = frame(m, L('OXIDIEREN · 1000 °C, TROCKEN', 'OXIDISE · 1000 °C, DRY'), L('SHIFT: SAUERSTOFF AUS BEI 49 NM', 'SHIFT: OXYGEN OFF AT 49 NM'));
     // The vertical furnace cut open from the side; the boat with its wafers rides up into the quartz bell.
     const rise = smooth(m.t / 100), heat = clamp((m.t - 60) / 50, 0, 1);
     window.SchichtProcess.furnace(ctx, a.x + 2, a.y + 2, 86, a.h - 14, {rise, heat, t: m.t, gas: m.st === 'grow' ? ['rgba(160,220,255,.9)'] : null,
@@ -243,7 +251,7 @@ const oxidize = {
     // Thickness, big, and the growth curve with the target line.
     const d = oxide(m.g), px = a.x + 92, pw = a.w - 98;
     text(`${num(d)} nm`, px + pw / 2, a.y + 6, {align: 'center', size: 16, font: 'Pixelify Sans', weight: 700, color: Math.abs(d + RAMP - 50) < 1 ? '#3fe06a' : '#cfe8ff'});
-    text(L('ZIEL 50 NM · ABRAMPEN +1 NM', 'TARGET 50 NM · RAMP-DOWN +1 NM'), px + pw / 2, a.y + 26, {align: 'center', color: '#ffcf5a', max: pw});
+    text(L('ZIEL 50 NM · N₂-SPÜLEN +1 NM', 'TARGET 50 NM · N₂ PURGE +1 NM'), px + pw / 2, a.y + 26, {align: 'center', color: '#ffcf5a', max: pw});
     const gx = px + 4, gy = a.y + 40, gw = pw - 8, gh = a.h - 46, G = 900, D = 90;
     R('#0b0f18', gx, gy, gw, gh);
     const ty = gy + gh - 50 / D * gh;
@@ -457,7 +465,7 @@ const expose = {
       const fx = m.st === 'alignY' ? m.dx : 0;
       circle('#2a3040', pc, pcy, r + 2); circle('#c8862a', pc, pcy, r);
       R('#5a3a10', pc - r, pcy, r * 2, 1); R('#5a3a10', pc, pcy - r, 1, r * 2);
-      // The wafer mark: a cross etched into the layer below. The reticle mark: a bright frame.
+      // The wafer's zero mark: a cross etched into the silicon before the first layer. The reticle mark: a bright frame.
       R('#3a2a10', pc - 2, pcy - 12, 4, 24); R('#3a2a10', pc - 12, pcy - 2, 24, 4);
       ctx.strokeStyle = '#9fe0ff'; ctx.lineWidth = 2; ctx.strokeRect(pc - 9 + ox + fx, pcy - 9 + oy, 18, 18);
       const nm = Math.round(off * NM_PER_PX);
@@ -478,7 +486,7 @@ const expose = {
 };
 
 /* ---------- 5 Etch: first the nitride clears (CN line drops), then the oxide (CO line drops). ----------
- * Then a little more: 20 to 30 % over-etch makes sure every hole is open. */
+ * Then a little more: 20 to 30 % over-etch makes sure every trench is open. */
 const etch = {
   init(m) { m.tn = 140 + Math.random() * 60; m.te = m.tn + 180 + Math.random() * 140; m.g = 0; m.cn = []; m.co = []; },
   lines(m, g) {
@@ -498,7 +506,7 @@ const etch = {
       m.sfx('click');
       const s = p < 0 ? 1 + p / 25 : p < 15 ? 0.8 + 0.2 * p / 15 : p <= 35 ? 1 : 1 - (p - 35) / 60;
       finish(m, s, {overEtch: p}, [
-        p < 0 ? L('Zu früh gestoppt: Oxidreste in den Löchern.', 'Stopped too early: oxide left in the holes.') : L(`Überätzung ${Math.round(p)} %`, `Over-etch ${Math.round(p)} %`),
+        p < 0 ? L('Zu früh gestoppt: Oxidreste in den Gräben.', 'Stopped too early: oxide left in the trenches.') : L(`Überätzung ${Math.round(p)} %`, `Over-etch ${Math.round(p)} %`),
         L('20 bis 30 % sind richtig, mehr greift das Silizium an.', '20 to 30 % is right, more attacks the silicon.')]);
     }
   },
@@ -539,9 +547,9 @@ const etch = {
 };
 
 /* ---------- 6 Implant: the mass spectrum of the source. Set the magnet on As+ and keep it there ----------
- * The arsine source also gives AsH+ right next to it, As2+ and leftovers of the last recipe (BF2+, P+). */
+ * The arsine source also gives AsH+ right next to it, As++ and leftovers of the last recipe (BF2+, P+). */
 const ION = {
-  'P+': [31, 1, '#d59cff', 0.25], 'As2+': [75, 2, '#7fd0ff', 0.2], 'BF2+': [49, 1, '#ffe08a', 0.15],
+  'P+': [31, 1, '#d59cff', 0.25], 'As++': [75, 2, '#7fd0ff', 0.2], 'BF2+': [49, 1, '#ffe08a', 0.15],
   'As+': [75, 1, '#9cff9c', 1], 'AsH+': [76, 1, '#5fbf6f', 0.45],
 };
 const V = 40e3, AMU = 1.66054e-27, QE = 1.602177e-19;
@@ -745,11 +753,11 @@ const GAMES = {clean, oxidize, nitride, coat, expose, develop, etch, implant};
 // Before each step: what it is for and how to play it, then SHIFT starts it. The last line is the controls.
 const BRIEF = {
   clean: {title: ['REINIGEN · RCA', 'CLEAN · RCA'],
-    de: ['Drei Bäder: SC-1 löst Partikel, SC-2 Metalle,', 'HF das native Oxid. Jedes Bad braucht seine Zeit.', 'SHIFT hebt den Korb heraus, wenn die Zeit im Grünen ist.'],
-    en: ['Three baths: SC-1 lifts particles, SC-2 metals,', 'HF the native oxide. Each bath needs its time.', 'SHIFT lifts the carrier out while the time is in the green.']},
+    de: ['Drei Bäder: SC-1 hebt Partikel ab, SC-2 löst Metalle, HF das native Oxid.', 'Nach jedem Bad spült Wasser die Chemie ab. Jedes Bad braucht seine Zeit.', 'SHIFT hebt den Korb heraus, wenn die Zeit im Grünen ist.'],
+    en: ['Three baths: SC-1 lifts particles, SC-2 dissolves metals, HF the native oxide.', 'After each bath, water rinses the chemicals off. Each bath needs its time.', 'SHIFT lifts the carrier out while the time is in the green.']},
   oxidize: {title: ['OXIDIEREN · 1000 °C', 'OXIDISE · 1000 °C'],
-    de: ['Im Ofen wächst Siliziumoxid, erst schnell, dann langsamer.', 'Ziel: 50 nm. Beim Abrampen wächst noch etwa 1 nm nach.', 'SHIFT stellt den Sauerstoff ab.'],
-    en: ['Silicon oxide grows in the furnace, fast at first, then slower.', 'Target: 50 nm. About 1 nm grows on while the furnace ramps down.', 'SHIFT turns the oxygen off.']},
+    de: ['Im Ofen wächst Siliziumoxid, erst schnell, dann langsamer.', 'Ziel: 50 nm. Bis das Rohr mit Stickstoff gespült ist, wächst noch etwa 1 nm.', 'SHIFT stellt den Sauerstoff ab, also bei 49 nm.'],
+    en: ['Silicon oxide grows in the furnace, fast at first, then slower.', 'Target: 50 nm. Until the tube is purged with nitrogen, about 1 nm grows on.', 'SHIFT turns the oxygen off, so at 49 nm.']},
   nitride: {title: ['NITRID · LPCVD', 'NITRIDE · LPCVD'],
     de: ['Das Gas strömt von oben ins Rohr und wird unterwegs verbraucht:', 'Die unteren Wafer bekommen weniger. Wärmer wächst es schneller.', '↑↓ Zone · ←→ Temperatur · SHIFT startet die Abscheidung.'],
     en: ['The gas enters the tube at the top and is used up on the way down:', 'the lower wafers get less. Warmer, it grows faster.', '↑↓ zone · ←→ temperature · SHIFT starts the deposition.']},
@@ -757,14 +765,14 @@ const BRIEF = {
     de: ['Der Lack wird aufgeschleudert: je schneller, desto dünner.', 'Ziel: 100 nm Lack, das sind 2000 Umdrehungen pro Minute.', 'SHIFT halten: schneller · ↑↓ fein · loslassen: Lack trocknet.'],
     en: ['The resist is spun on: the faster, the thinner.', 'Target: 100 nm of resist, that is 2000 revolutions per minute.', 'Hold SHIFT: faster · ↑↓ fine · let go: the resist dries.']},
   expose: {title: ['BELICHTEN · SCANNER', 'EXPOSE · SCANNER'],
-    de: ['Das Retikel muss genau über der Struktur von vorher liegen.', 'Die Justagemarken laufen hin und her. Stopp sie, wenn sie decken.', 'SHIFT stoppt X, dann Y. Danach belichtet der Scanner allein.'],
-    en: ['The reticle has to sit exactly over the pattern from before.', 'The alignment marks sweep back and forth. Stop them when they meet.', 'SHIFT stops X, then Y. Then the scanner exposes by itself.']},
+    de: ['Das Retikel muss genau auf den Nullmarken des Wafers sitzen: Alle späteren Ebenen richten sich danach.', 'Die Justagemarken laufen hin und her. Stopp sie, wenn sie decken.', 'SHIFT stoppt X, dann Y. Danach belichtet der Scanner allein.'],
+    en: ['The reticle must sit exactly on the wafer\'s zero marks: every later layer aligns to this one.', 'The alignment marks sweep back and forth. Stop them when they meet.', 'SHIFT stops X, then Y. Then the scanner exposes by itself.']},
   develop: {title: ['ENTWICKELN · TMAH', 'DEVELOP · TMAH'],
-    de: ['Der Entwickler löst den belichteten Lack: erst öffnen sich die Gräben,', 'dann werden die Linien schmaler. Ziel: 40 nm breite Linien.', 'SHIFT spült mit Wasser. Es wirkt erst 2 s später.'],
-    en: ['The developer dissolves the exposed resist: first the trenches open,', 'then the lines slim down. Target: lines 40 nm wide.', 'SHIFT rinses with water. It takes 2 s to stop the developer.']},
+    de: ['Nach dem Backen (PEB, 100 °C) löst der Entwickler den belichteten Lack:', 'erst öffnen sich die Gräben, dann werden die Linien schmaler. Ziel: 40 nm.', 'SHIFT spült mit Wasser. Es wirkt erst 2 s später, also bei knapp 41 nm drücken.'],
+    en: ['After the bake (PEB, 100 °C) the developer dissolves the exposed resist:', 'first the trenches open, then the lines slim down. Target: 40 nm.', 'SHIFT rinses with water. It takes 2 s, so press at just under 41 nm.']},
   etch: {title: ['ÄTZEN · PLASMA', 'ETCH · PLASMA'],
-    de: ['Das Plasma ätzt durch Nitrid und Oxid. Das Licht des Plasmas zeigt,', 'was gerade geätzt wird: erst CN (Nitrid), dann CO (Oxid).', 'SHIFT stoppt den Ätzer, kurz nachdem die CO-Linie abfällt.'],
-    en: ['The plasma etches through nitride and oxide. Its light shows', 'what is being etched: first CN (nitride), then CO (oxide).', 'SHIFT stops the etcher shortly after the CO line drops.']},
+    de: ['Das Plasma ätzt durch Nitrid und Oxid. Sein Licht zeigt, was gerade', 'geätzt wird: erst CN (Nitrid), dann CO (Oxid). Danach 20 bis 30 % nachätzen.', 'SHIFT stoppt den Ätzer, wenn der Zähler ÜBERÄTZEN 25 % zeigt.'],
+    en: ['The plasma etches through nitride and oxide. Its light shows what is', 'being etched: first CN (nitride), then CO (oxide). Then 20 to 30 % more.', 'SHIFT stops the etcher when the OVER-ETCH counter shows 25 %.']},
   implant: {title: ['IMPLANTIEREN · ARSEN', 'IMPLANT · ARSENIC'],
     de: ['Der Magnet trennt die Ionen nach ihrer Masse.', 'Nur Arsen (As⁺) soll durch den Spalt, bis die Dosis voll ist.', '↑↓ Magnetfeld · SHIFT öffnet den Strahl · das Feld driftet.'],
     en: ['The magnet separates the ions by their mass.', 'Only arsenic (As⁺) may pass the slit until the dose is full.', '↑↓ magnetic field · SHIFT opens the beam · the field drifts.']},
