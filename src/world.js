@@ -849,6 +849,49 @@ function alertMark(px, py) {
   R('#2a0606', x - 1, y - 1, 5, 14); R('#ff3a2a', x, y, 3, 8); R('#ff3a2a', x, y + 10, 3, 3);
 }
 
+/* ---------- Shadows of the shift before ---------- */
+// One silhouette per facing, drawn once from the figure itself in a single dark colour (violet when set by light).
+const shadowSprites = {};
+let trails = [], trailLevel = null;
+function shadowSprite(face, set) {
+  const key = face + (set ? ':set' : '');
+  if (shadowSprites[key]) return shadowSprites[key];
+  const c = document.createElement('canvas'); c.width = 96; c.height = 96;
+  const main = ctx; ctx = c.getContext('2d'); ctx.setTransform(2, 0, 0, 2, 0, 0);
+  const col = set ? '#4a3480' : '#070c18', pal = {};
+  for (const k of Object.keys(SUIT.them)) pal[k] = col;
+  bunny(8, 10, face, 0, pal, {tall: 5, longArms: true});
+  ctx = main; shadowSprites[key] = c;
+  return c;
+}
+// The silhouette in thin horizontal bands, a little stretched from the feet up; the bands drift a pixel apart and
+// now and then one jumps, like the tear of a shift. Under it the floor turns a shade colder, dust rises.
+function shadowFigure(ex, ey, i, set, face, alpha, fray, near) {
+  const px = ex * T, py = FY + ey * T, sp = shadowSprite(face, set), sx0 = px - 8, sy0 = py - 14, foot = 40, stretch = 1.1;
+  if (fray) {
+    ctx.fillStyle = set ? 'rgba(150,120,230,.07)' : 'rgba(110,160,255,.06)';
+    ctx.beginPath(); ctx.ellipse(px + 16, py + 28, 15, 5, 0, 0, 7); ctx.fill();
+    if (!reduced) for (let k = 0; k < 3; k++) { const t = ((F * 0.4 + k * 17 + i * 11) % 30) / 30; R(`rgba(200,220,255,${0.35 * (1 - t)})`, px + 9 + ((k * 7 + i * 5) % 14), py + 26 - t * 24, 1, 1); }
+  }
+  for (let j = 0; j < 48; j += 3) {
+    let off = 0;
+    if (fray && !reduced) {
+      off = Math.round(Math.sin(F / 6 + j * 0.9 + i * 2) * 0.8);
+      if (hash((F >> 2) + j * 3 + i * 17) > 0.965) off += hash(F + j) > 0.5 ? 3 : -3;
+    }
+    ctx.globalAlpha = alpha * ((j / 3) % 2 ? 0.7 : 1);
+    ctx.drawImage(sp, 0, j * 2, 96, 6, sx0 + off, sy0 + foot - (foot - j) * stretch, 48, 3 * stretch);
+  }
+  // A glint of eyes in the hood: rare and faint, brighter when you are close. Not from behind, not when set.
+  if (fray && !set && face !== 'up' && (near || hash((F >> 4) + i * 7) > 0.55)) {
+    const ey0 = Math.round(sy0 + foot - (foot - (10 - 5 + 4)) * stretch), side = face === 'left' || face === 'right';
+    ctx.globalAlpha = near ? 0.75 : 0.35;
+    R('#ffb43a', px + (side ? (face === 'right' ? 18 : 13) : 13), ey0, 2, 1);
+    if (!side) R('#ffb43a', px + 17, ey0, 2, 1);
+  }
+  ctx.globalAlpha = 1;
+}
+
 /* ---------- Night light, pre-drawn ---------- */
 // The darkness around the player (1400 x 800 world units at half resolution, the radius 150 in the middle),
 // the warm glow of the visor, and a work lamp.
@@ -960,20 +1003,24 @@ function draw(c, s, o) {
   if (o.phone) phone(o.phone, o.phone.ringing);
   if (o.windowFace && !night) windowFace(o.windowFace);
   if (L.showerT > 0) showerAir(L);
-  // Shadows of the previous shift on your floor, a little stretched, as if cast from the other shift.
-  if (!night) o.enemies.forEach(([ex, ey], i) => {
-    const px = ex * T, py = FY + ey * T, a = isSet(i) ? 0.22 : 0.26 + 0.07 * Math.sin(F / 9 + i);
-    ctx.fillStyle = isSet(i) ? `rgba(90,60,150,${a})` : `rgba(10,16,30,${a})`;
-    ctx.beginPath(); ctx.ellipse(px + 16, py + 22, 9, 13, 0.25, 0, 7); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(px + 18, py + 6, 6, 6, 0, 0, 7); ctx.fill();
-    if (o.alert && o.alert[i] && !isSet(i)) alertMark(px, py);
-  });
-  if (!night) (o.ghosts || []).forEach(([gx, gy, a]) => {
-    const px = gx * T, py = FY + gy * T;
-    ctx.fillStyle = `rgba(10,16,30,${0.34 * a})`;
-    ctx.beginPath(); ctx.ellipse(px + 16, py + 22, 9, 13, -0.2, 0, 7); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(px + 15, py + 6, 6, 6, 0, 0, 7); ctx.fill();
-  });
+  // Shadows of the previous shift on your floor: their silhouette, cast in from the other shift, fraying in
+  // thin bands, with a faint glint of eyes; where they were a moment ago, an after-image fades.
+  if (!night) {
+    if (trailLevel !== L.id || trails.length !== o.enemies.length) { trailLevel = L.id; trails = o.enemies.map(() => []); }
+    o.enemies.forEach(([ex, ey], i) => {
+      const set = isSet(i), near = Math.max(Math.abs(ex - s.x), Math.abs(ey - s.y)) <= 3;
+      const face = near ? (Math.abs(ex - s.x) > Math.abs(ey - s.y) ? (ex > s.x ? 'left' : 'right') : (ey > s.y ? 'up' : 'down')) : 'down';
+      const tr = trails[i];
+      if (F % 6 === 0) { tr.push([ex, ey]); if (tr.length > 6) tr.shift(); }
+      if (!set) [[tr.length - 3, 0.12], [tr.length - 5, 0.06]].forEach(([k, a]) => {
+        const p = tr[k];
+        if (p && Math.hypot(p[0] - ex, p[1] - ey) > 0.3) shadowFigure(p[0], p[1], i, false, 'down', a, false);
+      });
+      shadowFigure(ex, ey, i, set, face, set ? 0.34 : 0.42 + 0.06 * Math.sin(F / 9 + i), !set, near);
+      if (o.alert && o.alert[i] && !set) alertMark(ex * T, FY + ey * T);
+    });
+  }
+  if (!night) (o.ghosts || []).forEach(([gx, gy, a], i) => shadowFigure(gx, gy, 10 + i, false, 'down', 0.45 * a, true, false));
   if (o.grace > 0) {
     ctx.strokeStyle = `rgba(255,207,90,${0.35 + 0.4 * o.grace})`; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(ppx + 16, ppy + 14, 19, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * o.grace); ctx.stroke();
