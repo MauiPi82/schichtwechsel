@@ -100,9 +100,10 @@ test('chasers gather under a player hiding in the day shift', () => {
 test('on their rounds the previous shift keeps its rhythm, whatever you do', () => {
   const def = LEVELS.find(d => d.id === 'ox'), L = core.parseLevel(def), p = L.patrols[0];
   const a = core.newState(L), b = core.newState(L);
+  // In your own shift (day) they walk at half speed; their round does not depend on where you go.
   for (let i = 0; i < 60; i++) { core.step(a, 'wait'); core.step(b, ['right', 'down', 'left', 'up', 'wait'][i % 5]); }
   assert.deepEqual([a.enemies[0].x, a.enemies[0].y], [b.enemies[0].x, b.enemies[0].y]);
-  const k = Math.floor(60 / p.every) % p.cells.length;
+  const k = (p.start + Math.floor(60 / (p.every * 2))) % p.cells.length;
   assert.deepEqual([a.enemies[0].x, a.enemies[0].y], [p.cells[k].x, p.cells[k].y]);
 });
 

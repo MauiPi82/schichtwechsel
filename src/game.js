@@ -27,7 +27,7 @@ const UI = {
     sound: on => 'Ton: ' + (on ? 'an' : 'aus'), pause: 'Pause', full: 'Vollbild',
     noteHead: 'VOGT MICROELETTRONICA · BAY 7 · TURNO B', q: ['„', '“'],
     useLight: 'ANLAUFEN: LICHT', useStop: 'ANLAUFEN: NOT-AUS', charging: 'LÄDT',
-    yieldWord: 'AUSBEUTE', best: 'BESTE AUSBEUTE', yieldLog: y => `Ausbeute Los 4471: ${y} %`,
+    yieldWord: 'AUSBEUTE', best: 'BESTE AUSBEUTE', rewind: 'SHIFT: ZURÜCKSPULEN', lightTip: 'LAUF GEGEN DIE ANLAGE: IHR LICHT HÄLT SIE AUF', yieldLog: y => `Ausbeute Los 4471: ${y} %`,
     // Why a shift was refused: what stands on this spot in the other shift.
     blocked: (to, what) => what === 'o' ? 'IN DER VORSCHICHT FEHLT HIER DER BODEN'
       : `HIER STEHT IN ${to ? 'DER VORSCHICHT' : 'DEINER SCHICHT'} ${what === 'M' ? 'EINE ANLAGE' : 'EINE WAND'}`,
@@ -45,7 +45,7 @@ const UI = {
     sound: on => 'Sound: ' + (on ? 'on' : 'off'), pause: 'Pause', full: 'Fullscreen',
     noteHead: 'VOGT MICROELETTRONICA · BAY 7 · TURNO B', q: ['“', '”'],
     useLight: 'WALK INTO: LIGHT', useStop: 'WALK INTO: STOP', charging: 'CHARGING',
-    yieldWord: 'YIELD', best: 'BEST YIELD', yieldLog: y => `Yield of lot 4471: ${y} %`,
+    yieldWord: 'YIELD', best: 'BEST YIELD', rewind: 'SHIFT: REWIND', lightTip: 'WALK INTO THE TOOL: ITS LIGHT STOPS THEM', yieldLog: y => `Yield of lot 4471: ${y} %`,
     blocked: (to, what) => what === 'o' ? 'NO FLOOR HERE IN THE SHIFT BEFORE'
       : `${what === 'M' ? 'A TOOL' : 'A WALL'} STANDS HERE IN ${to ? 'THE SHIFT BEFORE' : 'YOUR SHIFT'}`,
   },
@@ -317,6 +317,12 @@ const audio = {
         break;
       case 'freeze': [1568, 2093, 2637].forEach((f, i) => this.tone('sine', f, t0 + 0.05 + i * 0.05, 0.5, 0.035)); break;
       case 'emo': this.tone('square', 120, t0, 0.05, 0.18); this.tone('sawtooth', 220, t0 + 0.05, 0.7, 0.08, null, 35); break;
+      case 'rewind': {
+        const o2 = this.tone('sawtooth', 180, t0, 0.95, 0.06, null, 1400);
+        this.burst(t0, 0.9, 0.06, 'highpass', 2500);
+        for (let i = 0; i < 10; i++) this.tone('square', 900 + i * 120, t0 + i * 0.085, 0.03, 0.02);
+        void o2; break;
+      }
       case 'tool-wait': this.tone('square', 330, t0, 0.05, 0.04); this.tone('square', 330, t0 + 0.09, 0.05, 0.04); break;
       case 'sting':
         this.tone('sawtooth', 55, t0, 2.4, 0.07); this.tone('sawtooth', 58.3, t0, 2.4, 0.07);
@@ -422,7 +428,7 @@ function press(what) {
   if (introMode && (mode === 'play' || mode === 'shower')) { if (what === 'enter') transition(endIntro, 30, 1); return; }
   if (mode === 'mini') { if (what === 'enter') window.SchichtMini.skip(mini); else miniPressed = true; return; }
   // After a death the picture waits; a key brings you back to the last process step, in your own shift.
-  if (mode === 'dead') { if (deadT > DEAD_LEN) { queuedDir = null; queuedShift = false; startLevel(levelIndex, true); fadeIn(24); } return; }
+  if (mode === 'dead') { if (deadT > DEAD_LEN) { queuedDir = null; queuedShift = false; startRewind(); } return; }
   if (mode === 'process') { if (procT > 40) mode = 'play'; return; }
   if (mode === 'note') { if (noteT > 25) { mode = 'play'; queuedDir = null; queuedShift = false; } return; }
   if (mode === 'play') { if (what === 'shift') { queuedShift = true; shiftQueuedAt = frame; } return; }
@@ -468,7 +474,7 @@ function pollPad() {
 let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0, shake = 0;
 let progress = clamp(+store.get('level') || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
 const deathsBy = levels.map(() => 0);
-const BUILD = '0.21 · 2026-11-12';
+const BUILD = '0.22 · 2026-11-12';
 // Testers can jump to an hour: ?stunde=3 or ?hour=3 opens the third hour.
 const jump = +(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || 0);
 if (jump >= 1 && jump <= levels.length) progress = jump - 1;
@@ -491,6 +497,7 @@ function introDoors(L) { const d = []; for (let i = 0; i < L.layers[0].length; i
 /* ---------- Lot 4471: what you made of it ---------- */
 // Scores (0..1) of the played steps and their measured values; the measuring stations and the yield read them.
 let lot = {s: {}, v: {}}, mini = null;
+let history = [], rewT = 0, rewFrom = 0;
 try { const l = JSON.parse(store.get('lot') || 'null'); if (l && l.s && l.v) lot = l; } catch (_) { /* fresh lot */ }
 function saveLot() { store.set('lot', JSON.stringify(lot)); }
 function newLot() { lot = {s: {}, v: {}}; saveLot(); }
@@ -506,7 +513,7 @@ function endMini() {
 
 /* ---------- Announcements, notes from shift B, scares ---------- */
 // None of these changes the rules: a blackout freezes the clock while it lasts, so it can never cost a life.
-let flashFx = null, blockedT = 0, paNow = null, paT = 0, paQueue = [], paDone = new Set(), noteRead = false, noteT = 0, scareDone = false, scare = null, freezeT = 0;
+let lightTaught = false, flashFx = null, blockedT = 0, paNow = null, paT = 0, paQueue = [], paDone = new Set(), noteRead = false, noteT = 0, scareDone = false, scare = null, freezeT = 0;
 const fade = (tt, a, b, c) => tt < a ? tt / a : tt < b ? 1 : clamp((c - tt) / (c - b), 0, 1);
 const SCARE_LEN = {phone: 330, window: 90, blackout: 54, shadow: 80};
 function paLen(p) { return Math.round((PA_START + paSyllables(p.it).dur + 1.8) * 60); }
@@ -640,7 +647,7 @@ function startLevel(i, resume = false) {
     state.px = state.x; state.py = state.y;
     state.safeUntil = state.step + 14; state.bellFrom = state.step;
   } else { state = C.newState(levels[i]); hintT = 0; toastT = 0; shiftHintT = 0; paDone = new Set(); paQueue = []; paNow = null; noteRead = false; scareDone = false; }
-  scare = null; freezeT = 0;
+  scare = null; freezeT = 0; history = [];
   queuedDir = null; queuedShift = false;
   audio.setLayer(state.layer);
 }
@@ -665,6 +672,7 @@ function nextAction() {
 
 function doStep(action) {
   const before = state.layer, from = state.enemies.map(e => [e.x, e.y]);
+  if (!introMode) { history.push(C.clone(state)); if (history.length > 600) history.shift(); }
   C.step(state, action);
   state.enemies.forEach((e, i) => { if (e.moved === state.step) { e.fx = from[i][0]; e.fy = from[i][1]; } });
   totalShifts += state.events.filter(e => e === 'shift').length;
@@ -686,7 +694,7 @@ function doStep(action) {
     audio.sfx('reticle'); procType = 'reticle'; procT = 0; mode = 'process';
   }
   if (state.events.includes('station') && state.status === 'play') {
-    checkpoint = C.clone(state); toast(t().checkpoint, 100);
+    checkpoint = C.clone(state); history = []; toast(t().checkpoint, 100);
     const step = LEVELS[levelIndex].route && LEVELS[levelIndex].route[state.got - 1];
     if (step && step.proc && window.SchichtMini && window.SchichtMini.has(step.proc)) startMini(step.proc);
     else if (step && step.proc && window.SchichtProcess) { procType = step.proc; procT = 0; mode = 'process'; }
@@ -723,6 +731,9 @@ function update() {
     else if (++stepFrame >= STEP_FRAMES) { stepFrame = 0; doStep(nextAction()); }
     // Heartbeat: faster and louder the closer the previous shift is, louder at night.
     const d = state.enemies.length ? C.nearestEnemy(state) : Infinity;
+    if (!lightTaught && !introMode && state.layer === 1 && d <= 5 && nearTool() && store.get('lighttip') !== '1') {
+      lightTaught = true; store.set('lighttip', '1'); toast(t().lightTip, 300);
+    }
     if (d <= 7 && audio.ctx) {
       heartT -= 1 / 60;
       if (heartT <= 0) { audio.sfx('heart', {gain: (state.layer ? 0.17 : 0.07) * (1 - d / 9)}); heartT = 0.4 + d * 0.12; }
@@ -746,6 +757,7 @@ function update() {
   if (mode === 'process' && ++procT > window.SchichtProcess.duration(procType)) mode = 'play';
   if (mode === 'shower') updateShower();
   if (mode === 'dead') deadT++;
+  if (mode === 'rewind') updateRewind();
   if (mode === 'clear' && ++deadT > 60) {
     checkpoint = null;
     if (levelIndex + 1 < levels.length) startCard(levelIndex + 1);
@@ -759,7 +771,7 @@ function update() {
 // The previous shift creeps: each move is spread over its whole move interval.
 function enemyPos(e) {
   if (e.moved < 0 || e.fx === undefined) return [e.x, e.y];
-  const span = (e.ev || state.level.enemyEvery * (state.layer ? 1 : 2)) * STEP_FRAMES;
+  const span = (e.ev || state.level.enemyEvery) * (state.layer ? 1 : 2) * STEP_FRAMES;
   const k = clamp(((state.step - e.moved) * STEP_FRAMES + stepFrame) / span, 0, 1);
   return [lerp(e.fx, e.x, k), lerp(e.fy, e.y, k)];
 }
@@ -880,7 +892,7 @@ function storyView() {
 function paY() { return state && state.y <= 3 ? FY + C.H * T - 13 - 26 : FY + 3; }
 // The announcement as a strip under the bar: loudspeaker, the Italian words as they are spoken, the translation.
 function drawPA() {
-  if (!paNow || introMode) return;
+  if (!paNow || introMode || mode === 'rewind') return;
   const a = clamp(Math.min(paT / 12, (paNow.len - paT) / 24), 0, 1), night = state.layer === 1;
   const x = 10, y = paY(), w = W - 20, speaking = paT / 60 > PA_START && paT / 60 < PA_START + paNow.voice;
   ctx.globalAlpha = a;
@@ -932,6 +944,7 @@ function renderPlay() {
   window.SchichtWorld.draw(ctx, state, {reticle: rt, reticleN: levelIndex,k: mode === 'play' ? k : 1, frame, reduced, lang, enemies: state.enemies.map(enemyPos),
     playerVisible: !(state.step < state.safeUntil && (frame >> 2) % 2), shiftHint: shiftHintT > 0 && !introMode, civilian: introMode && !suited,
     frozen: state.enemies.map(e => C.frozen(state, e)), flash: flashFx && {...flashFx, a: 1 - flashFx.t / 34},
+    grace: !introMode && state.layer === 1 && state.enemies.length ? clamp(1 - ((state.step - state.lastShift) * STEP_FRAMES + stepFrame) / (C.GRACE * STEP_FRAMES), 0, 1) : 0,
     ...storyView()});
   ctx.restore();
   ctx.setTransform(Z, 0, 0, Z, 0, 0);
@@ -1046,7 +1059,40 @@ function deathPicture(cause, d) {
 
 function renderDead() {
   renderDeadPicture();
-  if (deadT > DEAD_LEN) txt(t().cont, W / 2, H / 2 + 14, {align: 'center', color: '#8c93a8'});
+  if (deadT > DEAD_LEN) txt(t().rewind, W / 2, H / 2 + 14, {align: 'center', color: '#8c93a8'});
+}
+/* ---------- Rewind: the shift slips back to the last station ---------- */
+// Every step since the last station is kept. After a death the hour runs backwards, like a tape, in under a second.
+function startRewind() {
+  mode = 'rewind'; rewT = 0; rewFrom = history.length; audio.sfx('rewind');
+  if (!history.length) endRewind();
+}
+function updateRewind() {
+  rewT++;
+  const i = rewFrom - 1 - Math.floor(rewT / 48 * rewFrom);
+  if (i < 0) return endRewind();
+  state = C.clone(history[i]);
+}
+function endRewind() { history = []; startLevel(levelIndex, true); fadeIn(10); }
+function renderRewind() {
+  renderPlay();
+  // Tape look: the picture shudders in slices, a tracking band runs through it, scanlines, a cold tint.
+  const snap = snapshot();
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+  if (!reduced) for (let i = 0; i < 6; i++) {
+    const sy = Math.floor(hash(i + rewT * 3) * cv.height), sh = 8 + Math.floor(hash(i * 5 + rewT) * 30);
+    ctx.drawImage(snap, 0, sy, cv.width, sh, Math.round((hash(i * 7 + rewT) - 0.5) * 40), sy, cv.width, sh);
+  }
+  ctx.restore();
+  ctx.fillStyle = 'rgba(40,60,90,.22)'; ctx.fillRect(0, 0, W, H);
+  for (let y = 0; y < H; y += 2) R('rgba(0,0,0,.18)', 0, y, W, 1);
+  const band = (rewT * 7) % (H + 20) - 10;
+  ctx.fillStyle = 'rgba(255,255,255,.12)'; ctx.fillRect(0, band, W, 6);
+  for (let i = 0; i < 40; i++) R('rgba(255,255,255,.5)', hash(i + rewT) * W, band + hash(i * 3 + rewT) * 6, 2, 1);
+  ctx.fillStyle = '#e9eef5'; ctx.beginPath();
+  for (const ox of [0, 9]) { ctx.moveTo(14 + ox, FY + 8); ctx.lineTo(14 + ox, FY + 20); ctx.lineTo(5 + ox, FY + 14); }
+  ctx.fill();
+  txt('REW', 34, FY + 9, {color: '#e9eef5', size: 8});
 }
 function renderDeadPicture() {
   renderPlay();
@@ -1201,6 +1247,7 @@ function renderMode() {
     ctx.setTransform(Z, 0, 0, Z, 0, 0); return;
   }
   if (mode === 'dead') return renderDead();
+  if (mode === 'rewind') return renderRewind();
   renderPlay();
   if (mode === 'note') drawNote();
   if (mode === 'mini' && mini) window.SchichtMini.draw(ctx, mini, lang);

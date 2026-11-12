@@ -104,7 +104,7 @@
       ],
       lamps: [[5, 3], [2, 7], [11, 7]],
       // The previous shift walks its round along the only way through the wall.
-      patrols: [{path: [[4, 8], [13, 8]], every: 3}],
+      patrols: [{path: [[4, 8], [13, 8]], every: 2}],
       day: [
         '####################',
         '#P.MMMMMM#.MMMMM...#',
@@ -162,7 +162,7 @@
         {x0: 15, y0: 7, type: 'stocker'},
       ],
       lamps: [[4, 5], [11, 5], [16, 2], [10, 7]],
-      patrols: [{path: [[2, 5], [16, 5]], every: 3}, {path: [[1, 8], [7, 8]], every: 3}],
+      patrols: [{path: [[2, 5], [16, 5]], every: 2}, {path: [[1, 8], [7, 8]], every: 2}],
       day: [
         '####################',
         '#P......#.........X#',
@@ -221,7 +221,7 @@
         {x0: 12, y0: 7, type: 'gascab', gas: 'CF4'},
       ],
       lamps: [[9, 6], [2, 2], [17, 5]],
-      patrols: [{path: [[7, 6], [11, 6], [11, 8], [7, 8]], every: 3}],
+      patrols: [{path: [[7, 6], [11, 6], [11, 8], [7, 8]], every: 2}],
       day: [
         '####################',
         '#P..#.MMMMMMM.#MMMM#',
@@ -280,7 +280,7 @@
       lamps: [[4, 2], [8, 6], [12, 1]],
       // The station room is walled in by day: in through the shift before. The middle is open only by day,
       // across the beam; the way into the room is a round of the previous shift.
-      patrols: [{path: [[4, 3], [5, 3], [5, 5], [4, 5]], every: 3}],
+      patrols: [{path: [[4, 3], [5, 3], [5, 5], [4, 5]], every: 2}],
       day: [
         '####################',
         '#.....#....#......X#',
@@ -318,7 +318,7 @@
         de: ['Wärme breitet sich nach ∂T/∂t = α·∇²T aus, Dotieratome wandern', 'genauso: Diffusionslänge ≈ 2·√(D·t). Im Rohrofen heilt das Gitter', 'bei 1000 °C in 30 min aus. RTP-Anlagen schaffen es in Sekunden.'],
         en: ['Heat spreads as ∂T/∂t = α·∇²T, and dopant atoms wander the same', 'way: diffusion length ≈ 2·√(D·t). In the tube furnace the lattice', 'heals at 1000 °C in 30 min. RTP tools manage it in seconds.'],
       },
-      hint: {de: 'Warte, bis die Hitze zurückweicht', en: 'Wait for the heat to fall back'},
+      hint: {de: 'Warte in einer Kühlnische, bis die Hitze zurückweicht', en: 'Wait in a cooled niche until the heat falls back'},
       // Announcements over the PA (step, Italian, translation), a note from shift B, one scare.
       pa: [
         {at: 4, it: 'Il signor Rossi è atteso in portineria.', de: 'Herr Rossi wird an der Pforte erwartet.', en: 'Signor Rossi is expected at the gate.'},
@@ -333,22 +333,26 @@
       heat: {
         ambient: 22, source: 1000, threshold: 60, alpha: 0.2, cooling: 0.3, substeps: 2, period: 48, open: [0, 20],
         sources: [[6, 1, 0], [9, 1, 8], [12, 1, 16], [15, 1, 24], [5, 5, 12], [8, 5, 20], [11, 5, 28], [14, 5, 36]],
+        // Two cooled niches in the banks, where the heat cannot reach.
+        shields: [[7, 1], [13, 5]],
       },
       tools: [
         {x0: 1, y0: 5, type: 'gascab', gas: 'HCl'},
         {x0: 5, y0: 1, type: 'tubes', name: 'FORNO H-12'},
         {x0: 5, y0: 5, type: 'tubes', name: 'FORNO H-12'},
+        {x0: 8, y0: 1, type: 'tubes', name: 'FORNO H-12'},
+        {x0: 14, y0: 5, type: 'tubes', name: 'FORNO H-12'},
       ],
       lamps: [[2, 4], [10, 7], [17, 6]],
       // No way round at night any more: the furnace corridor is the way, with a round in the middle passage.
-      patrols: [{path: [[9, 2], [11, 2], [11, 4], [9, 4]], every: 3}],
+      patrols: [{path: [[9, 2], [11, 2], [11, 4], [9, 4]], every: 2}],
       day: [
         '####################',
-        '#P..#MMMMMMMMMMM#..#',
+        '#P..#MM.MMMMMMMM#..#',
         '#...#.....#.....#.1#',
         '#.........#........#',
         '#...#.....#.....#..#',
-        '#M..#MMMMMMMMMMM#..#',
+        '#M..#MMMMMMMM.MM#..#',
         '#M..#...........#..#',
         '#...#...........#..#',
         '#...#...........#.X#',
@@ -408,7 +412,7 @@
         {x0: 16, y0: 1, type: 'chamber', kind: 'etch', name: 'VALENTA E-1'},
       ],
       lamps: [[2, 3], [9, 7], [16, 6]],
-      patrols: [{path: [[6, 3], [13, 3], [13, 4], [6, 4]], every: 3}],
+      patrols: [{path: [[6, 3], [13, 3], [13, 4], [6, 4]], every: 2}],
       day: [
         '####################',
         '#P..MM....MM....MM.#',

@@ -87,7 +87,8 @@
         for (let k = 0; k < len || (wp.length === 1 && k === 0); k++) cells.push({x: x0 + sx * k, y: y0 + sy * k});
       }
       for (const c of cells) if (!walk[NIGHT][idx(c.x, c.y)]) throw new Error(`Level ${def.id}: patrol ${n} crosses a solid night tile at ${c.x},${c.y}`);
-      return {cells, every: pt.every || 3, start: pt.start || 0};
+      // every: steps per tile in the shift before; by day, while you watch their shadows, half as fast.
+      return {cells, every: pt.every || 2, start: pt.start || 0};
     });
     level.blocks = layers.map((map, layer) => toolBlocks(def, map));
     level.blockAt = level.blocks.map(list => { const a = new Int16Array(N).fill(-1); list.forEach((b, n) => { for (let y = b.y0; y <= b.y1; y++) for (let x = b.x0; x <= b.x1; x++) a[idx(x, y)] = n; }); return a; });
@@ -143,6 +144,8 @@
     const conducts = new Uint8Array(N);
     for (let i = 0; i < N; i++) conducts[i] = level.walk[DAY][i];
     for (const [x, y] of h.sources) conducts[idx(x, y)] = 1;
+    // Cooled niches: shielded and ventilated, they stay at room temperature. A place to wait out the heat.
+    for (const [x, y] of h.shields || []) conducts[idx(x, y)] = 0;
     // Each furnace mouth may open with its own delay, so the heat can travel along a bank of furnaces.
     const offset = new Int16Array(N).fill(-1);
     for (const [x, y, off = 0] of h.sources) offset[idx(x, y)] = off;
@@ -375,9 +378,10 @@
       if ((state.step + 6) % b.every === 0) state.events.push('beam-warning');
     }
 
-    // On their rounds the previous shift keeps its own rhythm, whichever shift you are in. Set by light, they stop.
+    // On their rounds the previous shift keeps its rhythm: awake in their own shift, slow while you are in yours.
+    // Set by light, they stop.
     for (const e of state.enemies) {
-      if (e.pt === undefined || state.step % e.ev !== 0 || frozen(state, e)) continue;
+      if (e.pt === undefined || state.step % (e.ev * (state.layer === DAY ? 2 : 1)) !== 0 || frozen(state, e)) continue;
       const cells = L.patrols[e.pt].cells;
       e.pi = (e.pi + 1) % cells.length; e.x = cells[e.pi].x; e.y = cells[e.pi].y; e.moved = state.step; state.events.push('enemy-step');
     }
@@ -434,7 +438,7 @@
   // noShift: SHIFT is never pressed (the bell may still shift). reticle: the hour only counts with the reticle.
   function solve(level, {maxStates = 4e6, noShift = false, reticle = false} = {}) {
     const period = [level.enemyEvery * 2, level.bell || 1, ...level.robots.map(r => r.length), ...level.beams.map(b => b.every * b.species.length),
-      level.heat ? level.heat.period : 1, ...level.pulses.map(p => p.period), ...level.patrols.map(p => p.every)]
+      level.heat ? level.heat.period : 1, ...level.pulses.map(p => p.period), ...level.patrols.map(p => p.every * 2)]
       .reduce((a, b) => a / gcd(a, b) * b, 1);
     const key = s => `${s.x},${s.y},${s.layer},${s.got},${s.reticle ? 1 : 0},${s.step % period},${Math.min(s.step - s.lastShift, Math.max(SHIFT_COOLDOWN, GRACE))},` +
       s.enemies.map(e => e.pt !== undefined ? 'p' + e.pi : e.x + ':' + e.y).join(';');

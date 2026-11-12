@@ -474,6 +474,20 @@ function toolBlocks(L, layer) {
 
 /* ---------- Stations, airlock, rail ---------- */
 function stations(L, layer, s, lang) {
+  // The next station lies in the other shift: its place shows as a dashed outline, so you know where to shift.
+  const nx = L.stations[s.got];
+  if (nx && nx.layer !== layer && !L.intro) {
+    const px = nx.x * T, py = FY + nx.y * T, a = 0.45 + 0.25 * Math.sin(F / 10);
+    ctx.setLineDash([3, 3]); ctx.lineWidth = 2; ctx.strokeStyle = nx.layer ? `rgba(255,180,58,${a})` : `rgba(127,208,255,${a})`;
+    ctx.strokeRect(px + 2.5, py + 2.5, T - 5, T - 5); ctx.setLineDash([]);
+    const def = L.route && L.route[s.got], other = lang === 'de' ? (nx.layer ? 'IN DER VORSCHICHT' : 'IN DEINER SCHICHT') : (nx.layer ? 'IN THE SHIFT BEFORE' : 'IN YOUR SHIFT');
+    const label = `${s.got + 1} · ${def ? def[lang].toUpperCase() : ''} · ${other}`;
+    ctx.font = '400 8px "Silkscreen", monospace';
+    const lw = ctx.measureText(label).width + 8, ly = py - 14 < FY ? py + 34 : py - 14;
+    const lx = clamp(px + 16, lw / 2 + 2, WW - lw / 2 - 2);
+    R('rgba(10,12,18,.75)', lx - lw / 2, ly, lw, 11);
+    text(label, lx, ly + 1, {align: 'center', color: nx.layer ? '#ffcf5a' : '#9fe0ff'});
+  }
   L.stations.forEach((st, n) => {
     if (st.layer !== layer) return;
     const px = st.x * T, py = FY + st.y * T, done = s.got > n, next = s.got === n;
@@ -742,6 +756,16 @@ function draw(c, s, o) {
   airlock(L, layer, s);
   heatAndPlasma(L, layer, s);
   if (o.note && o.note.layer === layer) paperNote(o.note);
+  // Cooled niches in the furnace banks: hazard frame, a fan in the floor, KÜHL.
+  if (L.heat && L.heat.shields && layer === 0) for (const [x, y] of L.heat.shields) {
+    const px = x * T, py = FY + y * T;
+    for (let i = 0; i < T; i += 4) { R((i >> 2) % 2 ? '#1a1a1a' : '#f2c21a', px + i, py, 4, 2); R((i >> 2) % 2 ? '#f2c21a' : '#1a1a1a', px + i, py + T - 2, 4, 2); }
+    ring('#7c8693', px + 16, py + 15, 8, 2); const a = reduced ? 0.5 : F / 4;
+    ctx.strokeStyle = '#5a6370'; ctx.lineWidth = 2; ctx.beginPath();
+    for (let k = 0; k < 3; k++) { const b = a + k * 2.09; ctx.moveTo(px + 16, py + 15); ctx.lineTo(px + 16 + Math.cos(b) * 6, py + 15 + Math.sin(b) * 6); }
+    ctx.stroke();
+    text('22°C', px + 16, py + 24, {align: 'center', size: 8, color: '#2c6fb5'});
+  }
   const blocks = toolBlocks(L, layer);
   const hasPulses = L.pulses.some(pl => pl.layer === layer);
   const heatAt = (x, y) => L.heat ? clamp((L.heat.temps[s.step % L.heat.period][y * C.W + x] - 22) / 600, 0, 1) : 0;
@@ -814,6 +838,10 @@ function draw(c, s, o) {
     ctx.beginPath(); ctx.ellipse(px + 15, py + 6, 6, 6, 0, 0, 7); ctx.fill();
   });
   rail(L, layer);
+  if (o.grace > 0) {
+    ctx.strokeStyle = `rgba(255,207,90,${0.35 + 0.4 * o.grace})`; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(ppx + 16, ppy + 14, 19, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * o.grace); ctx.stroke();
+  }
   if (o.shiftHint && (F >> 3) % 4) {
     const kx = Math.round(ppx) + 2, ky = Math.round(ppy) - 20;
     R('#000', kx - 1, ky - 1, 30, 13); R(night ? '#ffcf5a' : '#e9eef5', kx, ky, 28, 11); R(night ? '#a07a32' : '#9aa6b5', kx, ky + 9, 28, 2);
