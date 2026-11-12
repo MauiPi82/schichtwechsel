@@ -195,6 +195,14 @@ function wallSigns(L, layer, lang) {
     const w = ctx.measureText(label).width + 10, px = sg.x * T + 16 - w / 2, py = FY + sg.y * T + 12;
     R(sg.bg || (night ? '#3a2a08' : '#f2c21a'), px, py, w, 12); R('rgba(0,0,0,.25)', px, py + 12, w, 2);
     text(label, px + w / 2, py + 2, {align: 'center', color: sg.color || (night ? '#8a6420' : '#1a1004')});
+    // An Italian sign carries its meaning underneath, small.
+    if (sg.sub) {
+      const sub = sg.sub[lang] || sg.sub.en;
+      ctx.font = '400 7px "IBM Plex Sans", monospace';
+      const sw = ctx.measureText(sub).width + 6;
+      R('rgba(8,10,16,.72)', px + w / 2 - sw / 2, py + 15, sw, 10);
+      text(sub, px + w / 2, py + 16, {align: 'center', color: night ? '#a08850' : '#e9e4d6', font: 'IBM Plex Sans', size: 7});
+    }
   }
 }
 

@@ -18,6 +18,16 @@ function text(s, x, y, o = {}) {
 const hashM = n => { const v = Math.sin(n * 127.1 + 311.7) * 43758.5453; return v - Math.floor(v); };
 const L = (de, en) => lang === 'de' ? de : en;
 const num = (v, d = 1) => v.toFixed(d).replace('.', lang === 'de' ? ',' : '.');
+// Breaks a line into lines no wider than w, measured in the font that is set.
+function wrapText(s, w) {
+  const out = []; let line = '';
+  for (const word of s.split(' ')) {
+    const next = line ? line + ' ' + word : word;
+    if (line && ctx.measureText(next).width > w) { out.push(line); line = word; } else line = next;
+  }
+  if (line) out.push(line);
+  return out;
+}
 
 /* ---------- Grades and yield ---------- */
 function grade(s) {
@@ -75,7 +85,7 @@ const BATHS = [
   {name: 'SC-2', col: '#dfe8b8', max: 15, unit: 'min', zone: [8, 12], what: ['LÖST METALLE', 'DISSOLVES METALS']},
   {name: 'HF 1%', col: '#cfe3f5', max: 150, unit: 's', zone: [45, 90], what: ['LÖST NATIVES OXID', 'STRIPS NATIVE OXIDE']},
 ];
-const BATH_FRAMES = 420;
+const BATH_FRAMES = 360;
 // The bench: a load station, three chemical baths, the rinse and the dryer. The robot moves the 25 wafers from the
 // FOUP into a carrier, the gripper on the gantry takes it from bath to bath. You time the three chemical baths;
 // rinsing (quick dump), drying (IPA vapour) and putting the wafers back into the FOUP run by themselves.
@@ -84,8 +94,10 @@ const clean = {
   init(m) { m.bath = 0; m.st = 'load'; m.bt = 0; m.res = []; m.times = []; },
   update(m, inp) {
     // What the bench does by itself runs at double speed: you only watch it.
-    m.bt += ['load', 'rinse', 'dry', 'back', 'unload'].includes(m.st) ? 2 : 1;
-    if (m.st === 'load') { if (m.bt >= CLEAN_LOAD) { m.st = 'down'; m.bt = 0; } if (m.bt % 16 === 0 && m.bt > 10 && m.bt < 90) m.sfx('click'); return; }
+    m.bt += ['load', 'rinse', 'dry', 'back', 'unload'].includes(m.st) ? 3 : 1;
+    if (m.st === 'load') { if (m.bt >= CLEAN_LOAD) { m.st = 'ready'; m.bt = 0; } if (m.bt % 16 === 0 && m.bt > 10 && m.bt < 90) m.sfx('click'); return; }
+    // Above each bath the carrier waits for you: the clock starts only once you dip it.
+    if (m.st === 'ready') { if (inp.pressed && m.bt > 6) { m.st = 'down'; m.bt = 0; m.sfx('click'); } return; }
     if (m.st === 'down' && m.bt >= 36) { m.st = 'in'; m.bt = 0; }
     else if (m.st === 'in') {
       const b = BATHS[m.bath], v = m.bt / BATH_FRAMES * b.max;
@@ -95,7 +107,7 @@ const clean = {
         m.st = 'up'; m.bt = 0; m.sfx('click');
       }
     } else if (m.st === 'up' && m.bt >= 44) {
-      m.bath++; m.bt = 0; m.st = m.bath >= BATHS.length ? 'rinse' : 'down';
+      m.bath++; m.bt = 0; m.st = m.bath >= BATHS.length ? 'rinse' : 'ready';
     } else if (m.st === 'rinse' && m.bt >= CL_RINSE) { m.st = 'dry'; m.bt = 0; m.sfx('click'); }
     else if (m.st === 'dry' && m.bt >= CL_DRY) { m.st = 'back'; m.bt = 0; }
     else if (m.st === 'back' && m.bt >= CL_BACK) { m.st = 'unload'; m.bt = 0; }
@@ -114,6 +126,7 @@ const clean = {
     const help = m.st === 'load' ? L('DER ROBOTER SETZT DIE 25 WAFER IN DEN TRÄGER', 'THE ROBOT MOVES THE 25 WAFERS INTO THE CARRIER')
       : m.st === 'unload' || m.st === 'back' ? L('ZURÜCK IN DIE BOX', 'BACK INTO THE BOX')
       : auto ? L('SPÜLEN UND TROCKNEN LAUFEN VON SELBST', 'RINSING AND DRYING RUN BY THEMSELVES')
+      : m.st === 'ready' ? L('SHIFT: EINTAUCHEN, DANN LÄUFT DIE ZEIT', 'SHIFT: DIP IN, THEN THE CLOCK RUNS')
       : L('SHIFT: HERAUSHEBEN, WENN DIE ZEIT IM GRÜNEN IST', 'SHIFT: LIFT OUT WHILE THE TIME IS IN THE GREEN');
     const a = frame(m, L('REINIGEN · RCA', 'CLEAN · RCA'), help);
     const tw = (a.w - 16) / 6, ty = a.y + 26, th = 32, col = i => a.x + 8 + i * tw, mid = i => col(i) + (tw - 6) / 2;
@@ -130,7 +143,7 @@ const clean = {
     else if (m.st === 'unload') { cx = c0; dip = 1; }
     else {
       const at = Math.min(m.bath, 3), from = mid(at + 1), to = mid(Math.min(5, at + 2));
-      tank = at; dip = m.st === 'down' ? smooth(m.bt / 36) : m.st === 'in' ? 1 : 1 - smooth(m.bt / 16);
+      tank = at; dip = m.st === 'ready' ? 0 : m.st === 'down' ? smooth(m.bt / 36) : m.st === 'in' ? 1 : 1 - smooth(m.bt / 16);
       cx = m.st === 'up' && m.bt > 16 ? from + (to - from) * smooth((m.bt - 16) / 28) : from;
     }
     const cy = a.y + 10 + dip * 20, dipped = dip > 0.6;
@@ -235,7 +248,7 @@ const clean = {
 // during the hold, faster the hotter (Deal-Grove, B ∝ exp(−1.23 eV / kT)): stay on the curve and it is 50 nm.
 const OX_TAU = 180, OX_A = 50, RAMP = 1.0;
 const oxide = g => OX_A * (Math.sqrt(1 + g / OX_TAU) - 1);
-const OX_IN = 120, OX_UP = 300, OX_HOLD = 480, OX_DOWN = 180, OX_LAG = 90, OX_EA = 1.23;
+const OX_IN = 90, OX_UP = 240, OX_HOLD = 360, OX_DOWN = 150, OX_LAG = 75, OX_EA = 1.23;
 const oxGoal = f => f < OX_IN ? 700 : f < OX_IN + OX_UP ? 700 + 300 * (f - OX_IN) / OX_UP : f < OX_IN + OX_UP + OX_HOLD ? 1000
   : f < OX_IN + OX_UP + OX_HOLD + OX_DOWN ? 1000 - 200 * (f - OX_IN - OX_UP - OX_HOLD) / OX_DOWN : 800;
 const oxSS = P => 400 + 70 * P;
@@ -905,47 +918,50 @@ const sputter = {
 const GAMES = {clean, oxidize, nitride, coat, expose, develop, etch, implant, sputter};
 // Before each step: what it is for and how to play it, then SHIFT starts it. The last line is the controls.
 const BRIEF = {
-  clean: {title: ['REINIGEN · RCA', 'CLEAN · RCA'],
-    de: ['Drei Bäder: SC-1 hebt Partikel ab, SC-2 löst Metalle, HF das native Oxid.', 'Nach jedem Bad spült Wasser die Chemie ab. Jedes Bad braucht seine Zeit.', 'SHIFT hebt den Korb heraus, wenn die Zeit im Grünen ist.'],
-    en: ['Three baths: SC-1 lifts particles, SC-2 dissolves metals, HF the native oxide.', 'After each bath, water rinses the chemicals off. Each bath needs its time.', 'SHIFT lifts the carrier out while the time is in the green.']},
-  oxidize: {title: ['OXIDIEREN · 1000 °C', 'OXIDISE · 1000 °C'],
-    de: ['Der Ofen fährt ein Rezept: hoch auf 1000 °C, halten, während Sauerstoff strömt, abkühlen.', 'Das Oxid wächst beim Halten, heißer schneller. Der Ofen ist träge: früh gegensteuern.', '↑ ↓ Heizleistung. Bleib auf der gelben Kurve, dann werden es 50 nm.'],
-    en: ['The furnace runs a recipe: up to 1000 °C, hold while oxygen flows, cool down.', 'The oxide grows during the hold, faster when hotter. The furnace is slow: steer early.', '↑ ↓ heater power. Stay on the yellow curve and it will be 50 nm.']},
-  nitride: {title: ['NITRID · LPCVD', 'NITRIDE · LPCVD'],
-    de: ['Das Gas strömt von oben ins Rohr und wird unterwegs verbraucht:', 'Die unteren Wafer bekommen weniger. Wärmer wächst es schneller.', '↑↓ Zone · ←→ Temperatur · SHIFT startet die Abscheidung.'],
-    en: ['The gas enters the tube at the top and is used up on the way down:', 'the lower wafers get less. Warmer, it grows faster.', '↑↓ zone · ←→ temperature · SHIFT starts the deposition.']},
-  coat: {title: ['BELACKEN · SPIN-COATING', 'COAT · SPIN COATING'],
+  clean: {title: ['REINIGEN · RCA', 'CLEAN · RCA'], goal: ['Wasch die Wafer sauber: jedes Bad genau so lange wie nötig.', 'Wash the wafers clean: each bath exactly as long as it needs.'],
+    de: ['Drei Bäder: SC-1 hebt Partikel ab, SC-2 löst Metalle, HF das native Oxid.', 'Nach jedem Bad spült Wasser die Chemie ab. Jedes Bad braucht seine Zeit.', 'SHIFT taucht den Korb ein · SHIFT hebt ihn heraus, wenn die Zeit im Grünen ist.'],
+    en: ['Three baths: SC-1 lifts particles, SC-2 dissolves metals, HF the native oxide.', 'After each bath, water rinses the chemicals off. Each bath needs its time.', 'SHIFT dips the carrier · SHIFT lifts it out while the time is in the green.']},
+  oxidize: {title: ['OXIDIEREN · 1000 °C', 'OXIDISE · 1000 °C'], goal: ['Lass genau 50 nm Glas wachsen: Halte den Ofen auf der gelben Kurve.', 'Grow exactly 50 nm of glass: keep the furnace on the yellow curve.'],
+    de: ['Wozu: Das Glas (Oxid) und das Nitrid darauf decken den Wafer ab. Wo sie bleiben, kommt später kein Arsen hin.', 'Das Oxid wächst, während Sauerstoff strömt, heißer schneller. Der Ofen ist träge: früh gegensteuern.', '↑ ↓ Heizleistung · die gelbe Kurve ist das Rezept.'],
+    en: ['Why: the glass (oxide) and the nitride on top cover the wafer. Where they stay, no arsenic gets in later.', 'The oxide grows while oxygen flows, faster when hotter. The furnace is slow: steer early.', '↑ ↓ heater power · the yellow curve is the recipe.']},
+  nitride: {title: ['NITRID · LPCVD', 'NITRIDE · LPCVD'], goal: ['Mach alle zwölf Wafer gleich dick: wärmer wächst es schneller.', 'Make all twelve wafers equally thick: warmer, it grows faster.'],
+    de: ['Wozu: Nitrid ist hart und dicht, weder Sauerstoff noch Arsen kommen hindurch. Wo es liegen bleibt, ist der Wafer geschützt.', 'Das Gas strömt von oben ins Rohr und wird unterwegs verbraucht: Die unteren Wafer bekommen weniger.', '↑↓ Zone · ←→ Temperatur · SHIFT startet die Abscheidung.'],
+    en: ['Why: nitride is hard and dense; neither oxygen nor arsenic gets through. Where it stays, the wafer is protected.', 'The gas enters the tube at the top and is used up on the way down: the lower wafers get less.', '↑↓ zone · ←→ temperature · SHIFT starts the deposition.']},
+  coat: {title: ['BELACKEN · SPIN-COATING', 'COAT · SPIN COATING'], goal: ['Schleudere genau 100 nm Lack auf: Dreh bis 2000, nicht darüber.', 'Spin on exactly 100 nm of resist: up to 2000, not past it.'],
     de: ['Der Lack wird aufgeschleudert: je schneller, desto dünner. Was abfliegt, kommt nicht zurück.', 'Ziel: 100 nm Lack, das sind 2000 Umdrehungen pro Minute. Taste dich heran, nicht drüber.', 'SHIFT halten: schneller · ↑↓ fein · loslassen: Lack trocknet.'],
     en: ['The resist is spun on: the faster, the thinner. What flies off does not come back.', 'Target: 100 nm of resist, that is 2000 revolutions per minute. Creep up on it, not past it.', 'Hold SHIFT: faster · ↑↓ fine · let go: the resist dries.']},
-  expose: {title: ['BELICHTEN · SCANNER', 'EXPOSE · SCANNER'],
+  expose: {title: ['BELICHTEN · SCANNER', 'EXPOSE · SCANNER'], goal: ['Leg die Maske genau auf den Wafer: Stopp die Marken, wenn sie decken.', 'Put the mask exactly on the wafer: stop the marks when they meet.'],
     de: ['Die erste Maske richtet sich nach der Kerbe; ihre Marken tragen alle späteren Ebenen.', 'Die Justagemarken laufen hin und her. Stopp sie, wenn sie decken.', 'SHIFT stoppt X, dann Y. Danach belichtet der Scanner allein.'],
     en: ['The first mask aligns to the notch; its marks carry every later layer.', 'The alignment marks sweep back and forth. Stop them when they meet.', 'SHIFT stops X, then Y. Then the scanner exposes by itself.']},
   // The same scanner at 04:00: the contact holes must land on the doped areas of the first layer.
-  'expose:contacts': {title: ['KONTAKTE BELICHTEN · SCANNER', 'EXPOSE CONTACTS · SCANNER'],
+  'expose:contacts': {title: ['KONTAKTE BELICHTEN · SCANNER', 'EXPOSE CONTACTS · SCANNER'], goal: ['Triff mit den Löchern die dotierten Stellen: Stopp die Marken, wenn sie decken.', 'Land the holes on the doped spots: stop the marks when they meet.'],
     de: ['Die Kontaktlöcher müssen genau auf den dotierten Gebieten landen,', 'also justiert der Scanner auf die Marken der ersten Ebene. Stopp die Marken, wenn sie decken.', 'SHIFT stoppt X, dann Y. Danach belichtet der Scanner allein.'],
     en: ['The contact holes must land exactly on the doped areas,', 'so the scanner aligns to the marks of the first layer. Stop the marks when they meet.', 'SHIFT stops X, then Y. Then the scanner exposes by itself.']},
-  sputter: {title: ['SPUTTERN · ALUMINIUM', 'SPUTTER · ALUMINIUM'],
+  sputter: {title: ['SPUTTERN · ALUMINIUM', 'SPUTTER · ALUMINIUM'], goal: ['Leg 500 nm Aluminium ab: Halte den Druck im grünen Band.', 'Lay down 500 nm of aluminium: keep the pressure in the green band.'],
     de: ['Argon-Ionen schlagen Aluminium aus dem Target, es setzt sich auf dem Wafer ab.', 'Zu wenig Argon: Das Plasma geht aus. Zu viel: Die Atome streuen, die Schicht wird porös.', 'SHIFT halten lässt Argon ein. Halte den Druck im grünen Band, bis 500 nm liegen.'],
     en: ['Argon ions knock aluminium out of the target; it settles on the wafer.', 'Too little argon: the plasma goes out. Too much: the atoms scatter, the film turns porous.', 'Hold SHIFT to let argon in. Keep the pressure in the green band until 500 nm are down.']},
-  develop: {title: ['ENTWICKELN · TMAH', 'DEVELOP · TMAH'],
+  develop: {title: ['ENTWICKELN · TMAH', 'DEVELOP · TMAH'], goal: ['Mach die Linien genau 40 nm breit: Spül rechtzeitig mit Wasser.', 'Make the lines exactly 40 nm wide: rinse with water in time.'],
     de: ['Nach dem Backen bei 100 °C löst eine Lauge (TMAH) den belichteten Lack:', 'erst öffnen sich die Gräben, dann werden die Linien schmaler. Ziel: 40 nm.', 'SHIFT spült mit Wasser. Es wirkt erst 2 s später, also bei knapp 41 nm drücken.'],
     en: ['After a bake at 100 °C an alkaline developer (TMAH) dissolves the exposed resist:', 'first the trenches open, then the lines slim down. Target: 40 nm.', 'SHIFT rinses with water. It takes 2 s, so press at just under 41 nm.']},
-  etch: {title: ['ÄTZEN · PLASMA', 'ETCH · PLASMA'],
-    de: ['Das Plasma ätzt durch Nitrid und Oxid. Seine Hochfrequenz muss abgestimmt bleiben,', 'sonst wird sie zurückgeworfen und das Ätzen stockt. Sein Licht zeigt: erst CN, dann CO.', '↑↓ abstimmen (Reflexion niedrig) · SHIFT stoppt bei ÜBERÄTZEN 25 %.'],
-    en: ['The plasma etches through nitride and oxide. Its radio frequency must stay tuned,', 'or it is reflected and the etch stalls. Its light shows: first CN, then CO.', '↑↓ tune (keep reflection low) · SHIFT stops at OVER-ETCH 25 %.']},
-  implant: {title: ['IMPLANTIEREN · ARSEN', 'IMPLANT · ARSENIC'],
-    de: ['Der Magnet trennt die Ionen nach ihrer Masse.', 'Nur Arsen (As⁺) soll durch den Spalt, bis die Dosis voll ist.', '↑↓ Magnetfeld · SHIFT öffnet den Strahl · das Feld driftet.'],
-    en: ['The magnet separates the ions by their mass.', 'Only arsenic (As⁺) may pass the slit until the dose is full.', '↑↓ magnetic field · SHIFT opens the beam · the field drifts.']},
+  etch: {title: ['ÄTZEN · PLASMA', 'ETCH · PLASMA'], goal: ['Ätz das Muster ganz durch, aber nicht tiefer: Stopp bei 25 % Überätzen.', 'Etch the pattern all the way through, no deeper: stop at 25 % over-etch.'],
+    de: ['Das Plasma frisst sich durch Nitrid und Oxid, wo der Lack offen ist. Es muss auf seine Funkfrequenz abgestimmt bleiben, sonst prallt die Leistung zurück (Reflexion) und das Ätzen stockt.', 'Sein Leuchten verrät die Tiefe: erst CN (Nitrid), dann CO (Oxid). Danach noch ein Viertel länger, damit überall alles offen ist: das Überätzen.', '↑↓ abstimmen (Reflexion niedrig) · SHIFT stoppt bei ÜBERÄTZEN 25 %.'],
+    en: ['The plasma eats through nitride and oxide where the resist is open. It must stay tuned to its radio frequency, or the power bounces back (reflection) and the etch stalls.', 'Its glow tells the depth: first CN (nitride), then CO (oxide). Then a quarter longer so everything is open everywhere: the over-etch.', '↑↓ tune (keep reflection low) · SHIFT stops at OVER-ETCH 25 %.']},
+  implant: {title: ['IMPLANTIEREN · ARSEN', 'IMPLANT · ARSENIC'], goal: ['Schieß nur Arsen in den Wafer: Halte den Arsen-Strahl im Spalt.', 'Shoot only arsenic into the wafer: keep the arsenic beam in the slit.'],
+    de: ['Die Quelle liefert ein Gemisch verschiedener Ionen. Der Magnet lenkt leichte stärker ab als schwere und trennt sie so.', 'Nur Arsen (As⁺) darf durch den Spalt auf den Wafer, bis die Dosis voll ist: Alles andere würde das Silizium falsch dotieren.', '↑↓ Magnetfeld · SHIFT öffnet den Strahl · das Feld driftet.'],
+    en: ['The source delivers a mix of different ions. The magnet bends light ones more than heavy ones and so separates them.', 'Only arsenic (As⁺) may pass the slit onto the wafer until the dose is full: anything else would dope the silicon wrongly.', '↑↓ magnetic field · SHIFT opens the beam · the field drifts.']},
 };
 function drawBrief(m) {
   const b = (m.variant && BRIEF[`${m.type}:${m.variant}`]) || BRIEF[m.type], de = lang === 'de';
   const a = frame(m, b.title[de ? 0 : 1], m.ft > 20 ? L('SHIFT: STARTEN', 'SHIFT: START') : '');
-  text(L('AUFGABE', 'YOUR TASK'), a.x + a.w / 2, a.y + 12, {align: 'center', size: 16, font: 'Pixelify Sans', weight: 700, color: '#ffcf5a'});
-  const lines = b[de ? 'de' : 'en'];
-  lines.forEach((l, i) => {
-    const last = i === lines.length - 1;
-    text(l, a.x + a.w / 2, a.y + 40 + i * 13 + (last ? 8 : 0), {align: 'center', font: 'IBM Plex Sans', size: 8, color: last ? '#9fe0ff' : '#e9e4d6', max: a.w - 14});
-  });
+  // The task in plain words, big; then why and what happens; then the keys.
+  text(L('AUFGABE', 'YOUR TASK'), a.x + a.w / 2, a.y + 5, {align: 'center', size: 8, color: '#b09060'});
+  ctx.font = '700 9px "IBM Plex Sans", monospace';
+  const goal = wrapText(b.goal[de ? 0 : 1], a.w - 20);
+  goal.forEach((l, i) => text(l, a.x + a.w / 2, a.y + 16 + i * 11, {align: 'center', font: 'IBM Plex Sans', size: 9, weight: 700, color: '#ffcf5a', max: a.w - 14}));
+  const lines = b[de ? 'de' : 'en'], top = a.y + 21 + goal.length * 11;
+  ctx.font = '400 7px "IBM Plex Sans", monospace';
+  wrapText(lines.slice(0, -1).join(' '), a.w - 20).forEach((l, i) => text(l, a.x + a.w / 2, top + i * 9, {align: 'center', font: 'IBM Plex Sans', size: 7, color: '#e9e4d6', max: a.w - 14}));
+  text(lines[lines.length - 1], a.x + a.w / 2, a.y + a.h - 14, {align: 'center', font: 'IBM Plex Sans', size: 8, color: '#9fe0ff', max: a.w - 14});
   ctx.restore();
 }
 // Skipped with Enter: the tool runs its standard recipe, which is never quite tuned for this lot.

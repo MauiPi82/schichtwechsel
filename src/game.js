@@ -1573,7 +1573,8 @@ function renderCard() {
     txt(part, 16, 72 + i * 10, {color: '#e9e4d6', font: 'IBM Plex Sans', size: 8, max: 176});
   });
   drawStack(204, 22, 100, 72, levelIndex);
-  txt(`${t().reticles} ${found.size}/${LEVELS.length}`, W - 10, H - 9, {align: 'right', color: found.size ? '#9fe0ff' : '#3a4058'});
+  txt(`${t().reticles} ${found.size}/${LEVELS.length}`, W - 10, H - 9, {align: 'right', color: found.size ? '#9fe0ff' : '#5a6488'});
+  txt(lang === 'de' ? 'Retikel: Belichtungsschablonen, von Turno B versteckt. Alle acht ändern das Ende.' : 'Reticles: exposure stencils hidden by shift B. All eight change the ending.', W - 10, H - 17, {align: 'right', color: '#8c93a8', font: 'IBM Plex Sans', size: 6, max: 150});
   if (Object.keys(lot.s).length) {
     txt(`${t().yieldWord} ${lotYield()} %`, 10, H - 9, {color: '#ffcf5a'});
     txt(lang === 'de' ? 'Ausbeute: Anteil der Chips, die am Ende funktionieren' : 'Yield: the share of chips that will work in the end', 10, H - 17, {color: '#8c93a8', font: 'IBM Plex Sans', size: 6, max: 150});

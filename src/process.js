@@ -764,7 +764,12 @@ function drawReticleFound(t, info) {
   text(lang === 'de' ? `RETIKEL ${info.n}/8 GEFUNDEN` : `RETICLE ${info.n}/8 FOUND`, PX + 6, y0 + 2, {color: '#9fe0ff'});
   text(`${info.found}/${info.total}`, PX + PW - 6, y0 + 2, {align: 'right', color: '#ffcf5a'});
   R('#0d111a', PX, y0 + 12, PW, PH - 28);
-  const s = 64 + Math.sin(t / 20) * 2, cx = PX + PW / 2, cy = y0 + 12 + (PH - 28) / 2;
+  // In plain words first: what it is, why it lay here, what it is good for.
+  const plain = lang === 'de'
+    ? ['Ein Retikel ist die Glasschablone, durch die das Licht ein Muster belichtet.', 'Turno B hat in jeder Stunde eines versteckt. Mit allen acht ändert sich das Ende.']
+    : ['A reticle is the glass stencil the light shines through to print a pattern.', 'Shift B hid one in every hour. With all eight the ending changes.'];
+  plain.forEach((l, i) => text(l, PX + PW / 2, y0 + 15 + i * 9, {align: 'center', font: 'IBM Plex Sans', size: 7, color: '#e9e4d6', max: PW - 12}));
+  const s = 54 + Math.sin(t / 20) * 2, cx = PX + PW / 2, cy = y0 + 22 + (PH - 28) / 2;
   ctx.save(); ctx.translate(cx, cy); ctx.rotate(Math.sin(t / 40) * 0.08); ctx.translate(-s / 2, -s / 2);
   window.SchichtOdenchip.reticle(ctx, 0, 0, s, info.n);
   ctx.restore();
@@ -777,7 +782,7 @@ function drawReticleFound(t, info) {
 // the clean takes about ten seconds, one bath after another. At the end the picture rests a moment.
 const BASE = 230, HOLD = 150;
 // The measurements only read a number: they run shorter and rest less.
-const DUR = {clockin: 280, intake: 440, clean: 620, inspect: 360, oxidize: 540, nitride: 480, ellipso: 340, rs: 300, measure: 280, reticle: 230};
+const DUR = {clockin: 280, intake: 440, clean: 620, inspect: 360, oxidize: 540, nitride: 480, ellipso: 340, rs: 300, measure: 280, reticle: 330};
 const PASSIVE = new Set(['inspect', 'ellipso', 'rs', 'measure']);
 function duration(type) { return (DUR[type] || 330) + (type === 'reticle' ? 0 : PASSIVE.has(type) ? 90 : HOLD); }
 function draw(c, type, t, language, info) {

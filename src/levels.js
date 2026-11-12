@@ -82,12 +82,12 @@
         de: ['In der Vorschicht steht jemand.', 'Laut Stempeluhr ist Turno B noch im Werk.'],
         en: ['Someone is standing in the shift before.', 'By the time clock, shift B is still inside.'],
       },
-      plain: {de: 'Im Ofen wächst eine Glasschicht (Oxid), darauf Nitrid: Schutz jetzt, Ätzmaske später.', en: 'In the furnace a glass layer grows (oxide), nitride on top: protection now, an etch mask later.'},
+      plain: {de: 'Im Ofen wächst Glas (Oxid), darauf Nitrid. Die beiden decken ab, wo später kein Arsen hin soll.', en: 'In the furnace glass grows (oxide), nitride on top. Together they cover where no arsenic may go later.'},
       fact: {
         de: ['Thermisches Oxid: Bei 1000 °C wächst SiO₂ in trockenem O₂ nur einige', 'zehn nm pro Stunde, je dicker, desto langsamer (Deal-Grove). Darauf', 'scheidet der LPCVD-Ofen bei 780 °C Siliziumnitrid ab: Si₃N₄, 100 nm.'],
         en: ['Thermal oxide: at 1000 °C, SiO₂ grows in dry O₂ by only a few tens', 'of nm per hour, slower the thicker it gets (Deal-Grove). On top, the', 'LPCVD furnace deposits silicon nitride at 780 °C: Si₃N₄, 100 nm.'],
       },
-      hint: {de: 'Lauf gegen eine Anlage: Ihr Licht lässt sie erstarren', en: 'Walk into a tool: its light makes them freeze'},
+      hint: {de: 'Lauf in eine Anlage hinein: Ihr Licht lässt sie erstarren', en: 'Walk into a tool: its light makes them freeze'},
       route: [{de: 'Oxidieren', en: 'Oxidise', proc: 'oxidize'}, {de: 'Nitrid abscheiden', en: 'Deposit nitride', proc: 'nitride'}, {de: 'Schicht messen', en: 'Measure films', proc: 'ellipso'}],
       // Announcements over the PA (step, Italian, translation), a note from shift B, one scare.
       pa: [
@@ -266,7 +266,7 @@
       layer: {de: 'Dotierung', en: 'Doping'}, stack: {de: 'Arsen · 2·10¹⁵ cm⁻²', en: 'Arsenic · 2·10¹⁵ cm⁻²'},
       title: {de: 'Implanter', en: 'Implanter'},
       log: {
-        de: ['Der Implanter fährt sein Rezept: Bor, Phosphor, Arsen.', 'Er hätte um 22:00 stehen sollen.', 'Q-Zeit überschritten: Los 4471 auf HOLD.', 'Freigegeben von: TURNO B.'],
+        de: ['Der Implanter fährt sein Rezept: Bor, Phosphor, Arsen.', 'Er hätte um 22:00 stehen sollen.', 'Q-Zeit überschritten: Los 4471 gesperrt (HOLD).', 'Freigegeben von: TURNO B.'],
         en: ['The implanter runs its recipe: boron, phosphorus, arsenic.', 'It should have stopped at 22:00.', 'Q-time exceeded: lot 4471 on HOLD.', 'Released by: TURNO B.'],
       },
       plain: {de: 'Ein Strahl schießt Arsen-Atome ins Silizium. Erst dadurch leitet es an diesen Stellen.', en: 'A beam shoots arsenic atoms into the silicon. Only then does it conduct in those spots.'},
@@ -535,8 +535,8 @@
     title: {de: 'Einschleusen', en: 'Gowning'}, log: {de: [], en: []}, fact: {de: [], en: []}, hint: {de: '', en: ''},
     triggers: [
       {x: 1, y: 7, text: {de: 'Vogt Microelettronica, Luino. 21:56. Nachtschicht in Bay 7. Zuerst einstempeln.', en: 'Vogt Microelettronica, Luino. 21:56. Night shift in Bay 7. Clock in first.'}},
-      {x: 2, y: 5, clocked: true, text: {de: 'Umkleide. Straßensachen in deinen Spind, Nr. 18. Der Reinraumanzug hängt hinten an der Stange. Ein Mensch verliert Millionen Partikel pro Minute.', en: 'Gowning room. Street clothes go into your locker, no. 18. The cleanroom suit hangs on the rail at the back. A person sheds millions of particles a minute.'}},
-      {x: 7, y: 3, suited: true, text: {de: 'Luftdusche: Düsen blasen gefilterte Luft mit etwa 25 m/s und lösen die letzten Partikel vom Anzug.', en: 'Air shower: nozzles blow filtered air at about 25 m/s and loosen the last particles from the suit.'}},
+      {x: 2, y: 5, clocked: true, text: {de: 'Umkleide. Straßensachen in deinen Spind, Nr. 18. Der Reinraumanzug hängt hinten an der Stange. Ein Mensch verliert Millionen Hautschuppen und Fasern pro Minute. Für einen Chip ist jedes davon ein Felsbrocken: Der Anzug hält sie drin.', en: 'Gowning room. Street clothes go into your locker, no. 18. The cleanroom suit hangs on the rail at the back. A person sheds millions of skin flakes and fibres a minute. To a chip each one is a boulder: the suit keeps them in.'}},
+      {x: 7, y: 3, suited: true, text: {de: 'Luftdusche: Düsen blasen gefilterte Luft mit etwa 25 m/s und lösen die letzten Partikel vom Anzug, bevor du in den Reinraum gehst.', en: 'Air shower: nozzles blow filtered air at about 25 m/s and loosen the last particles from the suit before you enter the cleanroom.'}},
       {x: 13, y: 3, text: {de: 'Bay 7. Die Anlagen laufen. Niemand ist hier. Am Übergabewagen steht ein Los.', en: 'Bay 7. The tools are running. Nobody is here. A lot stands on the handover cart.'}},
     ],
     // The handover: lot 4471 on its cart, fresh from the stocker, where Rossi set it down at 21:31. Read when picked up.
@@ -567,8 +567,10 @@
     }},
     lamps: [],
     signs: [
-      {x: 3, y: 5, text: 'VESTIZIONE'}, {x: 9, y: 2, text: {de: "DOCCIA D'ARIA", en: "DOCCIA D'ARIA"}, bg: '#2c6fb5', color: '#ffffff'},
-      {x: 12, y: 5, text: 'BAY 7', bg: '#2c6fb5', color: '#ffffff'}, {x: 15, y: 5, text: 'ZONA ISO 5'},
+      {x: 3, y: 5, text: 'VESTIZIONE', sub: {de: 'Umkleide', en: 'Gowning'}},
+      {x: 9, y: 2, text: {de: "DOCCIA D'ARIA", en: "DOCCIA D'ARIA"}, bg: '#2c6fb5', color: '#ffffff', sub: {de: 'Luftdusche', en: 'Air shower'}},
+      {x: 12, y: 5, text: 'BAY 7', bg: '#2c6fb5', color: '#ffffff'},
+      {x: 15, y: 5, text: 'ZONA ISO 5', sub: {de: 'Reinraum: höchstens 3520 Staubteilchen je m³', en: 'Cleanroom: at most 3,520 dust particles per m³'}},
     ],
     day: [
       '####################',

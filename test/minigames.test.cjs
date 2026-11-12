@@ -31,7 +31,7 @@ test('oxidise: following the recipe curve gives 50 nm; a furnace left alone stay
   // A careful operator: heater power for where the curve goes next, with the furnace lag (90 frames) in mind.
   const m = M.create('oxidize');
   let g = 0;
-  while (m.phase === 'play' && g++ < 3000) { if (m.goal !== undefined) m.P = Math.max(0, Math.min(10, (m.goal + 90 * m.slope - 400) / 70)); M.update(m, idle); }
+  while (m.phase === 'play' && g++ < 3000) { if (m.goal !== undefined) m.P = Math.max(0, Math.min(10, (m.goal + 75 * m.slope - 400) / 70)); M.update(m, idle); }
   assert.equal(m.phase, 'result'); assert.ok(m.score > 0.9, `score ${m.score}`); assert.ok(Math.abs(m.values.oxide - 50) < 1.5, `${m.values.oxide}`);
   // Too hot during the hold: the oxide grows too thick.
   const hot = M.create('oxidize'); g = 0;
