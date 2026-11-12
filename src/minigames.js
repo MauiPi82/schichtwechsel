@@ -43,7 +43,7 @@ function frame(m, title, help) {
   R('#1c160c', PX, y0, PW, 12);
   text(title, PX + 6, y0 + 2, {color: '#ffcf5a', max: PW - 116});
   const canSkip = skippable(m);
-  text(canSkip ? L('ENTER: ÜBERSPRINGEN', 'ENTER: SKIP') : 'LOT 4471', PX + PW - 6, y0 + 2, {align: 'right', color: canSkip ? '#6b5a2a' : '#c9a15a', max: 100});
+  text(canSkip ? L('ENTER: ÜBERSPRINGEN', 'ENTER: SKIP') : 'LOT 4471', PX + PW - 6, y0 + 2, {align: 'right', color: canSkip ? '#b09060' : '#c9a15a', max: 100});
   R('#0d111a', PX, y0 + 12, PW, PH - 28);
   R('#141a28', PX, y0 + PH - 16, PW, 16);
   const done = m.phase === 'result';

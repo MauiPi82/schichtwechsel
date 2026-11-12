@@ -415,6 +415,7 @@ addEventListener('keydown', e => {
   if (e.target instanceof Element && e.target.closest('select,input,textarea,button,a')) return;
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   audio.unlock();
+  if (blurHold) { blurHold = false; e.preventDefault(); return; }
   const d = KEYDIR[e.code];
   if (d && mode === 'book') { e.preventDefault(); if (!e.repeat) bookSel = clamp(bookSel + (d === 'down' ? 1 : d === 'up' ? -1 : 0), 0, bookMax()); return; }
   if (d) { e.preventDefault(); if (!e.repeat) { held.add(d); lastDir = d; queuedDir = mode === 'note' ? null : d; } return; }
@@ -426,6 +427,7 @@ addEventListener('keydown', e => {
   }
   if (e.code === 'Enter' || e.code === 'NumpadEnter') { e.preventDefault(); press('enter'); return; }
   const k = (e.key || '').toLowerCase(), is = (c, ch) => e.code === c || k === ch;
+  if (e.code === 'Escape' && mode === 'book') { transition(() => { mode = 'title'; }, 16, 16); return; }
   if (is('KeyP', 'p') || e.code === 'Escape') { togglePause(); return; }
   // H: in the fab it pauses first; from the pause (or any card or film) it goes to the main menu.
   if (is('KeyH', 'h')) { if (mode === 'play') mode = 'paused'; else menu(); return; }
@@ -446,7 +448,9 @@ addEventListener('keyup', e => {
   const d = KEYDIR[e.code]; if (d) held.delete(d);
   if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'Space') shiftHeld = false;
 });
-addEventListener('blur', () => { held.clear(); shiftHeld = false; if (mode === 'play') mode = 'paused'; });
+// Losing focus pauses: the fab with its pause screen, a minigame or a film by holding still until a key or tap.
+let blurHold = false;
+addEventListener('blur', () => { held.clear(); shiftHeld = false; if (mode === 'play') mode = 'paused'; else if (['mini', 'process', 'note', 'cinema', 'epilogue', 'finale', 'shower', 'gown', 'locker'].includes(mode)) blurHold = true; });
 function press(what) {
   if (veilPhase === 'out') return;
   // Skipping is ENTER everywhere (a tap on touch): SHIFT, the key of the game, never throws a scene away.
@@ -508,6 +512,7 @@ padShift.addEventListener('pointerdown', e => { e.preventDefault(); audio.unlock
 ['pointerup', 'pointercancel', 'pointerleave'].forEach(n => padShift.addEventListener(n, () => { shiftHeld = false; padShift.classList.remove('on'); }));
 cv.addEventListener('pointerdown', e => {
   window.focus(); audio.unlock();
+  if (blurHold) { blurHold = false; return; }
   // On the title, the two small lines are buttons too: a new night, and the shift log.
   if (mode === 'title' && isTouch && veilPhase !== 'out') {
     const y = (e.clientY - cv.getBoundingClientRect().top) / cv.clientHeight * H;
@@ -526,14 +531,23 @@ function pollPad() {
   if (!gp) return;
   const b = n => !!(gp.buttons[n] && gp.buttons[n].pressed), ax = n => gp.axes[n] || 0;
   const now = {up: b(12) || ax(1) < -0.5, down: b(13) || ax(1) > 0.5, left: b(14) || ax(0) < -0.5, right: b(15) || ax(0) > 0.5,
-    shift: b(0) || b(4) || b(5), start: b(9), select: b(8)};
+    shift: b(0) || b(4) || b(5), start: b(9), select: b(8), enter: b(1), log: b(3)};
+  // Any button after losing focus only resumes.
+  if (blurHold) { if (Object.keys(now).some(k => now[k] && !padPrev[k])) blurHold = false; padPrev = now; return; }
   for (const d of ['up', 'down', 'left', 'right']) {
+    if (now[d] && !padPrev[d] && mode === 'book') { bookSel = clamp(bookSel + (d === 'down' ? 1 : d === 'up' ? -1 : 0), 0, bookMax()); continue; }
     if (now[d] && !padPrev[d]) { held.add(d); lastDir = d; queuedDir = d; }
     if (!now[d] && padPrev[d]) held.delete(d);
   }
   if (now.shift && !padPrev.shift) { audio.unlock(); press('shift'); }
   if (now.shift !== !!padPrev.shift) shiftHeld = now.shift;
   if (now.start && !padPrev.start) togglePause();
+  // B is ENTER (skip, retry); Y opens and closes the shift log on the title.
+  if (now.enter && !padPrev.enter) press('enter');
+  if (now.log && !padPrev.log && veilPhase !== 'out') {
+    if (mode === 'title') { bookSel = Math.min(openUpTo(), levelIndex); transition(() => { mode = 'book'; }, 16, 16); }
+    else if (mode === 'book') transition(() => { mode = 'title'; }, 16, 16);
+  }
   if (now.select && !padPrev.select) { if (mode === 'play') mode = 'paused'; else menu(); }
   padPrev = now;
 }
@@ -542,7 +556,7 @@ function pollPad() {
 let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0, shake = 0;
 let progress = clamp(parseInt(store.get('level'), 10) || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
 const deathsBy = levels.map(() => 0);
-const BUILD = '0.53 · 2026-11-12';
+const BUILD = '0.54 · 2026-11-12';
 // Testers can jump to an hour: ?stunde=3 or ?hour=3 opens the third hour.
 const jump = parseInt(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || '0', 10) || 0;
 if (jump >= 1 && jump <= levels.length) progress = jump - 1;
@@ -578,7 +592,8 @@ function wrapLine(s, max) {
   return out;
 }
 function stickyCheck() {
-  if (stickyWarned || !/Windows/.test(navigator.userAgent)) return;
+  // Not in a minigame: there SHIFT is tapped on purpose (the sputter valve), and the tip would hide under the window.
+  if (stickyWarned || mode === 'mini' || !/Windows/.test(navigator.userAgent)) return;
   const now = performance.now();
   stickyTimes = stickyTimes.filter(x => now - x < 3000).concat(now);
   if (stickyTimes.length >= 4) { stickyWarned = true; store.set('sticky', '1'); toast(t().sticky, 420); }
@@ -597,13 +612,18 @@ function introDoors(L) { const d = []; for (let i = 0; i < L.layers[0].length; i
 let lot = {s: {}, v: {}}, mini = null, notesRead = new Set(), bookSel = 0, fromBook = false;
 // The shift log lists the hours; with all eight reticles a ninth entry opens the Odenchip finale.
 const bookMax = () => found.size >= LEVELS.length ? LEVELS.length : LEVELS.length - 1;
-try { notesRead = new Set(JSON.parse(store.get('notes') || '[]')); } catch (_) { notesRead = new Set(); }
+try { const n = JSON.parse(store.get('notes') || '[]'); notesRead = new Set(Array.isArray(n) ? n : []); } catch (_) { notesRead = new Set(); }
 // The key a route step's grade is kept under: its minigame, if it has one.
 const stepKey = r => r.mini === false ? null : r.mini || r.proc;
+// The best yield so far, or null when there is none (or the saved value is broken).
+const bestYield = () => { const v = parseInt(store.get('best'), 10); return Number.isFinite(v) && v >= 0 && v <= 100 ? v : null; };
 const STEP_NAME = {clean: ['Reinigen', 'Clean'], oxidize: ['Oxidieren', 'Oxidise'], nitride: ['Nitrid', 'Nitride'], coat: ['Belacken', 'Coat'], expose: ['Belichten', 'Expose'], develop: ['Entwickeln', 'Develop'], etch: ['Ätzen', 'Etch'], implant: ['Implantieren', 'Implant'], sputter: ['Sputtern', 'Sputter']};
 const lossOf = s => Math.round((1 - (0.8 + 0.2 * s)) * 100);
 let history = [], rewT = 0, rewFrom = 0;
-try { const l = JSON.parse(store.get('lot') || 'null'); if (l && l.s && l.v) lot = l; } catch (_) { /* fresh lot */ }
+try {
+  const l = JSON.parse(store.get('lot') || 'null');
+  if (l && typeof l.s === 'object' && typeof l.v === 'object' && Object.values(l.s).every(Number.isFinite)) lot = l;
+} catch (_) { /* fresh lot */ }
 function saveLot() { store.set('lot', JSON.stringify(lot)); }
 function newLot() { lot = {s: {}, v: {}}; saveLot(); }
 const lotYield = () => window.SchichtMini ? window.SchichtMini.yieldOf(lot) : 97;
@@ -662,7 +682,8 @@ function storyStep() {
 
 /* ---------- Reticles and the secret finale ---------- */
 let found = new Set(), finT = 0;
-try { found = new Set(JSON.parse(store.get('reticles') || '[]')); } catch (_) { found = new Set(); }
+// Saved state is checked: only known hours count as reticles, broken values start fresh.
+try { const r = JSON.parse(store.get('reticles') || '[]'); found = new Set(Array.isArray(r) ? r.filter(id => LEVELS.some(d => d.id === id)) : []); } catch (_) { found = new Set(); }
 function updateFinale() {
   const before = window.SchichtOdenchip.phaseAt(finT);
   finT += 1 / 60;
@@ -938,6 +959,7 @@ let lastMode = null, windowClosedAt = -99;
 const CLOSERS = new Set(['mini', 'process', 'note', 'locker', 'gown', 'shower', 'card', 'paused']);
 function update() {
   frame++; pollPad();
+  if (blurHold) return;
   // After a window that a step opened, time waits half a second before the next step: a moment to look.
   if (mode !== lastMode) {
     if (mode === 'play' && CLOSERS.has(lastMode)) { windowClosedAt = frame; if (lastMode !== 'card' && lastMode !== 'paused') freezeT = Math.max(freezeT, 30); }
@@ -997,7 +1019,7 @@ function update() {
     if (fromBook) { fromBook = false; bookSel = Math.min(levelIndex + 1, bookMax()); transition(() => { mode = 'book'; audio.setLayer(0); }, 24, 16); }
     else if (!last) startCard(levelIndex + 1);
     else {
-      if (Object.keys(lot.s).length) store.set('best', String(Math.max(+(store.get('best') || 0), lotYield())));
+      if (Object.keys(lot.s).length) store.set('best', String(Math.max(bestYield() || 0, lotYield())));
       if (found.size >= LEVELS.length) { mode = 'finale'; finT = 0; store.set('odenchip', '1'); audio.setLayer(0); audio.bell(0.25); fadeIn(40); }
       else { mode = 'epilogue'; epiT = 0; audio.setLayer(0); audio.rain(0); fadeIn(40); }
     }
@@ -1058,7 +1080,7 @@ function drawHUD() {
   if (introMode) {
     R('#0d1420', 0, 0, W, FY); R('#2f6db3', 0, FY - 1, W, 1);
     txt(`${INTRO.time} · ${INTRO.layer[lang].toUpperCase()}`, 4, 4, {color: '#9fe0ff'});
-    txt(lang === 'de' ? 'ENTER: ÜBERSPRINGEN' : 'ENTER: SKIP', W - 4, 4, {align: 'right', color: '#6b7190'});
+    txt(lang === 'de' ? 'ENTER: ÜBERSPRINGEN' : 'ENTER: SKIP', W - 4, 4, {align: 'right', color: '#8c93a8'});
     // In Bay 7 the goal: the lot first, then the way into the fab.
     {
       ctx.font = '400 8px "Silkscreen", monospace';
@@ -1482,7 +1504,7 @@ function renderBook() {
   R('#0a0c12', 0, 0, W, H); R('#141a28', 0, 0, W, 16); R('#2f6db3', 0, 15, W, 1);
   txt(lang === 'de' ? 'SCHICHTBUCH · LOS 4471' : 'SHIFT LOG · LOT 4471', 6, 4, {color: '#ffcf5a'});
   const yNow = Object.keys(lot.s).length ? `${t().yieldWord} ${lotYield()} %` : '';
-  txt(`${yNow}${store.get('best') ? `   ${lang === 'de' ? 'BESTE' : 'BEST'} ${store.get('best')} %` : ''}`, W - 6, 4, {align: 'right', color: '#c9a15a'});
+  txt(`${yNow}${bestYield() !== null ? `   ${lang === 'de' ? 'BESTE' : 'BEST'} ${bestYield()} %` : ''}`, W - 6, 4, {align: 'right', color: '#c9a15a'});
   LEVELS.forEach((def, i) => {
     const y = 21 + i * 13, open = i <= openUpTo(), sel = i === bookSel;
     if (sel) { R('rgba(255,207,90,.12)', 4, y - 2, W - 8, 12); R('#ffcf5a', 4, y - 2, 2, 12); }
@@ -1550,7 +1572,7 @@ function renderTitle() {
   txt(t().sub, W / 2, 72, {align: 'center', color: '#8c93a8'});
   txt(t().tagline, W / 2, 84, {align: 'center', color: '#c9c2ae', font: 'IBM Plex Sans', size: 8});
   if ((frame >> 5) % 2) txt(t().press, W / 2, 98, {align: 'center', size: 16, font: 'Pixelify Sans', weight: 700, color: '#ffcf5a', shadow: '#3a2200'});
-  if (!isTouch) txt(t().orSpace, W / 2, 112, {align: 'center', color: '#6b7190'});
+  if (!isTouch) txt(t().orSpace, W / 2, 112, {align: 'center', color: '#9aa6b5'});
   if (progress > 0) {
     txt(`${t().resume} ${LEVELS[progress].time}`, W / 2, 124, {align: 'center', color: '#c9c2ae'});
     txt(isTouch ? `${t().fresh.replace(/^N: /, '').toUpperCase()} ▸` : t().fresh, W / 2, 134, {align: 'center', color: isTouch ? '#9fe0ff' : '#6b7190'});
@@ -1567,7 +1589,7 @@ function renderTitle() {
     window.SchichtOdenchip.pack({wires: 99, mold: 1, mark: 1}, ctx); ctx.restore();
     txt('ODENCHIP', 34, 16, {color: '#ffd27a', shadow: null});
   } else if (found.size) txt(`${t().reticles} ${found.size}/${LEVELS.length}`, 6, 6, {color: '#4c5470', shadow: null});
-  if (store.get('best')) txt(`${t().best} ${store.get('best')} %`, 6, 16, {color: '#8a7440', font: 'IBM Plex Sans', size: 6, shadow: null});
+  if (bestYield() !== null) txt(`${t().best} ${bestYield()} %`, 6, 16, {color: '#8a7440', font: 'IBM Plex Sans', size: 6, shadow: null});
 }
 
 function renderEnding() {
@@ -1619,6 +1641,12 @@ function render() {
     const v = veil * veil * (3 - 2 * veil);
     ctx.fillStyle = `rgba(0,0,0,${v})`; ctx.fillRect(0, 0, W, H);
   }
+  if (blurHold) {
+    ctx.setTransform(Z, 0, 0, Z, 0, 0);
+    R('rgba(5,6,10,.6)', 0, 0, W, H); R('rgba(8,10,16,.96)', W / 2 - 80, 74, 160, 30);
+    txt(t().paused, W / 2, 78, {align: 'center', color: '#ffcf5a'});
+    txt(lang === 'de' ? 'TASTE ODER TIPPEN: WEITER' : 'KEY OR TAP: RESUME', W / 2, 91, {align: 'center', color: '#c9c2ae'});
+  }
 }
 function renderMode() {
   ctx.setTransform(Z, 0, 0, Z, 0, 0);
@@ -1627,6 +1655,8 @@ function renderMode() {
     ctx.setTransform(Z / 2, 0, 0, Z / 2, 0, 0); window.SchichtCinema.draw(ctx, cinemaT, frame, PROLOGUE.caps[lang]);
     ctx.setTransform(Z, 0, 0, Z, 0, 0);
     if (cinemaT > 1) txt(lang === 'de' ? 'ENTER: ÜBERSPRINGEN' : 'ENTER: SKIP', W - 6, 4, {align: 'right', color: '#8c93a8', shadow: null});
+    // Browsers keep the sound locked until a real key or tap; a SHIFT alone does not count.
+    if (audio.on && audio.ctx && audio.ctx.state !== 'running') txt(lang === 'de' ? '♪ TON: EINE TASTE ODER KLICK' : '♪ SOUND: ANY KEY OR CLICK', 6, 4, {color: '#ffcf5a', shadow: null});
     return;
   }
   if (mode === 'epilogue') {
@@ -1698,7 +1728,11 @@ function loop(now) {
   try {
     while (acc >= FRAME) { update(); acc -= FRAME; ticked = true; }
     if (ticked) render();
-  } catch (e) { acc = 0; if (loopErrors++ < 5) console.error(e); }
+  } catch (e) {
+    acc = 0; if (loopErrors++ < 5) console.error(e);
+    // Something keeps failing: say so, and how to get out.
+    if (loopErrors >= 5) { try { ctx.setTransform(Z, 0, 0, Z, 0, 0); R('rgba(0,0,0,.8)', 0, H - 14, W, 14); txt(lang === 'de' ? 'FEHLER · H: HAUPTMENÜ' : 'ERROR · H: MAIN MENU', W / 2, H - 11, {align: 'center', color: '#ff8a5a'}); } catch (_) { /* nothing more to do */ } }
+  }
 }
 let loopErrors = 0;
 if (new URLSearchParams(location.search).has('test')) {

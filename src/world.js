@@ -843,6 +843,22 @@ function floorLayer(L, layer) {
   return c;
 }
 
+/* ---------- Night light, pre-drawn ---------- */
+// The darkness around the player (1400 x 800 world units at half resolution, the radius 150 in the middle),
+// the warm glow of the visor, and a work lamp.
+let sprites = null;
+function lightSprites() {
+  if (sprites) return sprites;
+  const make = (w, h, paint) => { const c = document.createElement('canvas'); c.width = w; c.height = h; paint(c.getContext('2d')); return c; };
+  const radial = (d, cx, cy, r0, r1, stops) => { const g = d.createRadialGradient(cx, cy, r0, cx, cy, r1); stops.forEach(([at, col]) => g.addColorStop(at, col)); return g; };
+  sprites = {
+    dark: make(700, 400, d => { d.fillStyle = radial(d, 350, 200, 6, 75, [[0, 'rgba(0,0,0,0)'], [0.55, 'rgba(2,1,0,.28)'], [1, 'rgba(1,0,0,.84)']]); d.fillRect(0, 0, 700, 400); }),
+    warm: make(96, 96, d => { d.fillStyle = radial(d, 48, 48, 1, 48, [[0, 'rgba(255,190,80,.2)'], [1, 'rgba(255,190,80,0)']]); d.fillRect(0, 0, 96, 96); }),
+    lamp: make(70, 70, d => { d.fillStyle = radial(d, 35, 35, 1, 35, [[0, 'rgba(255,170,50,.32)'], [1, 'rgba(255,170,50,0)']]); d.fillRect(0, 0, 70, 70); }),
+  };
+  return sprites;
+}
+
 /* ---------- Scene ---------- */
 function draw(c, s, o) {
   ctx = c; F = o.frame; night = s.layer === 1; reduced = o.reduced; p = P[s.layer];
@@ -963,20 +979,19 @@ function draw(c, s, o) {
   // Light: by day a cool ceiling glow; in the shift before the helmet lamp and a few dying sodium lamps.
   if (night) {
     // The helmet lamp: wide enough to read the room, and the dark never quite black.
-    const lx = ppx + 16, ly = ppy + 12, r = 150 + (reduced ? 0 : (hash(F >> 2) - 0.5) * 6);
-    const g = ctx.createRadialGradient(lx, ly, 12, lx, ly, r);
-    g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.55, 'rgba(2,1,0,.28)'); g.addColorStop(1, 'rgba(1,0,0,.84)');
-    ctx.fillStyle = g; ctx.fillRect(0, FY, WW, C.H * T);
+    // The light falloffs are drawn once into small sprites and only copied, scaled, every frame.
+    const lx = ppx + 16, ly = ppy + 12, r = 150 + (reduced ? 0 : (hash(F >> 2) - 0.5) * 6), sp = lightSprites(), k = r / 150;
+    const smooth = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = true;
+    ctx.save(); ctx.beginPath(); ctx.rect(0, FY, WW, C.H * T); ctx.clip();
+    ctx.drawImage(sp.dark, lx - 700 * k, ly - 400 * k, 1400 * k, 800 * k);
     ctx.globalCompositeOperation = 'lighter';
-    const warm = ctx.createRadialGradient(lx, ly, 4, lx, ly, r * 0.6);
-    warm.addColorStop(0, 'rgba(255,190,80,.2)'); warm.addColorStop(1, 'rgba(255,190,80,0)');
-    ctx.fillStyle = warm; ctx.fillRect(0, FY, WW, C.H * T);
+    ctx.drawImage(sp.warm, lx - r * 0.6, ly - r * 0.6, r * 1.2, r * 1.2);
     (L.lamps || []).forEach(([x, y], i) => {
       if (hash((F >> 3) + i * 17) < 0.07) return;
-      const cx = x * T + 16, cy = FY + y * T + 16, lg = ctx.createRadialGradient(cx, cy, 2, cx, cy, 70);
-      lg.addColorStop(0, 'rgba(255,170,50,.32)'); lg.addColorStop(1, 'rgba(255,170,50,0)');
-      ctx.fillStyle = lg; ctx.fillRect(cx - 70, cy - 70, 140, 140);
+      ctx.drawImage(sp.lamp, x * T + 16 - 70, FY + y * T + 16 - 70, 140, 140);
     });
+    ctx.restore(); ctx.imageSmoothingEnabled = smooth;
+    ctx.globalCompositeOperation = 'lighter';
     if (o.phone && o.phone.ringing && (F >> 3) % 2) {
       const cx = o.phone.x * T + 21, cy = FY + o.phone.y * T + T - 4, rg = ctx.createRadialGradient(cx, cy, 1, cx, cy, 26);
       rg.addColorStop(0, 'rgba(255,60,40,.55)'); rg.addColorStop(1, 'rgba(255,60,40,0)');
