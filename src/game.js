@@ -21,7 +21,7 @@ const UI = {
     tagline: 'Die Vorschicht ist nie gegangen. Sie ist eine Schicht geworden.', reticles: 'RETIKEL', missing: 'Mit allen acht Retikeln kommen sie hinaus. Und du.', checkpoint: 'PROZESSSCHRITT GESICHERT',
     sticky: 'Tipp: Die Leertaste wechselt auch die Schicht (Windows-Einrastfunktion).',
     resume: 'Weiter ab', fresh: 'N: neue Nacht ab 22:00', physics: 'PHYSIK DER SCHICHT',
-    caught: 'ERWISCHT', crushed: 'EINGEMAUERT', robot: 'ÜBERFAHREN', beam: 'IM STRAHL', heat: 'VERBRANNT', plasma: 'IM PLASMA',
+    caught: 'ERWISCHT', noticed: 'BEMERKT', crushed: 'EINGEMAUERT', robot: 'ÜBERFAHREN', beam: 'IM STRAHL', heat: 'VERBRANNT', plasma: 'IM PLASMA',
     paused: 'PAUSE', pausedHint: 'P oder ESC: weiter', bell: 'GLOCKE', ion: 'IONEN', retry: 'R: neu versuchen',
     stats: (d, s) => `Erwischt: ${d}   Schichtwechsel: ${s}`, perHour: 'ERWISCHT JE STUNDE', thanks: 'Danke fürs Spielen.',
     sub: 'TURNO DI NOTTE · LUINO', credit: 'Ein Spiel von Maurizio Odenwaeller für Game Off 2026 · entwickelt mit Claude',
@@ -29,7 +29,7 @@ const UI = {
     noteHead: 'VOGT MICROELETTRONICA · BAY 7 · TURNO B', q: ['„', '“'],
     useLight: 'ANLAUFEN: LICHT', useStop: 'ANLAUFEN: NOT-AUS', charging: 'LÄDT',
     yieldWord: 'AUSBEUTE', best: 'BESTE AUSBEUTE', rewind: 'SHIFT: ZURÜCKSPULEN', slots: 'LOADPORT 1: 26 WAFER GEZÄHLT. DER FOUP HAT 25 PLÄTZE.', lightTip: 'LAUF GEGEN DIE ANLAGE: IHR LICHT HÄLT SIE AUF', graceTip: 'DER RING: SOLANGE ER LÄUFT, GREIFEN SIE DICH NICHT. ABER LAUF NIE IN SIE HINEIN.', alertTip: 'BEMERKT! ER FOLGT DIR EIN PAAR SCHRITTE. WECHSLE DIE SCHICHT ODER GEH AUF ABSTAND.',
-    causeTip: {caught: 'Im Ring greifen sie nicht. Wer selbst in sie hineinläuft, ist erwischt.', crushed: 'Vor der Glocke auf ein grün umrandetes Feld stellen.', plasma: 'Das Plasma zündet im Takt. Warten, oder eine Plasmaanlage anlaufen: Not-Aus.', heat: 'In einer Kühlnische warten, bis die Hitze zurückweicht.', beam: 'Gestrichelt: der nächste Weg des Strahls. Die Anlage anlaufen stoppt ihn.', robot: 'Die Roboter fahren ihre feste Bahn. Warten, bis sie vorbei sind.'},
+    causeTip: {noticed: 'Er hatte dich bemerkt: Wer zu lange in ihrer Nähe bleibt, wird verfolgt. Wechsle die Schicht oder halte Abstand.', caught: 'Im Ring greifen sie nicht. Wer selbst in sie hineinläuft, ist erwischt.', crushed: 'Vor der Glocke auf ein grün umrandetes Feld stellen.', plasma: 'Das Plasma zündet im Takt. Warten, oder eine Plasmaanlage anlaufen: Not-Aus.', heat: 'In einer Kühlnische warten, bis die Hitze zurückweicht.', beam: 'Gestrichelt: der nächste Weg des Strahls. Die Anlage anlaufen stoppt ihn.', robot: 'Die Roboter fahren ihre feste Bahn. Warten, bis sie vorbei sind.'},
     yieldLog: y => `Ausbeute Los 4471: ${y} %`,
     // Why a shift was refused: what stands on this spot in the other shift.
     blocked: (to, what) => what === 'o' ? 'IN DER VORSCHICHT FEHLT HIER DER BODEN'
@@ -41,7 +41,7 @@ const UI = {
     tagline: 'The previous shift never left. They became a layer.', reticles: 'RETICLES', missing: 'With all eight reticles they get out. And so do you.', checkpoint: 'PROCESS STEP SAVED',
     sticky: 'Tip: Space changes the shift too (Windows Sticky Keys).',
     resume: 'Continue from', fresh: 'N: new night from 22:00', physics: 'PHYSICS OF THE SHIFT',
-    caught: 'CAUGHT', crushed: 'WALLED IN', robot: 'RUN OVER', beam: 'IN THE BEAM', heat: 'BURNED', plasma: 'IN THE PLASMA',
+    caught: 'CAUGHT', noticed: 'NOTICED', crushed: 'WALLED IN', robot: 'RUN OVER', beam: 'IN THE BEAM', heat: 'BURNED', plasma: 'IN THE PLASMA',
     paused: 'PAUSED', pausedHint: 'P or ESC: resume', bell: 'BELL', ion: 'IONS', retry: 'R: try again',
     stats: (d, s) => `Caught: ${d}   Shift changes: ${s}`, perHour: 'CAUGHT PER HOUR', thanks: 'Thank you for playing.',
     sub: 'TURNO DI NOTTE · LUINO', credit: 'A game by Maurizio Odenwaeller for Game Off 2026 · made with Claude',
@@ -49,7 +49,7 @@ const UI = {
     noteHead: 'VOGT MICROELETTRONICA · BAY 7 · TURNO B', q: ['“', '”'],
     useLight: 'WALK INTO: LIGHT', useStop: 'WALK INTO: STOP', charging: 'CHARGING',
     yieldWord: 'YIELD', best: 'BEST YIELD', rewind: 'SHIFT: REWIND', slots: 'LOADPORT 1: 26 WAFERS COUNTED. THE FOUP HAS 25 SLOTS.', lightTip: 'WALK INTO THE TOOL: ITS LIGHT STOPS THEM', graceTip: 'THE RING: WHILE IT RUNS THEY CANNOT CATCH YOU. BUT NEVER WALK INTO THEM.', alertTip: 'NOTICED! HE FOLLOWS YOU FOR A FEW STEPS. SHIFT, OR KEEP YOUR DISTANCE.',
-    causeTip: {caught: 'In the ring they cannot catch you. Walking into them yourself, you are caught.', crushed: 'Before the bell, stand on a tile framed in green.', plasma: 'The plasma fires in rhythm. Wait, or walk into a plasma tool: emergency stop.', heat: 'Wait in a cooled niche until the heat falls back.', beam: 'Dashed: the beam\'s next path. Walking into the implanter stops it.', robot: 'The robots drive a fixed track. Wait until they have passed.'},
+    causeTip: {noticed: 'He had noticed you: linger near them and they follow. Shift, or keep your distance.', caught: 'In the ring they cannot catch you. Walking into them yourself, you are caught.', crushed: 'Before the bell, stand on a tile framed in green.', plasma: 'The plasma fires in rhythm. Wait, or walk into a plasma tool: emergency stop.', heat: 'Wait in a cooled niche until the heat falls back.', beam: 'Dashed: the beam\'s next path. Walking into the implanter stops it.', robot: 'The robots drive a fixed track. Wait until they have passed.'},
     yieldLog: y => `Yield of lot 4471: ${y} %`,
     blocked: (to, what) => what === 'o' ? 'NO FLOOR HERE IN THE SHIFT BEFORE'
       : `${what === 'M' ? 'A TOOL' : 'A WALL'} STANDS HERE IN ${to ? 'THE SHIFT BEFORE' : 'YOUR SHIFT'}`,
@@ -563,7 +563,7 @@ function pollPad() {
 let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0, shake = 0;
 let progress = clamp(parseInt(store.get('level'), 10) || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
 const deathsBy = levels.map(() => 0);
-const BUILD = '0.56 · 2026-11-12';
+const BUILD = '0.57 · 2026-11-12';
 // Testers can jump to an hour: ?stunde=3 or ?hour=3 opens the third hour.
 const jump = parseInt(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || '0', 10) || 0;
 if (jump >= 1 && jump <= levels.length) progress = jump - 1;
@@ -971,7 +971,12 @@ function update() {
   if (blurHold) return;
   // After a window that a step opened, time waits half a second before the next step: a moment to look.
   if (mode !== lastMode) {
-    if (mode === 'play' && CLOSERS.has(lastMode)) { windowClosedAt = frame; if (lastMode !== 'card' && lastMode !== 'paused') freezeT = Math.max(freezeT, 30); }
+    if (mode === 'play' && CLOSERS.has(lastMode)) {
+      windowClosedAt = frame;
+      if (lastMode !== 'card' && lastMode !== 'paused') freezeT = Math.max(freezeT, 30);
+      // A window in the shift before gives the ring back: nobody catches or notices you while you read.
+      if (state && state.layer === 1 && lastMode !== 'card' && lastMode !== 'paused') state.graceFrom = state.step;
+    }
     lastMode = mode;
   }
   if (veilPhase) { stepVeil(); if (veilPhase === 'out') return; }
@@ -1006,7 +1011,8 @@ function update() {
   }
   // Once the voice is done, the subtitle only counts down in play: a window or the pause does not eat it.
   if (paNow && (mode === 'play' || paT / 60 < PA_START + paNow.voice) && ++paT > paNow.len) { paNow = null; }
-  if (!paNow && paQueue.length && mode === 'play' && !introMode) startPA(paQueue.shift());
+  // A tip on screen goes first: the announcement waits until it has gone.
+  if (!paNow && paQueue.length && mode === 'play' && !introMode && toastT <= 0) startPA(paQueue.shift());
   if (scare && ['play', 'note', 'process'].includes(mode) && ++scare.t > SCARE_LEN[scare.type]) scare = null;
   if (toastT > 0 && !toastHeld() && mode !== 'note') toastT--;
   if (shiftHintT > 0) shiftHintT--;
@@ -1248,7 +1254,7 @@ function renderPlay() {
     clockSpot: introMode && !clockedIn && mode !== 'process', hideNext: introMode && !showerDone,
     locker: introMode && (mode === 'locker' || (mode === 'note' && noteSrc === 'locker')) ? {no: INTRO.locker.no, t: mode === 'locker' ? lockerT : 99} : null,
     frozen: state.enemies.map(e => C.frozen(state, e)), alert: state.enemies.map(e => state.step < (e.alert || 0)), flash: flashFx && {...flashFx, a: 1 - flashFx.t / 34},
-    grace: !introMode && state.layer === 1 && state.enemies.length ? clamp(1 - ((state.step - state.lastShift) * STEP_FRAMES + stepFrame) / (C.GRACE * STEP_FRAMES), 0, 1) : 0,
+    grace: !introMode && state.layer === 1 && state.enemies.length ? clamp(1 - (C.sinceRing(state) * STEP_FRAMES + stepFrame) / (C.GRACE * STEP_FRAMES), 0, 1) : 0,
     ...storyView()});
   ctx.restore();
   ctx.setTransform(Z, 0, 0, Z, 0, 0);
@@ -1303,7 +1309,7 @@ function bellPreview() {
   if (left > warn) return;
   const other = 1 - state.layer, a = 0.35 + 0.25 * Math.sin(frame / 4), at = state.step + left;
   // What the other layer holds at the moment of the strike: plasma, furnace heat, by day the ion beam.
-  const deadly = (x, y) => C.timedHazard(L, other, at, x, y, n => C.pulseStopped(state, n, at)) ||
+  const deadly = (x, y) => C.timedHazard(L, other, at, x, y, n => C.pulseStopped(state, n, at), state.bellFrom || 0) ||
     (other === 0 && !(at < (state.hazardOff ? state.hazardOff.beam : 0)) && L.beams.some(b => b.phases[C.beamPhase(b, at)].cells[y * C.W + x]));
   for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
     const x = state.x + dx, y = state.y + dy;
@@ -1448,7 +1454,7 @@ function renderRewind() {
 function renderDeadPicture() {
   renderPlay();
   const cause = state.cause || 'caught';
-  if (cause !== 'caught') {
+  if (cause !== 'caught' && cause !== 'noticed') {
     deathPicture(cause, deadT);
     ctx.fillStyle = `rgba(0,0,0,${clamp((deadT - 28) / 40, 0, 0.9)})`; ctx.fillRect(0, 0, W, H);
     if (deadT > 24) txt(t()[cause] || t().caught, W / 2, H / 2 - 8, {align: 'center', size: 16, font: 'Pixelify Sans', weight: 700, color: '#e0402a'});
@@ -1466,7 +1472,7 @@ function renderDeadPicture() {
     ctx.restore();
     if (!reduced) for (let i = 0; i < 300; i++) R(hash(i + frame) > 0.5 ? '#fff' : '#000', hash(i * 3 + frame) * W, hash(i * 7 + frame) * H, 1, 1);
   }
-  if (deadT > 30) txt(t().caught, W / 2, H / 2 - 8, {align: 'center', size: 16, font: 'Pixelify Sans', weight: 700, color: '#e0402a'});
+  if (deadT > 30) txt(t()[cause] || t().caught, W / 2, H / 2 - 8, {align: 'center', size: 16, font: 'Pixelify Sans', weight: 700, color: '#e0402a'});
 }
 
 function renderCard() {

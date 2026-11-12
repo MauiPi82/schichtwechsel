@@ -776,7 +776,7 @@ function heatAndPlasma(L, layer, s) {
   for (let n = 0; n < L.pulses.length; n++) {
     const pl = L.pulses[n];
     if (pl.layer !== layer || C.pulseStopped(s, n)) continue;
-    const on = C.pulseOn(pl, s.step), ph = s.step % pl.period, soon = !on && ((ph + C.PULSE_WARN) % pl.period) >= pl.on[0] && ((ph + C.PULSE_WARN) % pl.period) < pl.on[0] + C.PULSE_WARN;
+    const from = pl.sync ? s.bellFrom || 0 : 0, on = C.pulseOn(pl, s.step, from), ph = (((s.step - from) % pl.period) + pl.period) % pl.period, soon = !on && ((ph + C.PULSE_WARN) % pl.period) >= pl.on[0] && ((ph + C.PULSE_WARN) % pl.period) < pl.on[0] + C.PULSE_WARN;
     if (!on && !soon) continue;
     for (let y = pl.y0; y <= pl.y1; y++) for (let x = pl.x0; x <= pl.x1; x++) {
       if (!L.walk[layer][y * C.W + x]) continue;
@@ -844,9 +844,10 @@ function floorLayer(L, layer) {
 }
 
 // One of shift B has noticed you: a red mark over the head, on the figure at night, on the shadow by day.
-function alertMark(px, py) {
-  const bob = Math.round(Math.sin(F / 5) * 1.5), x = px + 15, y = py - 24 + bob;
-  R('#2a0606', x - 1, y - 1, 5, 14); R('#ff3a2a', x, y, 3, 8); R('#ff3a2a', x, y + 10, 3, 3);
+function alertMark(px, py, big) {
+  const bob = Math.round(Math.sin(F / 5) * 1.5), s = big ? 2 : 1, x = px + 16 - Math.round(1.5 * s), y = py - 24 - (s - 1) * 10 + bob;
+  if (big) { ctx.globalAlpha = 0.25 + 0.2 * Math.sin(F / 4); R('#ff3a2a', x - 4, y - 4, 3 * s + 8, 14 * s + 8); ctx.globalAlpha = 1; }
+  R('#2a0606', x - 1, y - 1, 3 * s + 2, 14 * s); R('#ff3a2a', x, y, 3 * s, 8 * s); R('#ff3a2a', x, y + 10 * s, 3 * s, 3 * s);
 }
 
 /* ---------- Shadows of the shift before ---------- */
@@ -971,7 +972,7 @@ function draw(c, s, o) {
       if (b.y1 !== y) continue;
       const fn = TOOLS[b.type] || TOOLS.generic;
       // Plasma: with pulses in this shift a tool burns with the pulse next to it; without, it runs by day.
-      const near = when => L.pulses.some((pl, n) => !C.pulseStopped(s, n) && pl.layer === layer && pl.x0 <= b.x1 + 1 && pl.x1 >= b.x0 - 1 && pl.y0 <= b.y1 + 2 && pl.y1 >= b.y0 - 2 && C.pulseOn(pl, when));
+      const near = when => L.pulses.some((pl, n) => !C.pulseStopped(s, n) && pl.layer === layer && pl.x0 <= b.x1 + 1 && pl.x1 >= b.x0 - 1 && pl.y0 <= b.y1 + 2 && pl.y1 >= b.y0 - 2 && C.pulseOn(pl, when, s.bellFrom || 0));
       const paced = hasPulses && L.pulses.some((pl, i) => pl.layer === layer && pl.x0 <= b.x1 + 1 && pl.x1 >= b.x0 - 1 && pl.y0 <= b.y1 + 2 && pl.y1 >= b.y0 - 2);
       const on = paced ? near(s.step) : !night;
       const tw = b.x1 - b.x0 + 1, row = b.y1 + 1 < C.H ? b.y1 + 1 : b.y1;
@@ -1017,7 +1018,7 @@ function draw(c, s, o) {
         if (p && Math.hypot(p[0] - ex, p[1] - ey) > 0.3) shadowFigure(p[0], p[1], i, false, 'down', a, false);
       });
       shadowFigure(ex, ey, i, set, face, set ? 0.34 : 0.42 + 0.06 * Math.sin(F / 9 + i), !set, near);
-      if (o.alert && o.alert[i] && !set) alertMark(ex * T, FY + ey * T);
+      if (o.alert && o.alert[i] && !set) alertMark(ex * T, FY + ey * T, true);
     });
   }
   if (!night) (o.ghosts || []).forEach(([gx, gy, a], i) => shadowFigure(gx, gy, 10 + i, false, 'down', 0.45 * a, true, false));

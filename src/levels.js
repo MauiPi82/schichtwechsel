@@ -221,7 +221,7 @@
       bell: 30,
       // In the shift before, the asher's O₂ plasma fills its room for the last steps before every bell:
       // whoever only waits for the bell to carry them over burns. SHIFT yourself, or stop it at a plasma tool.
-      pulses: [{layer: 1, x0: 13, y0: 3, x1: 18, y1: 7, period: 30, on: [24, 30]}],
+      pulses: [{layer: 1, x0: 13, y0: 3, x1: 18, y1: 7, period: 30, on: [24, 30], sync: 'bell'}],
       tools: [
         {x0: 6, y0: 1, type: 'cluster', kind: 'etch', name: 'VALENTA C-5', chambers: 5},
         {x0: 15, y0: 1, type: 'wetbench', name: 'PURA W-6', baths: ['SPM', 'SPM', 'QDR', 'DRY']},
@@ -274,7 +274,7 @@
       pa: [
         {at: 3, it: "Attenzione: alta tensione nell'area impianti.", de: 'Achtung: Hochspannung im Implanterbereich.', en: 'Caution: high voltage in the implanter area.'},
       ],
-      note: {x: 4, y: 2, by: 'Colombo', text: {
+      note: {x: 2, y: 8, by: 'Colombo', text: {
         de: ['Ich habe die acht Retikel versteckt,', 'eins in jeder Schicht, in der Vorschicht.', 'Wer alle findet, macht 4471 fertig.', 'Dann dürfen wir gehen.'],
         en: ['I hid the eight reticles,', 'one in every layer, in the shift before.', 'Whoever finds them all finishes 4471.', 'Then we may leave.'],
       }},
@@ -478,10 +478,10 @@
       // They wait at the airlock: one of shift B walks up and down before it.
       patrols: [{path: [[18, 5], [18, 8]], every: 2}],
       pulses: [
-        {x0: 8, y0: 2, x1: 11, y1: 7, period: 36, on: [0, 12]},
-        {layer: 1, x0: 5, y0: 1, x1: 6, y1: 8, period: 18, on: [12, 18]},
-        {layer: 1, x0: 12, y0: 1, x1: 13, y1: 8, period: 18, on: [12, 18]},
-        {layer: 1, x0: 15, y0: 1, x1: 18, y1: 8, period: 18, on: [12, 18]},
+        {x0: 8, y0: 2, x1: 11, y1: 7, period: 36, on: [0, 12], sync: 'bell'},
+        {layer: 1, x0: 5, y0: 1, x1: 6, y1: 8, period: 18, on: [12, 18], sync: 'bell'},
+        {layer: 1, x0: 12, y0: 1, x1: 13, y1: 8, period: 18, on: [12, 18], sync: 'bell'},
+        {layer: 1, x0: 15, y0: 1, x1: 18, y1: 8, period: 18, on: [12, 18], sync: 'bell'},
       ],
       tools: [
         {x0: 8, y0: 1, type: 'cluster', kind: 'pvd', name: 'VALENTA S-4', chambers: 3},

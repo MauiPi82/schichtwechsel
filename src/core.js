@@ -26,7 +26,8 @@
   const FLASH_RADIUS = 4, FREEZE = 18, HAZARD_OFF = 24, RECHARGE = 48;
   // Watchfulness: whoever passes one of shift B on their round this close, in their shift, is followed for a few
   // steps; then they walk back to the place on their round where they left it.
-  const ALERT_RADIUS = 2, ALERT_STEPS = 8;
+  // ALERT_RADIUS counts steps along the way in their shift: no noticing through walls or across holes.
+  const ALERT_RADIUS = 3, ALERT_STEPS = 12;
   const BELL_WARNING = 24;
   // Plasma glows faintly this many steps before it fires.
   const PULSE_WARN = 10;
@@ -186,19 +187,22 @@
     return {...h, temps, hot};
   }
 
-  function pulseOn(p, step) {
-    const ph = step % p.period;
+  // A pulse with sync: 'bell' keeps its rhythm with the bell, also after a rewind restarts the bell (from).
+  function pulseOn(p, step, from = 0) {
+    const ph = ((step - (p.sync ? from : 0)) % p.period + p.period) % p.period;
     return ph >= p.on[0] && ph < p.on[1];
   }
+  // Steps since the last shift or since the ring was given back (after a window in the shift before).
+  function sinceRing(state) { return state.step - Math.max(state.lastShift, state.graceFrom === undefined ? -Infinity : state.graceFrom); }
 
   // Hazards that depend only on time: heat by day, plasma in either shift. plasmaOff: true for all pulses,
   // or a function telling for each pulse (by its index) whether its emergency stop holds.
-  function timedHazard(level, layer, step, x, y, plasmaOff = false) {
+  function timedHazard(level, layer, step, x, y, plasmaOff = false, from = 0) {
     const i = idx(x, y), off = typeof plasmaOff === 'function' ? plasmaOff : () => plasmaOff;
     if (layer === DAY && level.heat && level.heat.hot[step % level.heat.period][i]) return 'heat';
     for (let n = 0; n < level.pulses.length; n++) {
       const p = level.pulses[n];
-      if (p.layer === layer && p.cells[i] && pulseOn(p, step) && !off(n)) return 'plasma';
+      if (p.layer === layer && p.cells[i] && pulseOn(p, step, from) && !off(n)) return 'plasma';
     }
     return null;
   }
@@ -390,12 +394,13 @@
         if (b.phases[beamPhase(b, state.step)].cells[idx(state.x, state.y)]) return lose(state, 'beam');
       }
     }
-    const hz = safe ? null : timedHazard(L, state.layer, state.step, state.x, state.y, n => pulseStopped(state, n));
+    const hz = safe ? null : timedHazard(L, state.layer, state.step, state.x, state.y, n => pulseStopped(state, n), state.bellFrom || 0);
     if (hz) return lose(state, hz);
     L.pulses.forEach((p, n) => {
       if (pulseStopped(state, n)) return;
-      if ((state.step + PULSE_WARN) % p.period === p.on[0]) state.events.push('pulse-warning');
-      if (state.step % p.period === p.on[0]) state.events.push('pulse');
+      const ph = state.step - (p.sync ? state.bellFrom || 0 : 0);
+      if (((ph + PULSE_WARN) % p.period + p.period) % p.period === p.on[0]) state.events.push('pulse-warning');
+      if ((ph % p.period + p.period) % p.period === p.on[0]) state.events.push('pulse');
     });
     if (L.heat && L.heat.sources.some(([, , off = 0]) => (state.step - off) % L.heat.period === L.heat.open[0])) state.events.push('furnace-open');
     for (const b of L.beams) {
@@ -409,13 +414,18 @@
     for (const e of state.enemies) {
       if (e.pt === undefined || frozen(state, e)) continue;
       // They notice you only once the ring is gone: a quick pass right after a shift goes unseen, lingering does not.
-      if (state.layer === NIGHT && !safe && state.step - state.lastShift >= GRACE && Math.max(Math.abs(e.x - state.x), Math.abs(e.y - state.y)) <= ALERT_RADIUS) {
-        if (!(state.step < (e.alert || 0))) state.events.push('alert');
+      // Noticing startles them for a step: they neither move nor catch you in it, you have a moment to react.
+      const way = L.dist[idx(state.x, state.y)][idx(e.x, e.y)];
+      if (state.layer === NIGHT && !safe && sinceRing(state) >= GRACE && way >= 0 && way <= ALERT_RADIUS) {
+        if (!(state.step < (e.alert || 0))) { state.events.push('alert'); e.startled = state.step; }
         e.alert = state.step + ALERT_STEPS;
       }
-      if (state.step % (e.ev * (state.layer === DAY ? 2 : 1)) !== 0) continue;
+      if (e.startled === state.step) continue;
+      const chasing = state.step < (e.alert || 0);
+      // Following you they go at most half your pace, however fast their round is.
+      if (state.step % ((chasing ? Math.max(e.ev, 2) : e.ev) * (state.layer === DAY ? 2 : 1)) !== 0) continue;
       const cells = L.patrols[e.pt].cells, home = cells[e.pi];
-      if (state.step < (e.alert || 0)) {
+      if (chasing) {
         const next = enemyStep(L, e, state.x, state.y, (x, y) => state.enemies.some(o => o !== e && o.x === x && o.y === y));
         if (next) { e.x = next[0]; e.y = next[1]; e.off = true; e.moved = state.step; state.events.push('enemy-step'); }
       } else if (e.off) {
@@ -439,12 +449,12 @@
     // Grace after a shift into the night: time to shift back after a misjudgement. In it they cannot catch
     // you, but whoever walks into one of them yourself is caught all the same: you cannot pass through them.
     if (state.layer === NIGHT && !safe) {
-      const grace = state.step - state.lastShift < GRACE, walked = state.x !== state.px || state.y !== state.py;
+      const grace = sinceRing(state) < GRACE, walked = state.x !== state.px || state.y !== state.py;
       for (const e of state.enemies) {
-        if (frozen(state, e)) continue;
+        if (frozen(state, e) || e.startled === state.step) continue;
         const onPlayer = e.x === state.x && e.y === state.y;
         const crossed = e.px === state.x && e.py === state.y && e.x === state.px && e.y === state.py;
-        if ((onPlayer || crossed) && (!grace || walked)) return lose(state, 'caught');
+        if ((onPlayer || crossed) && (!grace || walked)) return lose(state, state.step < (e.alert || 0) ? 'noticed' : 'caught');
       }
     }
 
@@ -518,5 +528,5 @@
   }
 
   return {W, H, DAY, NIGHT, ACTIONS, DIRS, SHIFT_COOLDOWN, GRACE, FLASH_RADIUS, FREEZE, HAZARD_OFF, RECHARGE, BELL_WARNING, bellWarning, PULSE_WARN, ALERT_RADIUS, ALERT_STEPS, SPECIES,
-    parseLevel, newState, step, clone, toolUse, hazardStopped, frozen, walkable, robotAt, beamPhase, pulseOn, timedHazard, pulsesNear, pulseStopped, bellIn, nearestEnemy, solve, idx};
+    parseLevel, newState, step, clone, toolUse, hazardStopped, frozen, walkable, robotAt, beamPhase, pulseOn, sinceRing, timedHazard, pulsesNear, pulseStopped, bellIn, nearestEnemy, solve, idx};
 });
