@@ -82,9 +82,16 @@ function toolKey(b) {
   if (b.type === 'metrology') return `metrology-${b.screen || 'lines'}`;
   return TOOL_INFO[b.type] ? b.type : 'generic';
 }
+// Saved state, read once and then kept in memory: the title and the shift log ask for it every frame.
+const storeCache = new Map();
 const store = {
-  get(k) { try { return localStorage.getItem('schichtwechsel-' + k); } catch (_) { return null; } },
-  set(k, v) { try { localStorage.setItem('schichtwechsel-' + k, v); } catch (_) { /* storage blocked */ } },
+  get(k) {
+    if (storeCache.has(k)) return storeCache.get(k);
+    let v = null;
+    try { v = localStorage.getItem('schichtwechsel-' + k); } catch (_) { /* storage blocked */ }
+    storeCache.set(k, v); return v;
+  },
+  set(k, v) { storeCache.set(k, String(v)); try { localStorage.setItem('schichtwechsel-' + k, v); } catch (_) { /* storage blocked or full */ } },
 };
 let lang = store.get('lang') || ((navigator.language || 'en').toLowerCase().startsWith('de') ? 'de' : 'en');
 if (lang !== 'de' && lang !== 'en') lang = 'en';

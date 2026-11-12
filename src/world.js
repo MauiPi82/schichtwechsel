@@ -822,8 +822,11 @@ function floorTiles(L, layer) {
     else if (c2 !== '#' && c2 !== '=') floorTile(x, y, px, py);
   }
 }
+// The floor of the current hour, both layers, drawn once. A new hour throws the old ones away (each is 5 MB).
 const floorCache = new Map();
+let floorLevel = null;
 function floorLayer(L, layer) {
+  if (L.id !== floorLevel) { floorCache.clear(); floorLevel = L.id; }
   const key = `${L.id}:${layer}`;
   let c = floorCache.get(key);
   if (!c) {
