@@ -486,7 +486,7 @@ function pollPad() {
 let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0, shake = 0;
 let progress = clamp(+store.get('level') || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
 const deathsBy = levels.map(() => 0);
-const BUILD = '0.38 · 2026-11-12';
+const BUILD = '0.39 · 2026-11-12';
 // Testers can jump to an hour: ?stunde=3 or ?hour=3 opens the third hour.
 const jump = +(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || 0);
 if (jump >= 1 && jump <= levels.length) progress = jump - 1;
@@ -1536,7 +1536,7 @@ if (new URLSearchParams(location.search).has('test')) {
   window.__schicht = {
     levels, get state() { return state; }, get mode() { return mode; },
     card: i => startCard(i), start: i => startLevel(i), act: a => doStep(a), render, update, intro: () => startIntro(), get showerT() { return showerT; }, get gownT() { return gownT; }, get lockerT() { return lockerT; }, get introNote() { return introNote; }, cinema: () => startCinema(), get cinemaT() { return cinemaT; },
-    finale: () => { mode = 'finale'; finT = 0; }, get finT() { return finT; },
+    finale: () => { mode = 'finale'; finT = 0; }, get finT() { return finT; }, set finT(v) { finT = v; },
     epilogue: () => { mode = 'epilogue'; epiT = 0; }, get epiT() { return epiT; }, set epiT(v) { epiT = v; }, found,
     process: (type, tt) => { procType = type; procT = tt; mode = 'process'; },
     setLayer: l => audio.setLayer(l), lang: l => { lang = l; applyLanguage(); },

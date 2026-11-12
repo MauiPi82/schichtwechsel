@@ -449,23 +449,32 @@ function scannerView(c, x, y, w, h, o) {
   tiny(de ? 'WAFERTISCH' : 'WAFER STAGE', x + 2, y + 92);
   ctx = main;
 }
+// A plasma etch chamber cut open: showerhead with its gases, the glowing plasma in the colour of what it etches, the
+// dark sheath above the wafer, ions crossing it straight down, the chuck on 13.56 MHz, a window for the spectrometer.
+// o: {gas, rgb [r,g,b], glow 0..1, window}
+function chamberView(c, x, y, w, h, o) {
+  const main = ctx; ctx = c;
+  const de = lang === 'de', [r, g0, b] = o.rgb, glow = (o.glow === undefined ? 1 : o.glow) * (0.8 + 0.2 * Math.sin(F / 5)), on = glow > 0.3;
+  R('#3a4058', x, y, w, h); R('#141a28', x + 4, y + 4, w - 8, h - 8);
+  R('#7c8693', x + 8, y + 8, w - 16, 5); for (let i = 0; i < Math.floor((w - 20) / 7); i++) R('#3a4058', x + 11 + i * 7, y + 12, 2, 1);
+  text(o.gas, x + w / 2, y - 2, {align: 'center', color: '#9aa6b5', font: 'IBM Plex Sans', size: 6, max: w});
+  const top = y + 14, bot = y + Math.round(h * 0.62);
+  const g = ctx.createLinearGradient(0, top, 0, bot);
+  g.addColorStop(0, `rgba(${r},${g0},${b},${0.25 * glow})`); g.addColorStop(0.5, `rgba(${r},${g0},${b},${0.6 * glow})`); g.addColorStop(1, `rgba(${r},${g0},${b},${0.3 * glow})`);
+  ctx.fillStyle = g; ctx.fillRect(x + 6, top, w - 12, bot - top);
+  if (on) for (let i = 0; i < 14; i++) circle('rgba(245,235,255,.7)', x + 10 + (i * 37 + F * 0.7) % (w - 20), top + 4 + (i * 23 + F * 0.4) % (bot - top - 8), 0.8);
+  R('#0b0f18', x + 6, bot, w - 12, 8); text(de ? 'RANDSCHICHT' : 'SHEATH', x + w / 2, bot + 1, {align: 'center', color: '#4c5470', font: 'IBM Plex Sans', size: 6, max: w});
+  if (on) for (let i = 0; i < 8; i++) { const iy = (F * 2.5 + i * 11) % 12; R(`rgb(${Math.min(255, r + 40)},${Math.min(255, g0 + 70)},255)`, x + 14 + i * ((w - 28) / 7), bot - 4 + iy, 1, 3); }
+  R('#d99a32', x + 18, bot + 8, w - 36, 2); R('#c9ced6', x + 18, bot + 10, w - 36, 2); R('#5a6270', x + 14, bot + 12, w - 28, 8);
+  R('#5a6270', x + w / 2 - 1, bot + 20, 2, y + h - bot - 24); text('13,56 MHz', x + w / 2 + 4, y + h - 12, {color: '#ffcf5a', font: 'IBM Plex Sans', size: 6, max: 50});
+  if (o.window) { R('#9fb8d0', x + w - 4, top + 14, 4, 12); R(`rgba(${r},${g0},${b},${0.8 * glow})`, x + w - 3, top + 16, 2, 8); }
+  ctx = main;
+}
 // Contact etch: the plasma chamber on the left, the holes going down through the mask on the right.
 function contacts(t, x, y, w, h) {
   // The etch removes oxide at a steady rate: the holes deepen linearly until they reach the silicon.
   const de = lang === 'de', k = clamp((t - 20) / 170, 0, 1), cw = 104, glow = 0.5 + 0.2 * Math.sin(F / 5);
-  // Chamber: showerhead with gas, the glowing plasma, the dark sheath above the wafer, the chuck on 13.56 MHz.
-  R('#3a4058', x + 4, y + 4, cw, h - 8); R('#141a28', x + 8, y + 8, cw - 8, h - 16);
-  R('#7c8693', x + 12, y + 12, cw - 16, 5); for (let i = 0; i < 12; i++) R('#3a4058', x + 15 + i * 7, y + 16, 2, 1);
-  text('C₄F₈ · O₂ · Ar', x + 4 + cw / 2, y + 2, {align: 'center', color: '#9aa6b5', font: 'IBM Plex Sans', size: 6, max: cw});
-  const g = ctx.createLinearGradient(0, y + 18, 0, y + 64);
-  g.addColorStop(0, `rgba(160,90,240,${0.25 * glow})`); g.addColorStop(0.5, `rgba(200,130,255,${0.55 * glow})`); g.addColorStop(1, `rgba(160,90,240,${0.3 * glow})`);
-  ctx.fillStyle = g; ctx.fillRect(x + 10, y + 18, cw - 12, 48);
-  for (let i = 0; i < 14; i++) circle('rgba(240,220,255,.7)', x + 14 + (i * 37 + F * 0.7) % (cw - 20), y + 22 + (i * 23 + F * 0.4) % 40, 0.8);
-  R('#0b0f18', x + 10, y + 66, cw - 12, 8); text(de ? 'RANDSCHICHT' : 'SHEATH', x + 4 + cw / 2, y + 67, {align: 'center', color: '#4c5470', font: 'IBM Plex Sans', size: 6, max: cw});
-  // Ions cross the sheath fast and straight down onto the wafer.
-  for (let i = 0; i < 8; i++) { const iy = (F * 2.5 + i * 11) % 14; R('#e0b8ff', x + 18 + i * 11, y + 62 + iy, 1, 3); }
-  R('#d99a32', x + 22, y + 74, cw - 36, 2); R('#c9ced6', x + 22, y + 76, cw - 36, 2); R('#5a6270', x + 18, y + 78, cw - 28, 8);
-  R('#5a6270', x + 4 + cw / 2 - 1, y + 86, 2, h - 94); text('13,56 MHz', x + 4 + cw / 2 + 4, y + h - 14, {color: '#ffcf5a', font: 'IBM Plex Sans', size: 6, max: 50});
+  chamberView(ctx, x + 4, y + 4, cw, h - 8, {gas: 'C₄F₈ · O₂ · Ar', rgb: [200, 130, 255], glow: 1});
   // Cross-section: the resist mask, the deposited oxide, the holes etching down, polymer on their walls.
   const sx = x + cw + 10, sw = w - cw - 14, si = y + h - 22, top = si - 10 - 22, mask = top - 8, holes = [0.2, 0.5, 0.8].map(f => sx + f * sw - 4);
   R('#4f5866', sx, si, sw, 18); for (const hx of holes) { ctx.fillStyle = 'rgba(150,100,230,.85)'; ctx.beginPath(); ctx.ellipse(hx + 4, si, 10, 7, 0, 0, Math.PI); ctx.fill(); }
@@ -672,5 +681,6 @@ function draw(c, type, t, language, info) {
 }
 
 window.SchichtProcess = {draw, duration, furnace: (c, x, y, w, h, o) => { F = o.t || F; return furnaceView(c, x, y, w, h, o); },
-  scanner: (c, x, y, w, h, o, language) => { F = o.t || F; if (language) lang = language; return scannerView(c, x, y, w, h, o); }, DURATION: BASE};
+  scanner: (c, x, y, w, h, o, language) => { F = o.t || F; if (language) lang = language; return scannerView(c, x, y, w, h, o); },
+  chamber: (c, x, y, w, h, o, language) => { F = o.t || F; if (language) lang = language; return chamberView(c, x, y, w, h, o); }, DURATION: BASE};
 })();

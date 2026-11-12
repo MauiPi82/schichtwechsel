@@ -487,24 +487,36 @@ const etch = {
   },
   draw(m) {
     const a = frame(m, L('ÄTZEN · PLASMA, ENDPUNKT', 'ETCH · PLASMA, ENDPOINT'), L('SHIFT: STOPP, ETWAS NACH DEM CO-ABFALL', 'SHIFT: STOP A LITTLE AFTER THE CO DROP'));
-    // Optical emission of the plasma: CN while nitride is etched, CO while oxide is etched.
-    const gx = a.x + 8, gy = a.y + 6, gw = a.w - 16, gh = 50;
-    R('#0b0f18', gx, gy, gw, gh);
-    [[m.cn, '#7fe0ff', 'CN 387 nm', 2], [m.co, '#d6a8ff', 'CO 483 nm', 12]].forEach(([tr, col, name, ly]) => {
-      text(name, gx + 3, gy + ly, {color: col});
-      ctx.strokeStyle = col; ctx.lineWidth = 1; ctx.beginPath();
-      tr.forEach((v, i) => ctx[i ? 'lineTo' : 'moveTo'](gx + gw - tr.length + i, gy + gh - 3 - v * (gh - 8)));
+    // Left: the chamber. The plasma glows in the colour of what it etches: CN blue-violet on nitride, CO violet on oxide.
+    const lit = m.t >= 30, cn = m.cn.length ? m.cn[m.cn.length - 1] : 0.9, co = m.co.length ? m.co[m.co.length - 1] : 0.1;
+    const mix = [Math.round(110 * cn + 214 * co + 60), Math.round(200 * cn + 120 * co + 20), 255];
+    window.SchichtProcess.chamber(ctx, a.x + 2, a.y + 8, 94, a.h - 10, {t: m.t, gas: 'CF₄ · CHF₃ · Ar', rgb: mix.map(v => Math.min(255, v)), glow: lit ? 1 : 0.15, window: true}, lang);
+    // A fibre from the window to the spectrometer.
+    ctx.strokeStyle = '#3a4058'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(a.x + 96, a.y + 34); ctx.quadraticCurveTo(a.x + 101, a.y + 30, a.x + 104, a.y + 24); ctx.stroke();
+    // Right top: optical emission over time; CN while the nitride etches, CO while the oxide etches.
+    const gx = a.x + 104, gy = a.y + 4, gw = a.w - 108, gh = 50;
+    R('#0b0f18', gx, gy, gw, gh); text('OES', gx + gw - 3, gy + 2, {align: 'right', color: '#4c5470'});
+    [[m.cn, '#7fe0ff', 'CN 387 nm', 2], [m.co, '#d6a8ff', 'CO 483 nm', 12]].forEach(([tr, colr, name, ly]) => {
+      text(name, gx + 3, gy + ly, {color: colr, max: 60});
+      const shown = tr.slice(-(gw - 2));
+      ctx.strokeStyle = colr; ctx.lineWidth = 1; ctx.beginPath();
+      shown.forEach((v, i) => ctx[i ? 'lineTo' : 'moveTo'](gx + gw - 1 - shown.length + i, gy + gh - 3 - v * (gh - 8)));
       ctx.stroke();
     });
-    // Cross-section: resist mask, nitride, oxide; the holes go down, then into the silicon.
-    const sx = a.x + 20, sw = a.w - 40, si = a.y + a.h - 12, nit = 5, ox = 13, holes = [0.2, 0.5, 0.8].map(f => sx + f * sw - 8);
-    R('#4f5866', sx, si, sw, 12); R('#cfe8ff', sx, si - ox, sw, ox); R('#9fc4a8', sx, si - ox - nit, sw, nit); R('#d99a32', sx, si - ox - nit - 8, sw, 8);
+    // Right bottom: cross-section. Resist, nitride, oxide; the holes go down, polymer on their walls, then the silicon.
+    const sx = gx, sw = gw, si = a.y + a.h - 8, nit = 5, ox = 13, holes = [0.18, 0.5, 0.82].map(f => sx + f * sw - 6);
+    R('#4f5866', sx, si, sw, 8); R('#cfe8ff', sx, si - ox, sw, ox); R('#9fc4a8', sx, si - ox - nit, sw, nit); R('#d99a32', sx, si - ox - nit - 8, sw, 8);
     const dn = clamp(m.g / (m.tn + 30), 0, 1) * nit, dox = clamp((m.g - m.tn - 30) / (m.te + 40 - m.tn - 30), 0, 1) * ox, over = Math.max(0, m.g - m.te - 40);
     holes.forEach(hx => {
-      R('#0b0f18', hx, si - ox - nit - 8, 16, 8 + dn + dox);
-      if (over > 0) R('#1a1e28', hx, si, 16, Math.min(6, over / 60));
+      const d = 8 + dn + dox;
+      R('#0b0f18', hx, si - ox - nit - 8, 12, d);
+      if (d > 10) { R('rgba(230,140,60,.8)', hx, si - ox - nit, 1, d - 8); R('rgba(230,140,60,.8)', hx + 11, si - ox - nit, 1, d - 8); }
+      if (over > 0) R('#1a1e28', hx + 1, si, 10, Math.min(6, over / 50));
+      if (lit) for (let k = 0; k < 2; k++) { const iy = (F * 2 + k * 7 + hx) % Math.max(4, d + 10); R('#e0c8ff', hx + 4 + k * 3, si - ox - nit - 18 + iy, 1, 2); }
     });
-    for (let k = 0; k < 16; k++) circle('#c890ff', sx + ((k * 97 + Math.floor(F / 40) * 31) % sw), gy + gh + 4 + ((F * 1.2 + k * 11) % Math.max(4, si - ox - nit - 12 - gy - gh)), 1);
+    text(L('LACK', 'RESIST'), sx + 2, si - ox - nit - 17, {color: '#f0b850', font: 'IBM Plex Sans', size: 6});
+    const stage = m.g < m.tn ? L('NITRID', 'NITRIDE') : m.g < m.te + 40 ? L('OXID', 'OXIDE') : L('ÜBERÄTZEN', 'OVER-ETCH');
+    text(stage, sx + sw - 2, si - ox - nit - 17, {align: 'right', color: m.g < m.tn ? '#7fe0ff' : m.g < m.te + 40 ? '#d6a8ff' : '#ffcf5a', font: 'IBM Plex Sans', size: 6});
     ctx.restore(); result(m, a);
   },
 };

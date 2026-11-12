@@ -560,7 +560,7 @@
     caps: {
       expose: {de: 'Acht Retikel, acht Schichten. Los 4471 wird ein letztes Mal belichtet.', en: 'Eight reticles, eight layers. Lot 4471 is exposed one last time.'},
       wafer: {de: 'Auf dem Wafer: Hunderte gleicher Chips.', en: 'On the wafer: hundreds of identical chips.'},
-      die: {de: 'Der Odenchip. Zwischen den Bondpads steht etwas in der obersten Metallebene.', en: 'The Odenchip. Between the bond pads, something is written in the top metal.'},
+      die: {de: 'Der Odenchip. Acht Schichten aus dieser Nacht, auf jedem einzelnen Chip.', en: 'The Odenchip. Eight layers from tonight, on every single chip.'},
       bond: {de: 'Gesägt, aufgeklebt, gebondet: Golddrähte, dünner als ein Haar.', en: 'Sawn, attached, bonded: gold wires thinner than a hair.'},
       mold: {de: 'Vergossen. Der Laser schreibt den Namen.', en: 'Moulded. The laser writes its name.'},
       board: {de: 'Acht LEDs, eine je Schicht. Wie viele leuchten, entscheidet die Ausbeute.', en: 'Eight LEDs, one per layer. The yield decides how many light up.'},

@@ -18,7 +18,6 @@ function txt(s, x, y, size, color, o = {}) {
 }
 
 /* ---------- The Odenchip die, after frameDie() in Elektronenreise ---------- */
-const EGG = {x: 0.56, y: 0.893, w: 0.17, h: 0.018};
 function die(c, x0, y0, s) {
   ctx = c;
   const ur = (u, v, w, h, col) => { ctx.fillStyle = col; ctx.fillRect(x0 + u * s, y0 + v * s, w * s, h * s); };
@@ -31,12 +30,6 @@ function die(c, x0, y0, s) {
   ur(0.1, 0.5, 0.35, 0.38, '#3a3346'); for (let i = 0; i < 6; i++) ur(0.13 + i * 0.05, 0.55, 0.03, 0.28, i % 2 ? '#4a3f5a' : '#463c56');
   ur(0.5, 0.66, 0.4, 0.21, '#33303f'); ur(0.55, 0.7, 0.12, 0.12, '#4a4258'); ur(0.72, 0.7, 0.14, 0.06, '#40394e');
   for (let i = 0; i < 5; i++) ur(0.08, 0.08 + i * 0.21, 0.84, 0.006, 'rgba(200,210,220,.35)');
-  ur(EGG.x - 0.004, EGG.y - 0.002, EGG.w, EGG.h, 'rgba(232,210,154,.12)');
-  if (s > 200) {
-    ctx.font = `600 ${EGG.h * 0.5 * s}px "IBM Plex Sans", sans-serif`; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-    ctx.fillStyle = '#e8d29a'; ctx.fillText('Chip Design by JDR', x0 + EGG.x * s, y0 + (EGG.y + 0.002) * s);
-  }
-  dot(x0 + (EGG.x + EGG.w - 0.012) * s, y0 + (EGG.y + EGG.h * 0.45) * s, EGG.h * 0.3 * s, '#7ff3ff');
 }
 
 // A reticle: quartz plate, chrome pattern, pellicle frame, barcode label.
@@ -151,9 +144,9 @@ function draw(c, t, frame, lang, texts) {
       ctx = main;
       ctx.restore();
     } else {
-      const zk = ease(clamp((u - 2.2) / 2, 0, 1)), s = 240 + zk * 1100;
-      const fx = lerp(0.5, EGG.x + EGG.w / 2, zk), fy = lerp(0.5, EGG.y + EGG.h / 2, zk);
-      die(ctx, W / 2 - fx * s, 190 - fy * s, s);
+      // A slow push towards the whole die.
+      const zk = ease(clamp((u - 1.0) / 4, 0, 1)), s = 230 + zk * 40;
+      die(ctx, W / 2 - 0.5 * s, 190 - 0.5 * s, s);
     }
   } else if (id === 'bond') {
     pack({wires: ease(k) * 4 * PK.n, mold: 0, mark: 0});
