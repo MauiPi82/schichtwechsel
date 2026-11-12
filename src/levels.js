@@ -34,7 +34,7 @@
       // Announcements over the PA (step, Italian, translation), a note from shift B, one scare.
       pa: [
         {at: 3, it: 'Attenzione. Turno B, presentarsi in Bay 7.', de: 'Achtung. Schicht B, bitte in Bay 7 melden.', en: 'Attention. Shift B, please report to Bay 7.'},
-        {at: 22, it: 'Mancano otto reticoli. Ultimo prelievo: turno B.', de: 'Acht Retikel fehlen. Zuletzt ausgeliehen: Schicht B.', en: 'Eight reticles are missing. Last signed out: shift B.'},
+        {at: 9, it: 'Mancano otto reticoli. Ultimo prelievo: turno B.', de: 'Acht Retikel fehlen. Zuletzt ausgeliehen: Schicht B.', en: 'Eight reticles are missing. Last signed out: shift B.'},
       ],
       note: {x: 11, y: 4, by: 'Rossi', text: {
         de: ['21:31. Los 4471 vom Stocker geholt.', 'Der Scanner summt, obwohl er im Leerlauf ist.', 'Colombo sagt, das ist normal.', 'Ist es nicht.'],
@@ -74,7 +74,7 @@
       ],
     },
     {
-      id: 'ox', reticle: [13, 7], time: '23:00',
+      id: 'ox', reticle: [2, 7], time: '23:00',
       layer: {de: 'Oxid', en: 'Oxide'}, stack: {de: 'SiO₂ 50 nm · Si₃N₄ 100 nm', en: 'SiO₂ 50 nm · Si₃N₄ 100 nm'},
       title: {de: 'Schatten', en: 'Shadows'},
       log: {
@@ -211,7 +211,7 @@
         {at: 6, it: 'Si ricorda: il turno di notte finisce alle sei.', de: 'Zur Erinnerung: Die Nachtschicht endet um sechs.', en: 'A reminder: the night shift ends at six.'},
         {at: 16, it: "Inceneritore in funzione. Al rintocco, stare lontani.", de: 'Verascher in Betrieb. Beim Glockenschlag Abstand halten.', en: 'Asher running. Keep clear when the bell strikes.'},
       ],
-      note: {x: 15, y: 3, by: 'Rossi', text: {
+      note: {x: 13, y: 1, by: 'Rossi', text: {
         de: ['Der Campanile hat geschlagen,', 'und ich stand woanders. Gleiche Bay, andere Schicht.', 'Colombo stand direkt neben mir.', 'Er hat mich nicht gehört.'],
         en: ['The campanile struck,', 'and I stood somewhere else. Same bay, other shift.', 'Colombo stood right next to me.', 'He did not hear me.'],
       }},
@@ -230,7 +230,8 @@
         {x0: 12, y0: 7, type: 'gascab', gas: 'CF4'},
       ],
       lamps: [[9, 6], [2, 2], [17, 5]],
-      patrols: [{path: [[7, 6], [11, 6], [11, 8], [7, 8]], every: 2}],
+      // One round guards the reticle, one walks the only way into the asher's room.
+      patrols: [{path: [[7, 6], [11, 6], [11, 8], [7, 8]], every: 2}, {path: [[13, 3], [18, 3]], every: 2}],
       day: [
         '####################',
         '#P..#.MMMMMMM.#MMMM#',
@@ -289,7 +290,7 @@
       lamps: [[4, 2], [8, 6], [12, 1]],
       // The station room is walled in by day: in through the shift before. The middle is open only by day,
       // across the beam; the way into the room is a round of the previous shift.
-      patrols: [{path: [[2, 1], [5, 1], [5, 5], [4, 5], [4, 2], [2, 2]], every: 2}],
+      patrols: [{path: [[5, 1], [5, 5]], every: 2}, {path: [[1, 1], [4, 1], [4, 2], [1, 2]], every: 2}],
       day: [
         '####################',
         '#.....#....#......X#',
@@ -447,7 +448,7 @@
       ],
     },
     {
-      id: 'me', reticle: [10, 5], time: '05:00',
+      id: 'me', reticle: [8, 8], time: '05:00',
       layer: {de: 'Metall', en: 'Metal'}, stack: {de: 'Aluminium · 500 nm', en: 'Aluminium · 500 nm'},
       title: {de: 'Schleuse', en: 'Airlock'},
       log: {
@@ -474,8 +475,10 @@
       bell: 18,
       // Three rooms by day, joined only through narrow passages in the shift before. When the bell warns,
       // the passages fill with plasma: you cross by your own SHIFT, between two strikes, or stop it at a tool.
+      // They wait at the airlock: one of shift B walks up and down before it.
+      patrols: [{path: [[18, 5], [18, 8]], every: 2}],
       pulses: [
-        {x0: 8, y0: 2, x1: 11, y1: 7, period: 30, on: [0, 12]},
+        {x0: 8, y0: 2, x1: 11, y1: 7, period: 36, on: [0, 12]},
         {layer: 1, x0: 5, y0: 1, x1: 6, y1: 8, period: 18, on: [12, 18]},
         {layer: 1, x0: 12, y0: 1, x1: 13, y1: 8, period: 18, on: [12, 18]},
         {layer: 1, x0: 15, y0: 1, x1: 18, y1: 8, period: 18, on: [12, 18]},
@@ -508,7 +511,7 @@
         '#.MMM#.#....#o#MM.o#',
         '#......#....#o#....#',
         '#.MMM#.#....#o#MMM.#',
-        '#.MMM#.#.o.V#o#MMM.#',
+        '#.MMM#.#.o..#o#MMM.#',
         '#o...#.#....#o#....#',
         '####################',
       ],

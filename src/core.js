@@ -186,12 +186,26 @@
     return ph >= p.on[0] && ph < p.on[1];
   }
 
-  // Hazards that depend only on time: heat by day, plasma in either shift.
+  // Hazards that depend only on time: heat by day, plasma in either shift. plasmaOff: true for all pulses,
+  // or a function telling for each pulse (by its index) whether its emergency stop holds.
   function timedHazard(level, layer, step, x, y, plasmaOff = false) {
-    const i = idx(x, y);
+    const i = idx(x, y), off = typeof plasmaOff === 'function' ? plasmaOff : () => plasmaOff;
     if (layer === DAY && level.heat && level.heat.hot[step % level.heat.period][i]) return 'heat';
-    if (!plasmaOff) for (const p of level.pulses) if (p.layer === layer && p.cells[i] && pulseOn(p, step)) return 'plasma';
+    for (let n = 0; n < level.pulses.length; n++) {
+      const p = level.pulses[n];
+      if (p.layer === layer && p.cells[i] && pulseOn(p, step) && !off(n)) return 'plasma';
+    }
     return null;
+  }
+  // The emergency stop of a plasma tool holds the pulses right next to it (in both shifts), not every one.
+  const NEAR_TOOL = 2;
+  function pulsesNear(level, b) {
+    const out = [];
+    level.pulses.forEach((p, n) => { if (p.x0 <= b.x1 + NEAR_TOOL && p.x1 >= b.x0 - NEAR_TOOL && p.y0 <= b.y1 + NEAR_TOOL && p.y1 >= b.y0 - NEAR_TOOL) out.push(n); });
+    return out;
+  }
+  function pulseStopped(state, n, at = state.step) {
+    return !!state.hazardOff && (at < (state.hazardOff.plasma || 0) || at < (state.hazardOff['p' + n] || 0));
   }
 
   // Implanter beam: straight outside the magnet, a circle of radius r = sqrt(2 m E) / (q B) inside it.
@@ -322,7 +336,10 @@
             state.used = {layer: state.layer, x0: b.x0, y0: b.y0, x1: b.x1, y1: b.y1, step: state.step, stops: use.stops};
             state.events.push('flash');
             for (const e of state.enemies) if (Math.max(Math.abs(e.x - state.x), Math.abs(e.y - state.y)) <= FLASH_RADIUS) { e.frozenUntil = state.step + FREEZE; state.events.push('freeze'); }
-            if (use.stops) { state.hazardOff = {...state.hazardOff, [use.stops]: state.step + HAZARD_OFF}; state.events.push('emo'); }
+            if (use.stops === 'plasma') {
+              const near = pulsesNear(L, b);
+              if (near.length) { state.hazardOff = {...state.hazardOff}; for (const n of near) state.hazardOff['p' + n] = state.step + HAZARD_OFF; state.events.push('emo'); }
+            } else if (use.stops) { state.hazardOff = {...state.hazardOff, [use.stops]: state.step + HAZARD_OFF}; state.events.push('emo'); }
           }
         }
       }
@@ -368,12 +385,13 @@
         if (b.phases[beamPhase(b, state.step)].cells[idx(state.x, state.y)]) return lose(state, 'beam');
       }
     }
-    const hz = safe ? null : timedHazard(L, state.layer, state.step, state.x, state.y, hazardStopped(state, 'plasma'));
+    const hz = safe ? null : timedHazard(L, state.layer, state.step, state.x, state.y, n => pulseStopped(state, n));
     if (hz) return lose(state, hz);
-    if (!hazardStopped(state, 'plasma')) for (const p of L.pulses) {
+    L.pulses.forEach((p, n) => {
+      if (pulseStopped(state, n)) return;
       if ((state.step + 6) % p.period === p.on[0]) state.events.push('pulse-warning');
       if (state.step % p.period === p.on[0]) state.events.push('pulse');
-    }
+    });
     if (L.heat && L.heat.sources.some(([, , off = 0]) => (state.step - off) % L.heat.period === L.heat.open[0])) state.events.push('furnace-open');
     for (const b of L.beams) {
       const before = beamPhase(b, state.step - 1), now = beamPhase(b, state.step);
@@ -478,5 +496,5 @@
   }
 
   return {W, H, DAY, NIGHT, ACTIONS, DIRS, SHIFT_COOLDOWN, GRACE, FLASH_RADIUS, FREEZE, HAZARD_OFF, RECHARGE, BELL_WARNING, bellWarning, SPECIES,
-    parseLevel, newState, step, clone, toolUse, hazardStopped, frozen, walkable, robotAt, beamPhase, pulseOn, timedHazard, bellIn, nearestEnemy, solve, idx};
+    parseLevel, newState, step, clone, toolUse, hazardStopped, frozen, walkable, robotAt, beamPhase, pulseOn, timedHazard, pulsesNear, pulseStopped, bellIn, nearestEnemy, solve, idx};
 });

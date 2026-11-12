@@ -34,18 +34,20 @@ function yieldOf(lot) {
 }
 
 /* ---------- Frame, result ---------- */
+// Skipping only once the label says so: not by a stray key in the first moment.
+const skippable = m => (m.phase === 'play' && m.t > 60) || (m.phase === 'brief' && m.ft > 30);
 function frame(m, title, help) {
   const appear = ease(m.ft / 20), y0 = Math.round(PY + (1 - appear) * 14);
   ctx.fillStyle = `rgba(3,4,8,${0.6 * appear})`; ctx.fillRect(0, 0, W, 180);
   R('#0b0f18', PX - 2, y0 - 2, PW + 4, PH + 4); R('#ffb43a', PX - 2, y0 - 2, PW + 4, 1);
   R('#1c160c', PX, y0, PW, 12);
   text(title, PX + 6, y0 + 2, {color: '#ffcf5a', max: PW - 116});
-  const canSkip = (m.phase === 'play' && m.t > 60) || (m.phase === 'brief' && m.ft > 30);
+  const canSkip = skippable(m);
   text(canSkip ? L('ENTER: ÜBERSPRINGEN', 'ENTER: SKIP') : 'LOT 4471', PX + PW - 6, y0 + 2, {align: 'right', color: canSkip ? '#6b5a2a' : '#c9a15a', max: 100});
   R('#0d111a', PX, y0 + 12, PW, PH - 28);
   R('#141a28', PX, y0 + PH - 16, PW, 16);
   const done = m.phase === 'result';
-  text(done ? L('SHIFT: WEITER', 'SHIFT: CONTINUE') : help, PX + PW / 2, y0 + PH - 12, {align: 'center', color: done ? '#8c93a8' : '#e9e4d6', max: PW - 12});
+  text(done ? (m.retried ? L('SHIFT: WEITER', 'SHIFT: CONTINUE') : L('SHIFT: WEITER · ENTER: NOCHMAL', 'SHIFT: CONTINUE · ENTER: AGAIN')) : help, PX + PW / 2, y0 + PH - 12, {align: 'center', color: done ? '#8c93a8' : '#e9e4d6', max: PW - 12});
   ctx.save(); ctx.beginPath(); ctx.rect(PX, y0 + 12, PW, PH - 28); ctx.clip();
   return {x: PX, y: y0 + 12, w: PW, h: PH - 28, y0};
 }
@@ -78,7 +80,8 @@ const CLEAN_LOAD = 130, CL_RINSE = 150, CL_DRY = 130, CL_BACK = 84, CL_UNLOAD = 
 const clean = {
   init(m) { m.bath = 0; m.st = 'load'; m.bt = 0; m.res = []; m.times = []; },
   update(m, inp) {
-    m.bt++;
+    // What the bench does by itself runs at double speed: you only watch it.
+    m.bt += ['load', 'rinse', 'dry', 'back', 'unload'].includes(m.st) ? 2 : 1;
     if (m.st === 'load') { if (m.bt >= CLEAN_LOAD) { m.st = 'down'; m.bt = 0; } if (m.bt % 16 === 0 && m.bt > 10 && m.bt < 90) m.sfx('click'); return; }
     if (m.st === 'down' && m.bt >= 36) { m.st = 'in'; m.bt = 0; }
     else if (m.st === 'in') {
@@ -409,7 +412,7 @@ const coat = {
 
 /* ---------- 4 Expose: load the reticle, align it (SHIFT stops the mark, X then Y), then the scanner steps
  * across the whole wafer by itself, field after field. Overlay is what you contribute. ---------- */
-const ALIGN_A = 14, ALIGN_T = 200, NM_PER_PX = 2.5;
+const ALIGN_A = 14, ALIGN_T = 240, NM_PER_PX = 2.5;
 const sign = v => { const r = Math.round(v * 10) / 10; return `${r < 0 ? '−' : '+'}${num(Math.abs(r))}`; };
 // Exposure fields on a 300 mm wafer: a full grid inside the round edge, walked in a meander.
 const FIELD_GRID = (() => {
@@ -438,7 +441,7 @@ const expose = {
       if (m.bt % 3 === 0 && m.field < FIELD_GRID.length) m.sfx('zap');
       if (m.bt > FIELD_GRID.length * 3 + 30) {
         const ox = m.dx * NM_PER_PX, oy = m.dy * NM_PER_PX, ov = Math.hypot(ox, oy);
-        const sx = clamp(1 - Math.abs(m.dx) / 8, 0, 1), sy = clamp(1 - Math.abs(m.dy) / 8, 0, 1);
+        const sx = clamp(1 - Math.abs(m.dx) / 12, 0, 1), sy = clamp(1 - Math.abs(m.dy) / 12, 0, 1);
         finish(m, (sx + sy) / 2, {overlay: ov}, [
           `Overlay X ${sign(ox)} nm · Y ${sign(oy)} nm`,
           L(`${FIELD_GRID.length} Felder belichtet. Verschobene Ebenen treffen die Kontakte schlechter.`, `${FIELD_GRID.length} fields exposed. Shifted layers hit the contacts less well.`)]);
@@ -489,7 +492,7 @@ const expose = {
  * Then a little more: 20 to 30 % over-etch makes sure every trench is open. */
 const etch = {
   // 100 nm nitride first, then 50 nm oxide, which CF₄/CHF₃ etches at least as fast: the oxide phase is the shorter.
-  init(m) { m.tn = 220 + Math.random() * 80; m.te = m.tn + 80 + Math.random() * 60; m.g = 0; m.cn = []; m.co = []; },
+  init(m) { m.tn = 130 + Math.random() * 50; m.te = m.tn + 50 + Math.random() * 40; m.g = 0; m.cn = []; m.co = []; },
   lines(m, g) {
     const drop = (t0, len) => g < t0 ? 1 : g < t0 + len ? 1 - (g - t0) / len : 0;
     const n1 = Math.sin(g * 0.7) * 0.03 + Math.sin(g * 2.3 + 1) * 0.02, n2 = Math.sin(g * 0.9 + 2) * 0.03 + Math.sin(g * 1.7) * 0.02;
@@ -868,7 +871,7 @@ const BRIEF = {
 };
 function drawBrief(m) {
   const b = (m.variant && BRIEF[`${m.type}:${m.variant}`]) || BRIEF[m.type], de = lang === 'de';
-  const a = frame(m, b.title[de ? 0 : 1], (m.ft >> 5) % 2 ? L('SHIFT: STARTEN', 'SHIFT: START') : '');
+  const a = frame(m, b.title[de ? 0 : 1], m.ft > 20 ? L('SHIFT: STARTEN', 'SHIFT: START') : '');
   text(L('AUFGABE', 'YOUR TASK'), a.x + a.w / 2, a.y + 12, {align: 'center', size: 16, font: 'Pixelify Sans', weight: 700, color: '#ffcf5a'});
   const lines = b[de ? 'de' : 'en'];
   lines.forEach((l, i) => {
@@ -880,7 +883,7 @@ function drawBrief(m) {
 // Skipped with Enter: the tool runs its standard recipe, which is never quite tuned for this lot.
 const SKIP = {clean: {particles: 12}, oxidize: {oxide: 52.4}, nitride: {nitride: 100.2, nitrideU: 2.4}, coat: {resist: 104, rpm: 1850}, expose: {overlay: 8}, develop: {cd: 43.2, dev: 60}, etch: {overEtch: 8}, implant: {dose: 0.8, purity: 1}, sputter: {al: 500, alQ: 0.6}};
 function skip(m) {
-  if (m.phase === 'result') return;
+  if (!skippable(m)) return;
   finish(m, 0.45, SKIP[m.type], [L('Übersprungen: Die Anlage fährt ihr Standardrezept.', 'Skipped: the tool runs its standard recipe.')]);
 }
 function create(type, o = {}) {

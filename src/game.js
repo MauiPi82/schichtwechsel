@@ -27,7 +27,9 @@ const UI = {
     sound: on => 'Ton: ' + (on ? 'an' : 'aus'), pause: 'Pause', full: 'Vollbild', menu: 'Menü', home: 'H: Hauptmenü',
     noteHead: 'VOGT MICROELETTRONICA · BAY 7 · TURNO B', q: ['„', '“'],
     useLight: 'ANLAUFEN: LICHT', useStop: 'ANLAUFEN: NOT-AUS', charging: 'LÄDT',
-    yieldWord: 'AUSBEUTE', best: 'BESTE AUSBEUTE', rewind: 'SHIFT: ZURÜCKSPULEN', slots: 'LOADPORT 1: 26 WAFER GEZÄHLT. DER FOUP HAT 25 PLÄTZE.', lightTip: 'LAUF GEGEN DIE ANLAGE: IHR LICHT HÄLT SIE AUF', yieldLog: y => `Ausbeute Los 4471: ${y} %`,
+    yieldWord: 'AUSBEUTE', best: 'BESTE AUSBEUTE', rewind: 'SHIFT: ZURÜCKSPULEN', slots: 'LOADPORT 1: 26 WAFER GEZÄHLT. DER FOUP HAT 25 PLÄTZE.', lightTip: 'LAUF GEGEN DIE ANLAGE: IHR LICHT HÄLT SIE AUF', graceTip: 'DER RING: SOLANGE ER LÄUFT, GREIFEN SIE DICH NICHT. ABER LAUF NIE IN SIE HINEIN.',
+    causeTip: {caught: 'Im Ring greifen sie nicht. Wer selbst in sie hineinläuft, ist erwischt.', crushed: 'Vor der Glocke auf ein grün umrandetes Feld stellen.', plasma: 'Das Plasma zündet im Takt. Warten, oder eine Plasmaanlage anlaufen: Not-Aus.', heat: 'In einer Kühlnische warten, bis die Hitze zurückweicht.', beam: 'Gestrichelt: der nächste Weg des Strahls. Die Anlage anlaufen stoppt ihn.', robot: 'Die Roboter fahren ihre feste Bahn. Warten, bis sie vorbei sind.'},
+    yieldLog: y => `Ausbeute Los 4471: ${y} %`,
     // Why a shift was refused: what stands on this spot in the other shift.
     blocked: (to, what) => what === 'o' ? 'IN DER VORSCHICHT FEHLT HIER DER BODEN'
       : `HIER STEHT IN ${to ? 'DER VORSCHICHT' : 'DEINER SCHICHT'} ${what === 'M' ? 'EINE ANLAGE' : 'EINE WAND'}`,
@@ -45,7 +47,9 @@ const UI = {
     sound: on => 'Sound: ' + (on ? 'on' : 'off'), pause: 'Pause', full: 'Fullscreen', menu: 'Menu', home: 'H: main menu',
     noteHead: 'VOGT MICROELETTRONICA · BAY 7 · TURNO B', q: ['“', '”'],
     useLight: 'WALK INTO: LIGHT', useStop: 'WALK INTO: STOP', charging: 'CHARGING',
-    yieldWord: 'YIELD', best: 'BEST YIELD', rewind: 'SHIFT: REWIND', slots: 'LOADPORT 1: 26 WAFERS COUNTED. THE FOUP HAS 25 SLOTS.', lightTip: 'WALK INTO THE TOOL: ITS LIGHT STOPS THEM', yieldLog: y => `Yield of lot 4471: ${y} %`,
+    yieldWord: 'YIELD', best: 'BEST YIELD', rewind: 'SHIFT: REWIND', slots: 'LOADPORT 1: 26 WAFERS COUNTED. THE FOUP HAS 25 SLOTS.', lightTip: 'WALK INTO THE TOOL: ITS LIGHT STOPS THEM', graceTip: 'THE RING: WHILE IT RUNS THEY CANNOT CATCH YOU. BUT NEVER WALK INTO THEM.',
+    causeTip: {caught: 'In the ring they cannot catch you. Walking into them yourself, you are caught.', crushed: 'Before the bell, stand on a tile framed in green.', plasma: 'The plasma fires in rhythm. Wait, or walk into a plasma tool: emergency stop.', heat: 'Wait in a cooled niche until the heat falls back.', beam: 'Dashed: the beam\'s next path. Walking into the implanter stops it.', robot: 'The robots drive a fixed track. Wait until they have passed.'},
+    yieldLog: y => `Yield of lot 4471: ${y} %`,
     blocked: (to, what) => what === 'o' ? 'NO FLOOR HERE IN THE SHIFT BEFORE'
       : `${what === 'M' ? 'A TOOL' : 'A WALL'} STANDS HERE IN ${to ? 'THE SHIFT BEFORE' : 'YOUR SHIFT'}`,
   },
@@ -61,7 +65,7 @@ const TOOL_INFO = {
   'chamber-cvd': ['PECVD-Kammer: scheidet Oxid aus dem Plasma ab', 'PECVD chamber: deposits oxide from a plasma'],
   'chamber-pvd': ['Sputterkammer: das Magnetron trägt Aluminium ab', 'Sputter chamber: the magnetron erodes aluminium'],
   'chamber-asher': ['Asher: verascht Lack im Sauerstoffplasma', 'Asher: burns off resist in an oxygen plasma'],
-  furnace: ['Vertikalofen: oxidiert 100 Wafer auf einmal', 'Vertical furnace: oxidises 100 wafers at once'],
+  furnace: ['Vertikalofen: Oxid und Nitrid für 100 Wafer auf einmal', 'Vertical furnace: oxide and nitride for 100 wafers at once'],
   tubes: ['Diffusionsofen: heilt das Kristallgitter aus', 'Diffusion furnace: heals the crystal lattice'],
   wetbench: ['Nassbank: Säuren und Laugen reinigen die Wafer', 'Wet bench: acids and bases clean the wafers'],
   'implanter-source': ['Ionenquelle: erzeugt und beschleunigt Ionen', 'Ion source: makes and accelerates ions'],
@@ -449,10 +453,17 @@ function press(what) {
   if (mode === 'cinema') { if (what === 'enter' && cinemaT > 0.4) transition(() => startIntro(), 28, 60); return; }
   if (mode === 'epilogue') { if (what === 'enter' && epiT > 1) transition(endEpilogue, 24, 1); return; }
   if (introMode && (mode === 'play' || mode === 'shower' || mode === 'gown' || mode === 'locker')) { if (what === 'enter') transition(endIntro, 30, 1); return; }
-  if (mode === 'mini') { if (what === 'enter') window.SchichtMini.skip(mini); else miniPressed = true; return; }
+  if (mode === 'mini') {
+    // ENTER skips while playing; on the result it plays the step once more (without the briefing).
+    if (what === 'enter') {
+      if (mini.phase === 'result' && !mini.retried && mini.resultT > 20) { const {type, variant} = mini; startMini(type, variant, false); mini.retried = true; }
+      else window.SchichtMini.skip(mini);
+    } else miniPressed = true;
+    return;
+  }
   // After a death the picture waits; a key brings you back to the last process step, in your own shift.
   if (mode === 'dead') { if (deadT > DEAD_LEN) { queuedDir = null; queuedShift = false; startRewind(); } return; }
-  if (mode === 'process') { if (procT > 40) endProcess(); return; }
+  if (mode === 'process') { if (procT > 20) endProcess(); return; }
   if (mode === 'note') { if (noteT > 25) { mode = 'play'; queuedDir = null; queuedShift = false; } return; }
   if (mode === 'paused') { if (what === 'enter') mode = 'play'; return; }
   if (mode === 'play') { if (what === 'shift' && frame - windowClosedAt > 15) { queuedShift = true; shiftQueuedAt = frame; } return; }
@@ -499,7 +510,8 @@ cv.addEventListener('pointerdown', e => {
     if (progress > 0 && Math.abs(y - 137) < 6) { progress = 0; store.set('level', 0); transition(startCinema, 36, 1); return; }
     if ((progress > 0 || Object.keys(lot.s).length) && Math.abs(y - 149) < 6) { bookSel = Math.min(progress, levelIndex); transition(() => { mode = 'book'; }, 16, 16); return; }
   }
-  if (mode !== 'play') press('enter');
+  // A tap is the confirm key: in a minigame it starts and continues (SHIFT), elsewhere it acts as ENTER.
+  if (mode === 'mini') press('shift'); else if (mode !== 'play') press('enter');
 });
 ['pointerup', 'touchend', 'click'].forEach(n => document.addEventListener(n, () => audio.unlock(), {passive: true}));
 // Gamepad: stick or d-pad to move, A or a shoulder button to shift, Start to pause.
@@ -526,7 +538,7 @@ function pollPad() {
 let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0, shake = 0;
 let progress = clamp(parseInt(store.get('level'), 10) || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
 const deathsBy = levels.map(() => 0);
-const BUILD = '0.51 · 2026-11-12';
+const BUILD = '0.52 · 2026-11-12';
 // Testers can jump to an hour: ?stunde=3 or ?hour=3 opens the third hour.
 const jump = parseInt(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || '0', 10) || 0;
 if (jump >= 1 && jump <= levels.length) progress = jump - 1;
@@ -589,8 +601,8 @@ try { const l = JSON.parse(store.get('lot') || 'null'); if (l && l.s && l.v) lot
 function saveLot() { store.set('lot', JSON.stringify(lot)); }
 function newLot() { lot = {s: {}, v: {}}; saveLot(); }
 const lotYield = () => window.SchichtMini ? window.SchichtMini.yieldOf(lot) : 97;
-function startMini(type, variant) {
-  mini = window.SchichtMini.create(type, {lot, brief: true, variant, sfx: n => audio.sfx(n === 'good' ? 'station' : n === 'meh' ? 'tool-wait' : n)});
+function startMini(type, variant, brief = true) {
+  mini = window.SchichtMini.create(type, {lot, brief, variant, sfx: n => audio.sfx(n === 'good' ? 'station' : n === 'meh' ? 'tool-wait' : n)});
   mode = 'mini'; miniPressed = false;
 }
 function endMini() {
@@ -895,6 +907,8 @@ function doStep(action) {
     if (levelIndex <= 2 && C.walkable(state.level, o, state.x, state.y) && C.walkable(state.level, o, state.x + dx, state.y + dy)) shiftHintT = 120;
   }
   if (state.events.includes('shift')) shiftHintT = 0;
+  // The first time the ring shows with shift B around: what it means, once.
+  if (state.events.includes('shift') && state.layer === 1 && state.enemies.length && !introMode && store.get('gracetip') !== '1') { store.set('gracetip', '1'); toast(t().graceTip, 360); }
   if (state.events.includes('freeze')) audio.sfx('freeze');
   if (state.events.includes('flash')) flashFx = {...state.used, t: 0};
   if (state.events.includes('blocked') && !introMode) {
@@ -917,7 +931,11 @@ let lastMode = null, windowClosedAt = -99;
 const CLOSERS = new Set(['mini', 'process', 'note', 'locker', 'gown', 'shower', 'card', 'paused']);
 function update() {
   frame++; pollPad();
-  if (mode !== lastMode) { if (mode === 'play' && CLOSERS.has(lastMode)) windowClosedAt = frame; lastMode = mode; }
+  // After a window that a step opened, time waits half a second before the next step: a moment to look.
+  if (mode !== lastMode) {
+    if (mode === 'play' && CLOSERS.has(lastMode)) { windowClosedAt = frame; if (lastMode !== 'card' && lastMode !== 'paused') freezeT = Math.max(freezeT, 30); }
+    lastMode = mode;
+  }
   if (veilPhase) { stepVeil(); if (veilPhase === 'out') return; }
   if (mode === 'card' || mode === 'ending') cardT++;
   if (mode === 'finale') updateFinale();
@@ -1047,7 +1065,9 @@ function drawHUD() {
   txt(def.layer[lang].toUpperCase(), 66, 4, {color: '#8c93a8', max: 64});
   txt(night ? t().night : t().day, W / 2 + 18, 4, {align: 'center', color: night ? '#ffb43a' : '#e9eef5'});
   let right = '';
-  if (state.got < L.stations.length && def.route) right = `${state.got + 1}/${L.stations.length} ${def.route[state.got][lang].toUpperCase()}`;
+  // While a station's window is open, the header names that step, not the next one.
+  const cur = (mode === 'mini' || (mode === 'process' && procType !== 'reticle')) && state.got > 0 ? state.got - 1 : state.got;
+  if (cur < L.stations.length && def.route) right = `${cur + 1}/${L.stations.length} ${def.route[cur][lang].toUpperCase()}`;
   else right = state.got === L.stations.length && L.stations.length ? t().open : t().airlock;
   txt(right, W - 4, 4, {align: 'right', color: state.got === L.stations.length ? '#7be08f' : '#c9c2ae', max: 96});
   if (L.bell) {
@@ -1064,9 +1084,10 @@ function drawHUD() {
     R('rgba(0,0,0,.66)', 0, by, W, 13); R(night ? '#5a4214' : '#2f6db3', 0, by, W, 1);
     txt(name, 4, by + 2, {color: night ? '#ffcf5a' : '#9fe0ff', max: 64});
     ctx.font = '400 8px "Silkscreen", monospace';
-    const nw = Math.min(64, ctx.measureText(name).width);
-    txt(info, 10 + nw, by + 2, {font: 'IBM Plex Sans', size: 8, color: '#e9e4d6', max: W - nw - 98});
-    txt(ready ? (use.stops ? t().useStop : t().useLight) : t().charging, W - 4, by + 2, {align: 'right', color: ready ? '#c9a5ff' : '#6b7190', max: 84});
+    const nw = Math.min(64, ctx.measureText(name).width), act = ready ? (use.stops ? t().useStop : t().useLight) : t().charging;
+    const aw = Math.min(84, ctx.measureText(act).width);
+    txt(info, 10 + nw, by + 2, {font: 'IBM Plex Sans', size: 8, color: '#e9e4d6', max: W - 4 - aw - 8 - (10 + nw)});
+    txt(act, W - 4, by + 2, {align: 'right', color: ready ? '#c9a5ff' : '#6b7190', max: 84});
   } else if (L.beams.length && (hintT >= 300 || !def2.hint)) {
     const b = L.beams[0], ph = b.phases[C.beamPhase(b, state.step)], next = b.phases[(C.beamPhase(b, state.step) + 1) % b.phases.length];
     R('rgba(0,0,0,.55)', 0, FY + C.H * T - 13, W, 13);
@@ -1235,17 +1256,22 @@ function bellPreview() {
   if (!L.bell || introMode || mode !== 'play' || state.status !== 'play') return;
   const left = C.bellIn(state), warn = C.bellWarning(L.bell);
   if (left > warn) return;
-  const other = 1 - state.layer, a = 0.35 + 0.25 * Math.sin(frame / 4);
+  const other = 1 - state.layer, a = 0.35 + 0.25 * Math.sin(frame / 4), at = state.step + left;
+  // What the other layer holds at the moment of the strike: plasma, furnace heat, by day the ion beam.
+  const deadly = (x, y) => C.timedHazard(L, other, at, x, y, n => C.pulseStopped(state, n, at)) ||
+    (other === 0 && !(at < (state.hazardOff ? state.hazardOff.beam : 0)) && L.beams.some(b => b.phases[C.beamPhase(b, at)].cells[y * C.W + x]));
   for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
     const x = state.x + dx, y = state.y + dy;
-    // Only what differs: walls of the other layer where yours is open.
-    if (x < 0 || y < 0 || x >= C.W || y >= C.H || C.walkable(L, other, x, y) || !C.walkable(L, state.layer, x, y)) continue;
+    if (x < 0 || y < 0 || x >= C.W || y >= C.H || !C.walkable(L, state.layer, x, y)) continue;
     ctx.globalAlpha = a * (1 - Math.max(Math.abs(dx), Math.abs(dy)) * 0.25);
-    for (let k = 0; k < T; k += 3) R('#ff6a3a', x * T + k, FY + y * T + (k % 2 ? 0 : T - 1), 1, 1);
-    ctx.strokeStyle = '#ff6a3a'; ctx.lineWidth = 1; ctx.strokeRect(x * T + 1.5, FY + y * T + 1.5, T - 3, T - 3);
+    // Only what differs: walls of the other layer where yours is open, and its hazards at the strike (violet).
+    if (!C.walkable(L, other, x, y)) {
+      for (let k = 0; k < T; k += 3) R('#ff6a3a', x * T + k, FY + y * T + (k % 2 ? 0 : T - 1), 1, 1);
+      ctx.strokeStyle = '#ff6a3a'; ctx.lineWidth = 1; ctx.strokeRect(x * T + 1.5, FY + y * T + 1.5, T - 3, T - 3);
+    } else if (deadly(x, y)) { R('rgba(190,110,255,.35)', x * T + 1, FY + y * T + 1, T - 2, T - 2); }
   }
   ctx.globalAlpha = 0.6 + 0.4 * Math.sin(frame / 3);
-  ctx.strokeStyle = C.walkable(L, other, state.x, state.y) ? '#3fe06a' : '#ff4a3a'; ctx.lineWidth = 1;
+  ctx.strokeStyle = C.walkable(L, other, state.x, state.y) && !deadly(state.x, state.y) ? '#3fe06a' : '#ff4a3a'; ctx.lineWidth = 1;
   ctx.strokeRect(state.x * T + 0.5, FY + state.y * T + 0.5, T - 1, T - 1);
   ctx.globalAlpha = 1;
 }
@@ -1330,6 +1356,8 @@ function renderDead() {
   if (deadT > DEAD_LEN) {
     txt(t().rewind, W / 2, H / 2 + 14, {align: 'center', color: '#8c93a8'});
     txt(rewindTarget(true), W / 2, H / 2 + 25, {align: 'center', color: '#5a6280', max: W - 20});
+    const tip = t().causeTip[state.cause];
+    if (tip) txt(tip, W / 2, H / 2 + 40, {align: 'center', color: '#c9c2ae', font: 'IBM Plex Sans', size: 8, max: W - 24});
   }
 }
 /* ---------- Rewind: the shift slips back to the last station ---------- */
@@ -1420,6 +1448,8 @@ function renderCard() {
   const y0 = 116;
   R('#0f1422', 10, y0 - 4, W - 20, 46); R('#2f6db3', 10, y0 - 4, 2, 46);
   txt(t().physics, 18, y0 - 1, {color: '#9fe0ff'});
+  // The hour's hint is on the card too: in the room it shares the first seconds with the announcements.
+  if (def.hint) txt(`${lang === 'de' ? 'TIPP' : 'TIP'}: ${def.hint[lang]}`, W - 16, y0 - 1, {align: 'right', color: '#ffcf5a', font: 'IBM Plex Sans', size: 7, max: W - 140});
   def.fact[lang].forEach((line, i) => txt(line, 18, y0 + 10 + i * 9, {color: '#b9c2cf', font: 'IBM Plex Sans', size: 7, max: W - 36}));
   if (cardT > 20 && (frame >> 5) % 2) txt(t().cont, W / 2, H - 9, {align: 'center', color: '#6b7190'});
 }

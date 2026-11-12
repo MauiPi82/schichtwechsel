@@ -742,6 +742,10 @@ function beams(L, s) {
     const ph = b.phases[C.beamPhase(b, s.step)];
     if (off) { if ((F >> 5) % 2) text('BEAM OFF', b.x * T + 36, FY + b.y * T + 8, {color: '#e0281a', shadow: '#fff'}); continue; }
     const col = {B: '#9fe0ff', P: '#d59cff', As: '#9cff9c', BF2: '#ffe08a'}[ph.species];
+    // The tiles the beam crosses are deadly: tinted, not only the thin line.
+    ctx.fillStyle = col; ctx.globalAlpha = 0.13;
+    for (let i = 0; i < C.W * C.H; i++) if (ph.cells[i]) ctx.fillRect((i % C.W) * T, FY + ((i / C.W) | 0) * T, T, T);
+    ctx.globalAlpha = 1;
     // Shortly before the magnet switches, the next ion's path shows dashed: you see where the beam will go.
     if (b.every - (s.step % b.every) <= 6) {
       const nx = b.phases[(C.beamPhase(b, s.step) + 1) % b.phases.length];
@@ -769,9 +773,9 @@ function heatAndPlasma(L, layer, s) {
       if (v >= L.heat.threshold && !reduced) for (let k = 0; k < 2; k++) R('rgba(255,230,160,.3)', x + ((F + i * 3 + k * 11) % 28), y + ((i * 7 + k * 13) % 24) + 4, 1, 3);
     }
   }
-  const plasmaOff = C.hazardStopped(s, 'plasma');
-  for (const pl of L.pulses) {
-    if (pl.layer !== layer || plasmaOff) continue;
+  for (let n = 0; n < L.pulses.length; n++) {
+    const pl = L.pulses[n];
+    if (pl.layer !== layer || C.pulseStopped(s, n)) continue;
     const on = C.pulseOn(pl, s.step), ph = s.step % pl.period, soon = !on && ((ph + 6) % pl.period) >= pl.on[0] && ((ph + 6) % pl.period) < pl.on[0] + 6;
     if (!on && !soon) continue;
     for (let y = pl.y0; y <= pl.y1; y++) for (let x = pl.x0; x <= pl.x1; x++) {
@@ -902,7 +906,7 @@ function draw(c, s, o) {
       if (b.y1 !== y) continue;
       const fn = TOOLS[b.type] || TOOLS.generic;
       // Plasma: with pulses in this shift a tool burns with the pulse next to it; without, it runs by day.
-      const near = when => !C.hazardStopped(s, 'plasma') && L.pulses.some(pl => pl.layer === layer && pl.x0 <= b.x1 + 1 && pl.x1 >= b.x0 - 1 && pl.y0 <= b.y1 + 2 && pl.y1 >= b.y0 - 2 && C.pulseOn(pl, when));
+      const near = when => L.pulses.some((pl, n) => !C.pulseStopped(s, n) && pl.layer === layer && pl.x0 <= b.x1 + 1 && pl.x1 >= b.x0 - 1 && pl.y0 <= b.y1 + 2 && pl.y1 >= b.y0 - 2 && C.pulseOn(pl, when));
       const paced = hasPulses && L.pulses.some((pl, i) => pl.layer === layer && pl.x0 <= b.x1 + 1 && pl.x1 >= b.x0 - 1 && pl.y0 <= b.y1 + 2 && pl.y1 >= b.y0 - 2);
       const on = paced ? near(s.step) : !night;
       const tw = b.x1 - b.x0 + 1, row = b.y1 + 1 < C.H ? b.y1 + 1 : b.y1;

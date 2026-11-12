@@ -46,7 +46,7 @@ test('coat: hold SHIFT to 2000 rpm, let go, the film dries at 100 nm', () => {
 
 test('skipping with Enter runs the standard recipe: così così', () => {
   for (const type of M.STEPS) {
-    const m = M.create(type); run(m, 10); M.skip(m);
+    const m = M.create(type); run(m, 70); M.skip(m);
     assert.equal(m.phase, 'result'); assert.equal(M.grade(m.score).word, 'COSÌ COSÌ', type);
   }
 });

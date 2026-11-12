@@ -50,7 +50,7 @@ if (!url) throw new Error('Pass the URL of the served repository root.');
           for (const a of solution) {
             __schicht.act(a);
             let g = 0;
-            while (__schicht.mode !== 'play' && g++ < 3000) { if (__schicht.mode === 'mini') __schicht.press('enter'); if (__schicht.mode === 'process') __schicht.press('shift'); __schicht.update(); }
+            while (__schicht.mode !== 'play' && g++ < 3000) { if (__schicht.mode === 'mini') __schicht.press(__schicht.miniGame && __schicht.miniGame.phase === 'result' ? 'shift' : 'enter'); if (__schicht.mode === 'process') __schicht.press('shift'); __schicht.update(); }
             if (__schicht.state.got >= 1) break;
           }
           const at = {x: __schicht.state.x, y: __schicht.state.y, got: __schicht.state.got};
@@ -84,7 +84,8 @@ if (!url) throw new Error('Pass the URL of the served repository root.');
           S.act('left'); for (let f = 0; f < 10; f++) S.update(); S.act('left');
           const walking = S.mode === 'play'; for (let f = 0; f < 10; f++) S.update();
           log.push(walking && S.mode === 'locker' ? 'locker' : `no locker (${walking}, ${S.mode})`); settle();
-          walk(['right']); S.act('right'); for (let f = 0; f < 10; f++) S.update(); log.push(S.mode === 'gown' ? 'gowning' : 'no gowning'); settle();
+          // After a window, time rests half a second before the next step.
+          walk(['right']); S.act('right'); for (let f = 0; f < 60 && S.mode !== 'gown'; f++) S.update(); log.push(S.mode === 'gown' ? 'gowning' : 'no gowning'); settle();
           walk(['down', 'right', 'right']);
           walk(['right', 'right', 'right', 'right', 'right']);
           log.push(S.introNote && S.introNote.read ? 'note read' : 'note missed');

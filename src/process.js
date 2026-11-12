@@ -771,7 +771,7 @@ function drawReticleFound(t, info) {
   for (let i = 0; i < 6; i++) { const a = t / 15 + i; R('#e6f6ff', cx + Math.cos(a) * 44, cy + Math.sin(a * 1.3) * 34, 1, 1); }
   R('#141a28', PX, y0 + PH - 16, PW, 16);
   text(lang === 'de' ? 'Jede strukturierte Ebene braucht ihre Maske: Quarz mit Chrom- oder MoSi-Muster, 4:1.' : 'Every patterned level needs its mask: quartz with a chrome or MoSi pattern, 4:1.', PX + 6, y0 + PH - 12, {font: 'IBM Plex Sans', size: 7, color: '#c9c8cf', max: PW - 12});
-  if (t > 40) text(lang === 'de' ? 'SHIFT: WEITER' : 'SHIFT: CONTINUE', W / 2, y0 + PH + 6, {align: 'center', color: '#4c5470'});
+  if (t > 20) text(lang === 'de' ? 'SHIFT: WEITER' : 'SHIFT: CONTINUE', W / 2, y0 + PH + 6, {align: 'center', color: '#8c93a8'});
 }
 // The animations are written for 230 frames. Each one plays slower than that, so there is time to look:
 // the clean takes about ten seconds, one bath after another. At the end the picture rests a moment.
@@ -800,7 +800,7 @@ function draw(c, type, t, language, info) {
   ctx.restore();
   R('#141a28', PX, y0 + PH - 16, PW, 16);
   text(cap[1], PX + 6, y0 + PH - 12, {font: 'IBM Plex Sans', size: 7, color: '#c9c8cf', max: PW - 12});
-  if (t > 40) text(language === 'de' ? 'SHIFT: WEITER' : 'SHIFT: CONTINUE', W / 2, y0 + PH + 6, {align: 'center', color: '#4c5470'});
+  if (t > 20) text(language === 'de' ? 'SHIFT: WEITER' : 'SHIFT: CONTINUE', W / 2, y0 + PH + 6, {align: 'center', color: '#8c93a8'});
 }
 
 window.SchichtProcess = {draw, duration, furnace: (c, x, y, w, h, o) => { F = o.t || F; return furnaceView(c, x, y, w, h, o); },
