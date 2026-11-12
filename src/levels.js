@@ -232,7 +232,7 @@
         '#...#.MMMMMMM.#...X#',
         '#...#....1....#....#',
         '#.............#.MM.#',
-        '#...#.M.....M.#.MM.#',
+        '#...#.M.....M.#2MM.#',
         '#...#.M.....M.#====#',
         '####################',
       ],
@@ -243,7 +243,7 @@
         '#...#.MMMMMMM......#',
         '#...#.MMMMMMM.#oo.o#',
         '#..o#oooo.oooo#....#',
-        '#...#.........#o2.o#',
+        '#...#.........#o..o#',
         '#...#.M.....M.#.oo.#',
         '#..o#.M.....M.#====#',
         '####################',
@@ -575,8 +575,17 @@
     time: '06:00',
     layer: {de: 'Passivierung', en: 'Passivation'}, stack: {de: '12 nm', en: '12 nm'},
     log: {
-      de: ['Über dem See tutet das erste Schiff.', 'Los 4471 steht pünktlich im Stocker.', '', 'Schichtbuch, 06:12:', 'Nachtschicht nicht ausgestempelt.', 'Neue Schicht auf Los 4471: 12 nm.'],
-      en: ['Out on the lake, the first ferry sounds its horn.', 'Lot 4471 sits in the stocker, on time.', '', 'Shift log, 06:12:', 'Night shift never clocked out.', 'New layer on lot 4471: 12 nm.'],
+      de: ['Die Frühschicht findet Los 4471 fertig im Stocker.', 'Obenauf eine Schicht, die in keinem Rezept steht.', '', 'Schichtbuch, 06:12:', 'Nachtschicht nicht ausgestempelt.', 'Neue Schicht auf Los 4471: 12 nm.'],
+      en: ['The morning shift finds lot 4471 done in the stocker.', 'On top, a layer that is in no recipe.', '', 'Shift log, 06:12:', 'Night shift never clocked out.', 'New layer on lot 4471: 12 nm.'],
+    },
+    // The epilogue before this card: one caption per shot.
+    shots: {
+      de: ['05:59. Los 4471 ist fertig: acht Schichten, eine pro Stunde.', '06:00. Drüben in Luino schlägt es sechs. Schichtwechsel.',
+        'Deine Karte geht durch die Stempeluhr wie durch Luft. Ausgang verweigert.', 'Im Gelblicht von Bay 7 stehen jetzt vier.',
+        'Acht Schichten hat das Los heute Nacht bekommen. Die neunte bist du.'],
+      en: ['05:59. Lot 4471 is done: eight layers, one per hour.', '06:00. Over in Luino the bell strikes six. Shift change.',
+        'Your card passes through the time clock like air. Exit denied.', 'In the yellow light of Bay 7 there are four of them now.',
+        'The lot got eight layers tonight. The ninth is you.'],
     },
   };
 

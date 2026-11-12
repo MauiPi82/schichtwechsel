@@ -283,8 +283,11 @@ function ellipso(t, x, y, w, h) {
   if (t > 70) text(`Ψ ${psi}°  Δ ${del}°`, x + 108, y + 13, {align: 'center', color: '#9fe0ff'});
   if (fit >= 1) {
     const ox = val('oxide', 50.1);
-    text(`SiO₂ ${fmt(ox)} nm · Si₃N₄ ${fmt(100.4)} nm`, x + 108, y + 23, {align: 'center', color: '#e9e4d6', font: 'IBM Plex Sans', size: 8});
-    verdict(sc('oxidize'), x + 104, y + 33);
+    const nu = val('nitrideU', null);
+    text(`SiO₂ ${fmt(ox)} nm · Si₃N₄ ${fmt(val('nitride', 100.4))} nm${nu !== null ? ` ±${fmt(nu)} %` : ''}`, x + 108, y + 23, {align: 'center', color: '#e9e4d6', font: 'IBM Plex Sans', size: 8, max: 200});
+    // The verdict judges both films that were played.
+    const played = [sc('oxidize'), sc('nitride')].filter(v => v !== null);
+    verdict(played.length ? played.reduce((p, v) => p + v, 0) / played.length : null, x + 104, y + 33);
     // The SPC chart of this tool: the last seven lots all above the centre line. By the rules: out of control.
     const cx0 = x + 170, cy0 = y + 42, cw = 54, ch = 20;
     R('#0b0f18', cx0, cy0, cw, ch); R('#3a4058', cx0, cy0 + ch / 2, cw, 1); R('#5a2a20', cx0, cy0 + 2, cw, 1); R('#5a2a20', cx0, cy0 + ch - 3, cw, 1);
@@ -480,9 +483,19 @@ function section(t, x, y, w, h, type) {
       rain('#d8ecff', 30, 0, oxTop - d); break;
     }
     case 'contacts': {
+      // The photomask from the last step: developed resist on the oxide, open only above each window.
+      // The ions come straight down through the openings; the resist itself is eroded a little.
       oxide(1); doped(18, 6); holes.forEach(hx => R('#a9cbe6', hx, oxTop, 18, ox)); R('#a9cbe6', bx, oxTop - 22, bw, 22);
-      holes.forEach(hx => R('#0b0f18', hx + 5, oxTop - 22, 8, (22 + ox) * k));
-      rain('#c890ff', 30); break;
+      const rTop = oxTop - 22 - 10 + 2 * k;
+      R('#d99a32', bx, rTop, bw, oxTop - 22 - rTop); R('#f0b850', bx, rTop, bw, 1);
+      holes.forEach(hx => { R('#0b0f18', hx + 5, rTop, 8, oxTop - 22 - rTop); R('#0b0f18', hx + 5, oxTop - 22, 8, (22 + ox) * k); });
+      for (let i = 0; i < 30; i++) {
+        const hx = holes[i % 3] + 6 + (i * 7) % 6, py = y + 10 + ((F * 3 + i * 23) % (rTop - y - 6));
+        circle('#c890ff', hx, py, 1.2);
+      }
+      for (let i = 0; i < 12; i++) circle('rgba(200,144,255,.45)', bx + ((i * 53 + F) % bw), y + 10 + ((F * 2 + i * 31) % (rTop - y - 12)), 1);
+      text(lang === 'de' ? 'LACKMASKE' : 'RESIST MASK', bx + 4, rTop - 9, {color: '#f0b850'});
+      break;
     }
     case 'sputter': {
       oxide(1); doped(18, 6); holes.forEach(hx => R('#a9cbe6', hx, oxTop, 18, ox)); R('#a9cbe6', bx, oxTop - 22, bw, 22);

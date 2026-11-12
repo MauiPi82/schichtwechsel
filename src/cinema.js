@@ -222,48 +222,182 @@ const SHOTS = [
   {dur: 8.4, xin: 1.8, draw: t => { arrivalScene(t); rain(0.35); }, sound: 'arrival'},
 ];
 const FADE_IN = 1.6, FADE_OUT = 1.8;
-let at = 0;
-for (const s of SHOTS) { at -= s.xin; s.start = at; at += s.dur; }
-const TOTAL = at;
+// A sequence of shots on one timeline: each starts xin seconds before the one before it ends.
+function timeline(shots) { let at = 0; for (const s of shots) { at -= s.xin; s.start = at; at += s.dur; } return at; }
+const TOTAL = timeline(SHOTS);
+
+/* ---------- Epilogue of the normal ending: 05:59 to 06:12 ---------- */
+// The lot goes into the stocker.
+function stockerScene(t) {
+  R('#c9ced6', 0, 0, W, H); R('#e6e9ee', 0, 0, W, 60);
+  for (let x = 30; x < W; x += 140) { R('#f7f9fc', x, 54, 90, 4); ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.beginPath(); ctx.moveTo(x - 20, 58); ctx.lineTo(x + 110, 58); ctx.lineTo(x + 150, 290); ctx.lineTo(x - 60, 290); ctx.fill(); }
+  R('#a9b1bc', 0, 290, W, 70); for (let x = 0; x < W; x += 24) R('#9aa3ae', x, 290, 1, 70);
+  // The stocker: a tall cabinet with FOUPs behind glass, an input port, its display.
+  R('#7c8693', 200, 70, 300, 220); R('#8d97a4', 200, 70, 300, 6); R('#5a6370', 210, 86, 280, 150);
+  for (let r = 0; r < 4; r++) for (let c = 0; c < 7; c++) { R('#d9dde3', 220 + c * 38, 96 + r * 34, 28, 22); R('#e8732a', 224 + c * 38, 102 + r * 34, 20, 3); }
+  R('rgba(200,225,255,.18)', 210, 86, 280, 150);
+  R('#3a4058', 300, 244, 100, 30); R('#9aa6b5', 300, 244, 100, 4);
+  const lift = ease((t - 1.6) / 1.8), gone = t > 3.4;
+  if (!gone) {
+    const fx = 330, fy = 220 - lift * 74;
+    R('#d9dde3', fx, fy, 40, 26); R('#a9b1bc', fx, fy + 22, 40, 4); R('#e8732a', fx + 6, fy + 8, 28, 4); R('#5a6370', fx + 14, fy - 4, 12, 4);
+    R('#d8262a', fx + 36 + Math.round(Math.sin(F / 10)), fy + 6, 8, 12); R('#ffffff', fx + 38 + Math.round(Math.sin(F / 10)), fy + 10, 4, 2);
+  }
+  R('#0b0f18', 420, 244, 64, 24);
+  if (t > 3.6 && (F >> 4) % 2) txt('4471 OK', 452, 252, 8, '#3fe06a');
+  else if (t <= 3.6) txt('4471 >', 452, 252, 8, '#ffcf5a');
+  // You beside it, in the suit, seen from the side.
+  const x = 120;
+  ctx.fillStyle = 'rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(x + 14, 292, 18, 4, 0, 0, 7); ctx.fill();
+  R('#f7f9fc', x + 4, 226, 22, 40); R('#d3dae4', x + 4, 256, 22, 4); R('#f7f9fc', x + 6, 266, 7, 24); R('#f7f9fc', x + 16, 266, 7, 24);
+  R('#e2e8f0', x + 5, 282, 9, 8); R('#e2e8f0', x + 15, 282, 9, 8);
+  R('#f7f9fc', x + 5, 202, 20, 24); R('#2a3240', x + 14, 208, 10, 6); R('#4a8fd8', x + 17, 209, 5, 3);
+  R('#8a5cd6', x + 24, 240, 6, 6);
+  clockFace(560, 100, 16, 5, 59);
+}
+// 06:00 over the lake: first light, the campanile strikes six; rings of sound go out over the water.
+function dawnScene(t) {
+  lakeScene(t, [6, 0], 60 + t * 4);
+  const g = ctx.createLinearGradient(0, 40, 0, 220);
+  g.addColorStop(0, 'rgba(40,60,110,.35)'); g.addColorStop(0.7, 'rgba(230,140,90,.32)'); g.addColorStop(1, 'rgba(255,190,120,.45)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, 212);
+  ctx.fillStyle = 'rgba(255,170,110,.12)'; ctx.fillRect(0, 212, W, H - 212);
+  const cx = 189 - (60 + t * 4), cy = 130;
+  for (let k = 0; k < 6; k++) {
+    const age = t - 0.6 - k * 0.7; if (age < 0 || age > 2.4) continue;
+    ctx.strokeStyle = `rgba(255,230,190,${0.5 * (1 - age / 2.4)})`; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(cx, cy, 10 + age * 60, 0, 7); ctx.stroke();
+  }
+}
+// The time clock at the exit: the card goes through it like through air.
+function timeClockScene(t) {
+  R('#1a1e24', 0, 0, W, H); for (let y = 0; y < H; y += 32) R('#20252c', 0, y, W, 1); for (let x = 0; x < W; x += 48) R('#20252c', x, 0, 1, H);
+  // The card rack beside it: everyone's cards, three of them still in the IN row.
+  R('#3a3226', 450, 80, 120, 200); R('#4a4032', 450, 80, 120, 6);
+  txt('ENTRATA', 480, 90, 8, '#c9b98a'); txt('USCITA', 540, 90, 8, '#c9b98a');
+  for (let r = 0; r < 8; r++) { R('#2a2418', 456, 104 + r * 21, 50, 16); R('#2a2418', 514, 104 + r * 21, 50, 16); }
+  for (const r of [1, 4, 6]) { R('#efe6c8', 456, 98 + r * 21, 50, 20); R('#c9b98a', 456, 98 + r * 21, 50, 4); }
+  txt('ROSSI', 481, 108 + 1 * 21, 8, '#5a4a2a'); txt('COLOMBO', 481, 108 + 4 * 21, 8, '#5a4a2a'); txt('FERRARI', 481, 108 + 6 * 21, 8, '#5a4a2a');
+  // The clock: cream housing, a round dial on top, the display, the slot.
+  R('#d8cfb8', 200, 70, 200, 220); R('#c4bba4', 200, 70, 200, 8); R('#b8ae96', 200, 282, 200, 8);
+  circle('#2a2418', 300, 62, 30); circle('#efe4be', 300, 62, 27); clockFace(300, 62, 25, t > 2.2 ? 6 : 5, t > 2.2 ? 0 : 59);
+  txt('VOGT · TIMBRATRICE', 300, 84, 8, '#7a6e56');
+  R('#0b0f18', 224, 100, 152, 46);
+  const denied = t > 2.2, on = (F >> 4) % 2;
+  if (denied) { txt('USCITA NEGATA', 300, 108, 16, on ? '#ff3a2a' : '#7a1810'); txt('06:00', 300, 128, 8, on ? '#ff3a2a' : '#7a1810'); }
+  else { txt('TIMBRA', 300, 108, 16, '#3fe06a'); txt('05:59', 300, 128, 8, '#3fe06a'); }
+  R('#2a2418', 280, 168, 40, 6); txt('▼', 300, 178, 8, '#7a6e56');
+  // The card slides down into the slot and comes out below, unstamped; the glove lets go.
+  const k = ease((t - 0.6) / 2.2), cy = 40 + k * 230;
+  ctx.globalAlpha = cy > 150 && cy < 290 ? 0.35 : 1;
+  R('#efe6c8', 304, cy, 32, 50); R('#c9b98a', 304, cy, 32, 6); txt('18', 320, cy + 20, 8, '#5a4a2a');
+  ctx.globalAlpha = 1;
+  if (t < 2.8) { R('#8a5cd6', 296, Math.min(cy, 150) - 26, 48, 28); R('#6a40b0', 296, Math.min(cy, 150) - 4, 48, 4); }
+  if (denied) { ctx.fillStyle = `rgba(255,40,30,${0.08 + 0.06 * Math.sin(F / 6)})`; ctx.fillRect(0, 0, W, H); }
+}
+// The fab from the water at dawn: one window still in yellow light, and now four stand in it.
+function windowScene(t) {
+  const g = ctx.createLinearGradient(0, 0, 0, 220);
+  g.addColorStop(0, '#1c2a4a'); g.addColorStop(0.6, '#8a6a7a'); g.addColorStop(1, '#e8a878');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, 220);
+  R('#141a26', 60, 90, 520, 130); R('#1c2432', 60, 90, 520, 6);
+  for (let i = 0; i < 8; i++) if (i !== 4) R('#2a3448', 84 + i * 62, 120, 40, 50);
+  // The lit window: three in the tan suits of shift B, one in white.
+  const wx = 330, wy = 112, flick = hash(F >> 3) > 0.08 ? 1 : 0.6;
+  R(`rgba(255,196,80,${0.9 * flick})`, wx - 12, wy, 92, 66);
+  ctx.fillStyle = `rgba(255,190,70,${0.18 * flick})`; ctx.beginPath(); ctx.moveTo(wx - 12, wy + 66); ctx.lineTo(wx + 80, wy + 66); ctx.lineTo(wx + 110, 220); ctx.lineTo(wx - 40, 220); ctx.fill();
+  const four = clamp((t - 1.2) / 1.4, 0, 1);
+  [[wx - 2, '#4a3a1c'], [wx + 20, '#4a3a1c'], [wx + 42, '#4a3a1c'], [wx + 62, '#f7f9fc']].forEach(([fx, col], i) => {
+    ctx.globalAlpha = i === 3 ? four : 1;
+    R(col, fx, wy + 30, 12, 36); R(col, fx + 1, wy + 18, 10, 13);
+    R(i === 3 ? '#4a8fd8' : '#ffb43a', fx + 3, wy + 22, 6, 2);
+  });
+  ctx.globalAlpha = 1;
+  // Water with the reflection of the lit window.
+  const wyy = 220, g2 = ctx.createLinearGradient(0, wyy, 0, H);
+  g2.addColorStop(0, '#2a3048'); g2.addColorStop(1, '#0a0e18'); ctx.fillStyle = g2; ctx.fillRect(0, wyy, W, H - wyy);
+  for (let y = wyy + 2; y < H; y += 2) {
+    const k = (y - wyy) / (H - wyy), seg = 70 * (0.6 + 0.6 * hash(y * 3 + (F >> 3)));
+    ctx.fillStyle = `rgba(255,196,80,${(0.45 * (1 - k)).toFixed(3)})`; ctx.fillRect(wx + 34 - seg / 2 + Math.sin(F / 13 + y * 0.7) * (2 + k * 6), y, seg, 1);
+  }
+}
+// Lot 4471 in cross-section: eight layers from tonight, and a ninth settling on top.
+function layersScene(t) {
+  R('#07080c', 0, 0, W, H);
+  const x0 = 150, w = 340, base = 300;
+  const bands = [[60, '#4f5866'], [12, '#cfe8ff'], [14, '#9fc4a8'], [20, '#a9cbe6'], [8, '#7a8a9a'], [20, '#a9cbe6'], [12, '#c9ced6'], [22, '#c9ced6']];
+  let y = base;
+  bands.forEach(([h, col]) => { R(col, x0, y - h, w, h); R('rgba(0,0,0,.25)', x0, y - h, w, 1); y -= h; });
+  for (const hx of [0.2, 0.5, 0.8]) { ctx.fillStyle = 'rgba(150,100,230,.8)'; ctx.beginPath(); ctx.ellipse(x0 + hx * w, base - 60, 22, 12, 0, 0, Math.PI); ctx.fill(); }
+  // Eight layers, counted up the side; then the ninth comes down and settles, with four small figures in it.
+  bands.forEach((_, i) => { if (t > 0.3 + i * 0.12) txt(String(i + 1), x0 - 16, base - bands.slice(0, i + 1).reduce((a, b) => a + b[0], 0) + bands[i][0] / 2 - 6, 8, '#6b7190'); });
+  const top = y, k = ease((t - 1.6) / 2.4), h9 = 8, yy = top - h9 - (1 - k) * 110;
+  ctx.globalAlpha = k;
+  ctx.fillStyle = `rgba(220,200,255,${0.25 + 0.15 * Math.sin(F / 8)})`; ctx.fillRect(x0 - 6, yy - 6, w + 12, h9 + 12);
+  R('#e8e2f4', x0, yy, w, h9); R('#ffffff', x0, yy, w, 1);
+  for (let i = 0; i < 4; i++) { const fx = x0 + 50 + i * 76; R(i === 3 ? '#ffffff' : '#8a7a5a', fx, yy + 2, 14, 4); R(i === 3 ? '#ffffff' : '#8a7a5a', fx + 14, yy + 3, 5, 2); }
+  ctx.globalAlpha = 1;
+  if (k >= 1) { txt('9', x0 - 16, yy - 3, 8, '#e0402a'); txt('12 nm', x0 + w + 46, yy - 6, 16, '#e0402a'); R('#e0402a', x0 + w + 4, yy + 3, 16, 1); }
+  txt('LOT 4471', x0 + w / 2, base + 10, 16, '#6b7190');
+}
+const END_SHOTS = [
+  {dur: 5.6, xin: 0, draw: stockerScene},
+  {dur: 6.0, xin: 1.2, draw: dawnScene},
+  {dur: 5.4, xin: 1.0, draw: timeClockScene},
+  {dur: 6.2, xin: 1.2, draw: windowScene},
+  {dur: 7.0, xin: 1.2, draw: layersScene},
+];
+const END_TOTAL = timeline(END_SHOTS);
 
 // The shot that is coming in at this moment, and its own time.
-function shotAt(time) {
-  if (time >= TOTAL) return [SHOTS.length, 0];
-  for (let i = SHOTS.length - 1; i >= 0; i--) if (time >= SHOTS[i].start) return [i, time - SHOTS[i].start];
+function shotAt(time, shots = SHOTS, total = TOTAL) {
+  if (time >= total) return [shots.length, 0];
+  for (let i = shots.length - 1; i >= 0; i--) if (time >= shots[i].start) return [i, time - shots[i].start];
   return [0, time];
 }
 
 let off = null, octx = null;
-function drawShot(i, t) {
+function drawShot(shots, i, t) {
   ctx.save();
   // A slow push-in on every shot.
   const z = 1 + t * 0.012;
   ctx.translate(W / 2, H / 2); ctx.scale(z, z); ctx.translate(-W / 2, -H / 2);
-  SHOTS[i].draw(t);
+  shots[i].draw(t);
   ctx.restore();
 }
 
-function draw(c, time, frame) {
+function play(c, time, frame, shots, total) {
   ctx = c; F = frame;
-  const [i, t] = shotAt(time);
-  if (i >= SHOTS.length) { R('#000', 0, 0, W, H); return; }
-  const s = SHOTS[i];
+  const [i, t] = shotAt(time, shots, total);
+  if (i >= shots.length) { R('#000', 0, 0, W, H); return; }
+  const s = shots[i];
   if (i > 0 && t < s.xin) {
     // Dissolve: the shot before stays underneath, the new one is drawn off screen and laid over it.
-    drawShot(i - 1, time - SHOTS[i - 1].start);
+    drawShot(shots, i - 1, time - shots[i - 1].start);
     if (!off || off.width !== c.canvas.width || off.height !== c.canvas.height) {
       off = document.createElement('canvas'); off.width = c.canvas.width; off.height = c.canvas.height; octx = off.getContext('2d');
     }
     octx.setTransform(c.getTransform()); octx.clearRect(0, 0, W, H);
-    ctx = octx; drawShot(i, t); ctx = c;
+    ctx = octx; drawShot(shots, i, t); ctx = c;
     c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = ease(t / s.xin); c.drawImage(off, 0, 0); c.restore();
-  } else drawShot(i, t);
+  } else drawShot(shots, i, t);
   // In from black at the start, out to black at the end.
-  const black = Math.max(1 - ease(time / FADE_IN), ease((time - (TOTAL - FADE_OUT)) / FADE_OUT));
+  const black = Math.max(1 - ease(time / FADE_IN), ease((time - (total - FADE_OUT)) / FADE_OUT));
   if (black > 0) { ctx.fillStyle = `rgba(0,0,0,${black})`; ctx.fillRect(0, 0, W, H); }
   for (let k = 0; k < 220; k++) R(`rgba(255,255,255,${hash(k + frame) * 0.06})`, hash(k * 3 + frame) * W, hash(k * 7 + frame) * H, 1, 1);
   R('#000', 0, 0, W, BAR); R('#000', 0, H - BAR, W, BAR);
 }
+function draw(c, time, frame) { play(c, time, frame, SHOTS, TOTAL); }
+// The epilogue with a caption per shot in the lower bar.
+function drawEnd(c, time, frame, captions) {
+  play(c, time, frame, END_SHOTS, END_TOTAL);
+  const [i, t] = shotAt(time, END_SHOTS, END_TOTAL);
+  if (i >= END_SHOTS.length || !captions || !captions[i]) return;
+  const a = Math.min(clamp((t - 0.6) / 0.8, 0, 1), clamp((END_SHOTS[i].dur - t - 0.3) / 0.6, 0, 1));
+  ctx.globalAlpha = a;
+  ctx.font = '400 15px "IBM Plex Sans", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillStyle = '#e9e4d6'; ctx.fillText(captions[i], W / 2, H - BAR + 11, W - 40);
+  ctx.globalAlpha = 1;
+}
 
-window.SchichtCinema = {draw, TOTAL, shotAt, SHOTS};
+window.SchichtCinema = {draw, TOTAL, shotAt, SHOTS, drawEnd, END_TOTAL, endShotAt: time => shotAt(time, END_SHOTS, END_TOTAL)};
 })();

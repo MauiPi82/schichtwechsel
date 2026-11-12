@@ -17,7 +17,7 @@ const UI = {
   de: {
     day: 'DEINE SCHICHT', night: 'VORSCHICHT', open: 'SCHLEUSE OFFEN', airlock: 'ZUR SCHLEUSE', layerWord: 'SCHICHT',
     press: isTouch ? 'SHIFT TIPPEN' : 'SHIFT DRÜCKEN', orSpace: 'oder Leertaste', cont: isTouch ? 'SHIFT: WEITER' : 'SHIFT ODER ENTER: WEITER',
-    tagline: 'Die Vorschicht ist nie gegangen. Sie ist eine Schicht geworden.', reticles: 'RETIKEL', missing: 'Die Vorschicht wartet noch.', checkpoint: 'PROZESSSCHRITT GESICHERT',
+    tagline: 'Die Vorschicht ist nie gegangen. Sie ist eine Schicht geworden.', reticles: 'RETIKEL', missing: 'Mit allen acht Retikeln kommen sie hinaus. Und du.', checkpoint: 'PROZESSSCHRITT GESICHERT',
     sticky: 'Tipp: Die Leertaste wechselt auch die Schicht (Windows-Einrastfunktion).',
     resume: 'Weiter ab', fresh: 'N: neue Nacht ab 22:00', physics: 'PHYSIK DER SCHICHT',
     caught: 'ERWISCHT', crushed: 'EINGEMAUERT', robot: 'ÜBERFAHREN', beam: 'IM STRAHL', heat: 'VERBRANNT', plasma: 'IM PLASMA',
@@ -35,7 +35,7 @@ const UI = {
   en: {
     day: 'YOUR SHIFT', night: 'THE SHIFT BEFORE', open: 'AIRLOCK OPEN', airlock: 'TO THE AIRLOCK', layerWord: 'LAYER',
     press: isTouch ? 'TAP SHIFT' : 'PRESS SHIFT', orSpace: 'or Space', cont: isTouch ? 'SHIFT: CONTINUE' : 'SHIFT OR ENTER: CONTINUE',
-    tagline: 'The previous shift never left. They became a layer.', reticles: 'RETICLES', missing: 'The shift before is still waiting.', checkpoint: 'PROCESS STEP SAVED',
+    tagline: 'The previous shift never left. They became a layer.', reticles: 'RETICLES', missing: 'With all eight reticles they get out. And so do you.', checkpoint: 'PROCESS STEP SAVED',
     sticky: 'Tip: Space changes the shift too (Windows Sticky Keys).',
     resume: 'Continue from', fresh: 'N: new night from 22:00', physics: 'PHYSICS OF THE SHIFT',
     caught: 'CAUGHT', crushed: 'WALLED IN', robot: 'RUN OVER', beam: 'IN THE BEAM', heat: 'BURNED', plasma: 'IN THE PLASMA',
@@ -431,6 +431,7 @@ addEventListener('blur', () => { held.clear(); shiftHeld = false; });
 function press(what) {
   if (veilPhase === 'out') return;
   if (mode === 'cinema') { if (cinemaT > 0.4) transition(() => startIntro(), 28, 60); return; }
+  if (mode === 'epilogue') { if (epiT > 1) transition(endEpilogue, 24, 1); return; }
   if (introMode && (mode === 'play' || mode === 'shower' || mode === 'gown' || mode === 'locker')) { if (what === 'enter') transition(endIntro, 30, 1); return; }
   if (mode === 'mini') { if (what === 'enter') window.SchichtMini.skip(mini); else miniPressed = true; return; }
   // After a death the picture waits; a key brings you back to the last process step, in your own shift.
@@ -481,7 +482,7 @@ function pollPad() {
 let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0, shake = 0;
 let progress = clamp(+store.get('level') || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
 const deathsBy = levels.map(() => 0);
-const BUILD = '0.31 · 2026-11-12';
+const BUILD = '0.33 · 2026-11-12';
 // Testers can jump to an hour: ?stunde=3 or ?hour=3 opens the third hour.
 const jump = +(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || 0);
 if (jump >= 1 && jump <= levels.length) progress = jump - 1;
@@ -535,7 +536,7 @@ function introDoors(L) { const d = []; for (let i = 0; i < L.layers[0].length; i
 // Scores (0..1) of the played steps and their measured values; the measuring stations and the yield read them.
 let lot = {s: {}, v: {}}, mini = null, notesRead = new Set(), bookSel = 0;
 try { notesRead = new Set(JSON.parse(store.get('notes') || '[]')); } catch (_) { notesRead = new Set(); }
-const STEP_NAME = {clean: ['Reinigen', 'Clean'], oxidize: ['Oxidieren', 'Oxidise'], coat: ['Belacken', 'Coat'], expose: ['Belichten', 'Expose'], develop: ['Entwickeln', 'Develop'], etch: ['Ätzen', 'Etch'], implant: ['Implantieren', 'Implant']};
+const STEP_NAME = {clean: ['Reinigen', 'Clean'], oxidize: ['Oxidieren', 'Oxidise'], nitride: ['Nitrid', 'Nitride'], coat: ['Belacken', 'Coat'], expose: ['Belichten', 'Expose'], develop: ['Entwickeln', 'Develop'], etch: ['Ätzen', 'Etch'], implant: ['Implantieren', 'Implant']};
 const lossOf = s => Math.round((1 - (0.8 + 0.2 * s)) * 100);
 let history = [], rewT = 0, rewFrom = 0;
 try { const l = JSON.parse(store.get('lot') || 'null'); if (l && l.s && l.v) lot = l; } catch (_) { /* fresh lot */ }
@@ -543,7 +544,7 @@ function saveLot() { store.set('lot', JSON.stringify(lot)); }
 function newLot() { lot = {s: {}, v: {}}; saveLot(); }
 const lotYield = () => window.SchichtMini ? window.SchichtMini.yieldOf(lot) : 97;
 function startMini(type) {
-  mini = window.SchichtMini.create(type, {lot, sfx: n => audio.sfx(n === 'good' ? 'station' : n === 'meh' ? 'tool-wait' : n)});
+  mini = window.SchichtMini.create(type, {lot, brief: true, sfx: n => audio.sfx(n === 'good' ? 'station' : n === 'meh' ? 'tool-wait' : n)});
   mode = 'mini'; miniPressed = false;
 }
 function endMini() {
@@ -634,6 +635,20 @@ function startCinema() { newLot(); mode = 'cinema'; cinemaT = 0; audio.setLayer(
 // Sound cues per shot: [shot, second, cue].
 const CUES = [[0, 0.8, 'bell'], [0, 2.9, 'bell'], [1, 0.1, 'hum'], [1, 3.6, 'click'], [2, 2.6, 'error'], [3, 2.3, 'click'], [3, 2.4, 'powerdown'],
   [4, 0.6, 'heart'], [4, 1.2, 'eyes'], [4, 1.6, 'heart'], [4, 2.0, 'eyes'], [4, 2.6, 'heart'], [4, 2.8, 'eyes'], [5, 3.0, 'horn']];
+// The epilogue of the normal ending: five shots with captions, then the card.
+let epiT = 0;
+const EPI_CUES = [[0, 2.0, 'station'], [1, 0.6, 'bell'], [2, 2.2, 'tool-wait'], [3, 1.0, 'horn'], [4, 1.2, 'whisper'], [4, 3.4, 'sting']];
+function updateEpilogue() {
+  const C2 = window.SchichtCinema, before = C2.endShotAt(epiT);
+  epiT += 1 / 60;
+  const [shot, t] = C2.endShotAt(epiT);
+  for (const [s, at, cue] of EPI_CUES) {
+    if (shot !== s || t < at || (before[0] === s && before[1] >= at)) continue;
+    if (cue === 'bell') audio.bell(0.35); else if (cue === 'horn') audio.horn(); else audio.sfx(cue, {gain: 0.3});
+  }
+  if (epiT >= C2.END_TOTAL) endEpilogue();
+}
+function endEpilogue() { mode = 'ending'; cardT = 0; fadeIn(40); }
 function updateCinema() {
   const before = window.SchichtCinema.shotAt(cinemaT);
   cinemaT += 1 / 60;
@@ -650,7 +665,7 @@ function startIntro() {
   const L = C.parseLevel(INTRO);
   // The door to the air shower opens once you wear the suit.
   L.open = new Set(); L.showerT = 0;
-  introMode = true; suited = false; showerT = 0; showerDone = false; introSeen = new Set(); introNote = null; gownT = 0;
+  introMode = true; suited = false; showerT = 0; showerDone = false; introSeen = new Set(); introNote = null; gownT = 0; pendingMode = null;
   lockerT = 0; lockerDone = false; noteSrc = null;
   state = C.newState(L); mode = 'play'; stepFrame = 0; fx = 0; hintT = 999; toastT = 0; checkpoint = null;
   audio.setLayer(0);
@@ -731,7 +746,7 @@ function updateShower() {
 
 // After a death the hour resumes at the last process step; the previous shift returns to its posts.
 function startLevel(i, resume = false) {
-  introMode = false; audio.rain(0);
+  introMode = false; audio.rain(0); pendingMode = null;
   levelIndex = i; mode = 'play'; stepFrame = 0; fx = 0; deadT = 0;
   if (resume && checkpoint) {
     state = C.clone(checkpoint);
@@ -767,6 +782,9 @@ function nextAction() {
   return 'wait';
 }
 
+// Modes that open a window over the fab: they start once the step onto their field has been walked.
+const WINDOW_MODES = new Set(['mini', 'process', 'note', 'locker', 'gown', 'shower']);
+let pendingMode = null;
 function doStep(action) {
   const before = state.layer, from = state.enemies.map(e => [e.x, e.y]);
   if (!introMode) { history.push(C.clone(state)); if (history.length > 600) history.shift(); }
@@ -815,9 +833,10 @@ function doStep(action) {
   if (state.status === 'lost') { mode = 'dead'; deadT = 0; deaths++; deathsBy[levelIndex]++; }
   if (state.status === 'won' && introMode) { if (veilPhase !== 'out') { audio.sfx('door'); transition(endIntro, 40, 1); } return; }
   if (state.status === 'won') {
-    mode = 'clear'; deadT = 0;
+    mode = 'clear'; deadT = 0; pendingMode = null;
     progress = Math.max(progress, Math.min(levelIndex + 1, levels.length - 1)); store.set('level', progress);
   }
+  if (WINDOW_MODES.has(mode)) { pendingMode = mode; mode = 'play'; }
 }
 
 function update() {
@@ -828,7 +847,12 @@ function update() {
   if (mode === 'play') {
     hintT++;
     if (freezeT > 0) freezeT--;
-    else if (++stepFrame >= STEP_FRAMES) { stepFrame = 0; doStep(nextAction()); }
+    else if (++stepFrame >= STEP_FRAMES) {
+      // A window that a step opened waits until the figure stands on the field, then opens; afterwards the
+      // figure is already there and walks on from it.
+      if (pendingMode) { mode = pendingMode; pendingMode = null; stepFrame = STEP_FRAMES; }
+      else { stepFrame = 0; doStep(nextAction()); }
+    }
     // Heartbeat: faster and louder the closer the previous shift is, louder at night.
     const d = state.enemies.length ? C.nearestEnemy(state) : Infinity;
     if (!lightTaught && !introMode && state.layer === 1 && d <= 5 && nearTool() && store.get('lighttip') !== '1') {
@@ -854,6 +878,7 @@ function update() {
   if (blockedT > 0) blockedT--;
   if (flashFx && ++flashFx.t > 34) flashFx = null;
   if (mode === 'cinema') updateCinema();
+  if (mode === 'epilogue') updateEpilogue();
   if (mode === 'process' && ++procT > window.SchichtProcess.duration(procType)) mode = 'play';
   if (mode === 'shower') updateShower();
   if (mode === 'gown') updateGown();
@@ -865,7 +890,7 @@ function update() {
     if (levelIndex + 1 < levels.length) startCard(levelIndex + 1);
     else if (Object.keys(lot.s).length) store.set('best', String(Math.max(+(store.get('best') || 0), lotYield())));
     if (levelIndex + 1 >= levels.length && found.size >= LEVELS.length) { mode = 'finale'; finT = 0; store.set('odenchip', '1'); audio.setLayer(0); audio.bell(0.25); fadeIn(40); }
-    else if (levelIndex + 1 >= levels.length) { mode = 'ending'; cardT = 0; audio.setLayer(0); audio.horn(); fadeIn(40); }
+    else if (levelIndex + 1 >= levels.length) { mode = 'epilogue'; epiT = 0; audio.setLayer(0); audio.rain(0); fadeIn(40); }
   }
 }
 
@@ -1397,7 +1422,8 @@ function renderEnding() {
   if (cardT > 300) txt(t().thanks, W / 2, 158, {align: 'center', color: '#c9c2ae'});
   if (cardT > 330) {
     txt(`${t().reticles} ${found.size}/${LEVELS.length}`, 254, 110, {align: 'center', color: '#6b7190', max: 100});
-    txt(t().missing, 254, 119, {align: 'center', color: '#4c5470', font: 'IBM Plex Sans', size: 6, max: 110});
+    ctx.font = '400 7px "IBM Plex Sans", monospace';
+    wrapLine(t().missing, 112).forEach((l, i) => txt(l, 254, 119 + i * 8, {align: 'center', color: '#8c93a8', font: 'IBM Plex Sans', size: 7, max: 120}));
   }
   txt(t().credit, W / 2, H - 9, {align: 'center', color: '#4c5470', font: 'IBM Plex Sans', size: 6});
 }
@@ -1417,6 +1443,12 @@ function renderMode() {
     ctx.setTransform(Z / 2, 0, 0, Z / 2, 0, 0); window.SchichtCinema.draw(ctx, cinemaT, frame);
     ctx.setTransform(Z, 0, 0, Z, 0, 0);
     if (cinemaT > 1) txt(lang === 'de' ? 'SHIFT: ÜBERSPRINGEN' : 'SHIFT: SKIP', W - 6, H - 12, {align: 'right', color: '#3a4058', shadow: null});
+    return;
+  }
+  if (mode === 'epilogue') {
+    ctx.setTransform(Z / 2, 0, 0, Z / 2, 0, 0); window.SchichtCinema.drawEnd(ctx, epiT, frame, ENDING.shots[lang]);
+    ctx.setTransform(Z, 0, 0, Z, 0, 0);
+    if (epiT > 1) txt(lang === 'de' ? 'SHIFT: ÜBERSPRINGEN' : 'SHIFT: SKIP', W - 6, 4, {align: 'right', color: '#3a4058', shadow: null});
     return;
   }
   if (mode === 'title') return renderTitle();
@@ -1485,7 +1517,8 @@ if (new URLSearchParams(location.search).has('test')) {
   window.__schicht = {
     levels, get state() { return state; }, get mode() { return mode; },
     card: i => startCard(i), start: i => startLevel(i), act: a => doStep(a), render, update, intro: () => startIntro(), get showerT() { return showerT; }, get gownT() { return gownT; }, get lockerT() { return lockerT; }, get introNote() { return introNote; }, cinema: () => startCinema(), get cinemaT() { return cinemaT; },
-    finale: () => { mode = 'finale'; finT = 0; }, get finT() { return finT; }, found,
+    finale: () => { mode = 'finale'; finT = 0; }, get finT() { return finT; },
+    epilogue: () => { mode = 'epilogue'; epiT = 0; }, get epiT() { return epiT; }, set epiT(v) { epiT = v; }, found,
     process: (type, tt) => { procType = type; procT = tt; mode = 'process'; },
     setLayer: l => audio.setLayer(l), lang: l => { lang = l; applyLanguage(); },
     get paNow() { return paNow; }, get paT() { return paT; }, set paT(v) { paT = v; }, get scare() { return scare; }, get noteT() { return noteT; }, set noteT(v) { noteT = v; },

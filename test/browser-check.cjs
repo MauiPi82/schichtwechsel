@@ -62,8 +62,11 @@ if (!url) throw new Error('Pass the URL of the served repository root.');
           walk(['up', 'right', 'up', 'up', 'right', 'right', 'right', 'right', 'up', 'right']);
           log.push(S.state.x === 6 && S.state.y === 3 ? 'door shut' : `door open at ${S.state.x},${S.state.y}`);
           walk(['up']); log.push(S.mode === 'play' ? 'locker first' : 'suit without locker');
-          S.act('left'); for (let f = 0; f < 10; f++) S.update(); S.act('left'); log.push(S.mode === 'locker' ? 'locker' : 'no locker'); settle();
-          walk(['right']); S.act('right'); log.push(S.mode === 'gown' ? 'gowning' : 'no gowning'); settle();
+          // A window opens only once the figure stands on the field: right after the step it is still walking.
+          S.act('left'); for (let f = 0; f < 10; f++) S.update(); S.act('left');
+          const walking = S.mode === 'play'; for (let f = 0; f < 10; f++) S.update();
+          log.push(walking && S.mode === 'locker' ? 'locker' : `no locker (${walking}, ${S.mode})`); settle();
+          walk(['right']); S.act('right'); for (let f = 0; f < 10; f++) S.update(); log.push(S.mode === 'gown' ? 'gowning' : 'no gowning'); settle();
           walk(['down', 'right', 'right']);
           walk(['right', 'right', 'right', 'right', 'right']);
           log.push(S.introNote && S.introNote.read ? 'note read' : 'note missed');

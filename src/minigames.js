@@ -1,4 +1,4 @@
-/* Schichtwechsel - seven process steps you play yourself. Nothing can be lost here: how well you hit a step
+/* Schichtwechsel - eight process steps you play yourself. Nothing can be lost here: how well you hit a step
  * only changes the quality of lot 4471, which the measuring stations judge later and which ends up as the yield.
  * Controls are those of the game: SHIFT (press or hold) and the arrow keys. Drawn in interface coordinates (320 x 180). */
 (() => {
@@ -26,7 +26,7 @@ function grade(s) {
   return {word: 'SCARTO', color: '#e0402a'};
 }
 // Yield of lot 4471: every played step keeps 80 to 100 % of the chips, the rest of the flow costs 3 %.
-const STEPS = ['clean', 'oxidize', 'coat', 'expose', 'develop', 'etch', 'implant'];
+const STEPS = ['clean', 'oxidize', 'nitride', 'coat', 'expose', 'develop', 'etch', 'implant'];
 function yieldOf(lot) {
   let y = 0.97;
   for (const k of STEPS) if (lot && lot.s && lot.s[k] !== undefined) y *= 0.8 + 0.2 * lot.s[k];
@@ -35,12 +35,12 @@ function yieldOf(lot) {
 
 /* ---------- Frame, result ---------- */
 function frame(m, title, help) {
-  const appear = ease(m.t / 20), y0 = Math.round(PY + (1 - appear) * 14);
+  const appear = ease(m.ft / 20), y0 = Math.round(PY + (1 - appear) * 14);
   ctx.fillStyle = `rgba(3,4,8,${0.6 * appear})`; ctx.fillRect(0, 0, W, 180);
   R('#0b0f18', PX - 2, y0 - 2, PW + 4, PH + 4); R('#ffb43a', PX - 2, y0 - 2, PW + 4, 1);
   R('#1c160c', PX, y0, PW, 12);
   text(title, PX + 6, y0 + 2, {color: '#ffcf5a', max: PW - 116});
-  const canSkip = m.phase === 'play' && m.t > 60;
+  const canSkip = (m.phase === 'play' && m.t > 60) || (m.phase === 'brief' && m.ft > 30);
   text(canSkip ? L('ENTER: ÜBERSPRINGEN', 'ENTER: SKIP') : 'LOT 4471', PX + PW - 6, y0 + 2, {align: 'right', color: canSkip ? '#6b5a2a' : '#c9a15a', max: 100});
   R('#0d111a', PX, y0 + 12, PW, PH - 28);
   R('#141a28', PX, y0 + PH - 16, PW, 16);
@@ -183,6 +183,84 @@ const oxidize = {
   },
 };
 
+/* ---------- 2b Nitride: LPCVD, SiH2Cl2 + NH3 at 780 °C. The gas enters at the top of the tube and is used up on
+ * its way down, so the lower wafers get less. Tilt the three heater zones until every wafer grows alike. ---------- */
+// Rate per wafer: Arrhenius in the local temperature (Ea about 1.8 eV: +1.9 % per kelvin near 780 °C) times the gas
+// left at that height (down to 74 % at the bottom). The zones follow their set point with some delay.
+const NIT_EA = 1.8, KB = 8.617e-5, NIT_T0 = 780, NIT_N = 12, NIT_TARGET = 100, NIT_RATE = 100 / 520, NIT_LAG = 70;
+const nitGas = i => 1 - 0.26 * i / (NIT_N - 1);
+const nitTemp = (z, i) => {
+  // Zone centres at wafers 1.5, 5.5 and 9.5; the profile runs linearly through them and on past the ends.
+  const p = (i - 1.5) / 4, k = clamp(Math.floor(p), 0, 1), f = p - k;
+  return z[k] + (z[Math.min(2, k + 1)] - z[k]) * f;
+};
+const nitRate = (z, i) => nitGas(i) * Math.exp(NIT_EA / KB * (1 / (NIT_T0 + 273.15) - 1 / (nitTemp(z, i) + 273.15)));
+function nitUniformity(v) { const mx = Math.max(...v), mn = Math.min(...v), mean = v.reduce((a, b) => a + b, 0) / v.length; return {mean, u: (mx - mn) / (2 * mean) * 100}; }
+const nitride = {
+  init(m) { m.st = 'load'; m.bt = 0; m.set = [780, 780, 780]; m.act = [780, 780, 780]; m.sel = 2; m.th = Array(NIT_N).fill(0); m.prev = {}; },
+  update(m, inp) {
+    m.bt++;
+    if (m.st === 'load') { if (m.bt > 100) { m.st = 'tune'; m.bt = 0; } return; }
+    // ↑ ↓ pick a zone, ← → move its set point; the real temperature follows.
+    if (inp.up && !m.prev.up) m.sel = Math.max(0, m.sel - 1);
+    if (inp.down && !m.prev.down) m.sel = Math.min(2, m.sel + 1);
+    if (inp.left) m.set[m.sel] = Math.max(760, m.set[m.sel] - 0.1);
+    if (inp.right) m.set[m.sel] = Math.min(820, m.set[m.sel] + 0.1);
+    m.prev = {up: inp.up, down: inp.down};
+    for (let k = 0; k < 3; k++) m.act[k] += (m.set[k] - m.act[k]) / NIT_LAG;
+    if (m.st === 'tune') { if (inp.pressed) { m.st = 'run'; m.bt = 0; m.sfx('click'); } return; }
+    for (let i = 0; i < NIT_N; i++) m.th[i] += NIT_RATE * nitRate(m.act, i);
+    const {mean, u} = nitUniformity(m.th);
+    if (mean >= NIT_TARGET) {
+      // ±0.5 % is as good as the tool gets; from about ±5.5 % the lot is scrap.
+      finish(m, 1 - Math.max(0, u - 0.5) / 5, {nitride: mean, nitrideU: u}, [
+        L(`Si₃N₄ ${num(mean)} nm · Gleichmäßigkeit ±${num(u)} %`, `Si₃N₄ ${num(mean)} nm · uniformity ±${num(u)} %`),
+        L(`Zonen ${m.set.map(v => num(v)).join(' / ')} °C. Das Ellipsometer misst nach.`, `Zones ${m.set.map(v => num(v)).join(' / ')} °C. The ellipsometer checks it.`)]);
+    }
+  },
+  draw(m) {
+    const help = {load: L('DAS BOOT FÄHRT EIN', 'THE BOAT IS LOADING'), tune: L('↑↓ ZONE · ←→ TEMPERATUR · SHIFT: ABSCHEIDEN', '↑↓ ZONE · ←→ TEMPERATURE · SHIFT: DEPOSIT'),
+      run: L('ABSCHEIDUNG LÄUFT · ←→ NACHREGELN', 'DEPOSITING · ←→ TO ADJUST')}[m.st];
+    const a = frame(m, L('NITRID · LPCVD, 0,3 MBAR', 'NITRIDE · LPCVD, 0.3 MBAR'), help);
+    const rise = smooth(m.t / 100), heat = clamp((m.t - 40) / 60, 0, 1);
+    const f = window.SchichtProcess.furnace(ctx, a.x + 2, a.y + 2, 86, a.h - 14, {rise, heat, t: m.t, gas: m.st === 'run' ? ['rgba(120,200,255,.9)', 'rgba(140,240,160,.9)'] : null,
+      temp: m.st === 'load' ? `${Math.round(400 + 380 * heat)} °C` : 'SiH₂Cl₂ + NH₃'});
+    text(L('GAS VON OBEN', 'GAS FROM THE TOP'), a.x + 45, a.y + a.h - 10, {align: 'center', color: '#9aa6b5', max: 90});
+    if (m.st === 'load') { ctx.restore(); result(m, a); return; }
+    // The three heater zones: set point and actual temperature; the selected one is framed.
+    const px = a.x + 92, names = L(['OBEN', 'MITTE', 'UNTEN'], ['TOP', 'MIDDLE', 'BOTTOM']);
+    for (let k = 0; k < 3; k++) {
+      const zy = a.y + 4 + k * 22, sel = k === m.sel, hot = clamp((m.act[k] - 770) / 40, 0, 1);
+      R(sel ? '#1c160c' : '#0b0f18', px, zy, 72, 19);
+      if (sel) { ctx.strokeStyle = '#ffcf5a'; ctx.lineWidth = 1; ctx.strokeRect(px + 0.5, zy + 0.5, 71, 18); }
+      R(`rgb(${Math.round(150 + 105 * hot)},${Math.round(90 + 40 * hot)},40)`, px + 3, zy + 4, 3, 11);
+      text(names[k], px + 9, zy + 2, {color: sel ? '#ffcf5a' : '#8c93a8', max: 36});
+      text(`${num(m.act[k], 1)} °C`, px + 9, zy + 10, {color: '#e9e4d6', max: 50});
+      // The set point, while the zone is still on its way there.
+      if (Math.abs(m.set[k] - m.act[k]) > 0.2) text(`→ ${num(m.set[k])}`, px + 69, zy + 2, {align: 'right', color: '#c9a15a', font: 'IBM Plex Sans', size: 7, max: 26});
+    }
+    // Twelve wafers, top to bottom: the rate now (tune) or the thickness so far (run), against the mean.
+    const bx = px + 78, bw = a.x + a.w - bx - 4, rates = m.th.map((_, i) => nitRate(m.act, i));
+    const vals = m.st === 'run' ? m.th : rates, {mean, u} = nitUniformity(vals);
+    text(m.st === 'run' ? L('DICKE JE WAFER', 'THICKNESS PER WAFER') : L('RATE JE WAFER', 'RATE PER WAFER'), bx + bw / 2, a.y + 2, {align: 'center', color: '#9fe0ff', max: bw});
+    const top = a.y + 13, row = 5.2, mid = bx + bw / 2;
+    R('#3a4058', mid, top - 1, 1, NIT_N * row + 1);
+    vals.forEach((v, i) => {
+      const dev = mean ? (v - mean) / mean : 0, len = clamp(dev * 300, -bw / 2 + 2, bw / 2 - 2), ok = Math.abs(dev) < 0.01;
+      R(ok ? '#3fe06a' : Math.abs(dev) < 0.03 ? '#ffcf5a' : '#ff8a5a', len < 0 ? mid + len : mid + 1, top + i * row, Math.max(1, Math.abs(len)), 3);
+    });
+    text(L('− DÜNNER', '− THINNER'), bx + 2, top + NIT_N * row + 2, {color: '#5a6280', font: 'IBM Plex Sans', size: 6, max: bw / 2});
+    text(L('DICKER +', 'THICKER +'), bx + bw - 2, top + NIT_N * row + 2, {align: 'right', color: '#5a6280', font: 'IBM Plex Sans', size: 6, max: bw / 2});
+    const ok = u < 1.1;
+    text(`±${num(u)} %`, bx + bw / 2, a.y + a.h - 22, {align: 'center', size: 16, font: 'Pixelify Sans', weight: 700, color: ok ? '#3fe06a' : u < 3 ? '#ffcf5a' : '#ff8a5a'});
+    if (m.st === 'run') {
+      const th = nitUniformity(m.th).mean;
+      text(`Si₃N₄ ${Math.round(th)} nm · t = ${Math.round(th / 3.4)} min`, a.x + 45, a.y + a.h - 19, {align: 'center', color: '#bfe6c8', max: 90, font: 'IBM Plex Sans', size: 7});
+    }
+    ctx.restore(); result(m, a);
+  },
+};
+
 /* ---------- 3 Coat: hold SHIFT to spin up; the film thins as 1/sqrt(rpm). Let go and it dries ---------- */
 // For 40 nm lines the resist is thin: 100 nm at 2000 rpm. Thicker resist would make the lines topple.
 const filmOf = rpm => rpm > 200 ? 100 * Math.sqrt(2000 / rpm) : 400;
@@ -195,7 +273,8 @@ const coat = {
     else if (inp.up && m.spinning) { m.rpm = Math.min(5000, m.rpm + 4); m.still = 0; }
     else if (m.spinning) m.still++;
     m.rot += m.rpm / 6000;
-    if (m.spinning && m.rpm > 500 && m.still >= 150) {
+    // It dries at any speed; a slow spin just leaves a far too thick film.
+    if (m.spinning && m.still >= 150) {
       const film = filmOf(m.rpm);
       finish(m, 1 - Math.abs(film - 100) / 20, {resist: film, rpm: m.rpm}, [
         L(`${Math.round(m.rpm)} U/min → Lack ${num(film)} nm`, `${Math.round(m.rpm)} rpm → resist ${num(film)} nm`),
@@ -223,7 +302,7 @@ const coat = {
     text(`${num(Math.min(film, 400))} nm`, dx, a.y + 4, {align: 'center', color: Math.abs(film - 100) < 2 ? '#3fe06a' : '#cfe8ff'});
     text(L('ZIEL 100 NM', 'TARGET 100 NM'), dx, a.y + 14, {align: 'center', color: '#ffcf5a', max: 90});
     if (m.spinning && m.still > 0 && m.phase === 'play') {
-      R('#1a2030', dx - 30, a.y + a.h - 8, 60, 3); R('#9fe0ff', dx - 30, a.y + a.h - 8, 60 * m.still / 150, 3);
+      R('#1a2030', dx - 30, a.y + a.h - 8, 60, 3); R('#9fe0ff', dx - 30, a.y + a.h - 8, 60 * Math.min(1, m.still / 150), 3);
       text(L('TROCKNET', 'DRYING'), dx, a.y + a.h - 18, {align: 'center', color: '#9fe0ff'});
     }
     ctx.restore(); result(m, a);
@@ -579,27 +658,68 @@ const develop = {
   },
 };
 
-const GAMES = {clean, oxidize, coat, expose, develop, etch, implant};
+const GAMES = {clean, oxidize, nitride, coat, expose, develop, etch, implant};
+// Before each step: what it is for and how to play it, then SHIFT starts it. The last line is the controls.
+const BRIEF = {
+  clean: {title: ['REINIGEN · RCA', 'CLEAN · RCA'],
+    de: ['Drei Bäder: SC-1 löst Partikel, SC-2 Metalle,', 'HF das native Oxid. Jedes Bad braucht seine Zeit.', 'SHIFT hebt den Korb heraus, wenn die Zeit im Grünen ist.'],
+    en: ['Three baths: SC-1 lifts particles, SC-2 metals,', 'HF the native oxide. Each bath needs its time.', 'SHIFT lifts the carrier out while the time is in the green.']},
+  oxidize: {title: ['OXIDIEREN · 1000 °C', 'OXIDISE · 1000 °C'],
+    de: ['Im Ofen wächst Siliziumoxid, erst schnell, dann langsamer.', 'Ziel: 50 nm. Beim Abrampen wächst noch etwa 1 nm nach.', 'SHIFT stellt den Sauerstoff ab.'],
+    en: ['Silicon oxide grows in the furnace, fast at first, then slower.', 'Target: 50 nm. About 1 nm grows on while the furnace ramps down.', 'SHIFT turns the oxygen off.']},
+  nitride: {title: ['NITRID · LPCVD', 'NITRIDE · LPCVD'],
+    de: ['Das Gas strömt von oben ins Rohr und wird unterwegs verbraucht:', 'Die unteren Wafer bekommen weniger. Wärmer wächst es schneller.', '↑↓ Zone · ←→ Temperatur · SHIFT startet die Abscheidung.'],
+    en: ['The gas enters the tube at the top and is used up on the way down:', 'the lower wafers get less. Warmer, it grows faster.', '↑↓ zone · ←→ temperature · SHIFT starts the deposition.']},
+  coat: {title: ['BELACKEN · SPIN-COATING', 'COAT · SPIN COATING'],
+    de: ['Der Lack wird aufgeschleudert: je schneller, desto dünner.', 'Ziel: 100 nm Lack, das sind 2000 Umdrehungen pro Minute.', 'SHIFT halten: schneller · ↑↓ fein · loslassen: Lack trocknet.'],
+    en: ['The resist is spun on: the faster, the thinner.', 'Target: 100 nm of resist, that is 2000 revolutions per minute.', 'Hold SHIFT: faster · ↑↓ fine · let go: the resist dries.']},
+  expose: {title: ['BELICHTEN · SCANNER', 'EXPOSE · SCANNER'],
+    de: ['Das Retikel muss genau über der Struktur von vorher liegen.', 'Die Justagemarken laufen hin und her. Stopp sie, wenn sie decken.', 'SHIFT stoppt X, dann Y. Danach belichtet der Scanner allein.'],
+    en: ['The reticle has to sit exactly over the pattern from before.', 'The alignment marks sweep back and forth. Stop them when they meet.', 'SHIFT stops X, then Y. Then the scanner exposes by itself.']},
+  develop: {title: ['ENTWICKELN · TMAH', 'DEVELOP · TMAH'],
+    de: ['Der Entwickler löst den belichteten Lack: erst öffnen sich die Gräben,', 'dann werden die Linien schmaler. Ziel: 40 nm breite Linien.', 'SHIFT spült mit Wasser. Es wirkt erst 2 s später.'],
+    en: ['The developer dissolves the exposed resist: first the trenches open,', 'then the lines slim down. Target: lines 40 nm wide.', 'SHIFT rinses with water. It takes 2 s to stop the developer.']},
+  etch: {title: ['ÄTZEN · PLASMA', 'ETCH · PLASMA'],
+    de: ['Das Plasma ätzt durch Nitrid und Oxid. Das Licht des Plasmas zeigt,', 'was gerade geätzt wird: erst CN (Nitrid), dann CO (Oxid).', 'SHIFT stoppt den Ätzer, kurz nachdem die CO-Linie abfällt.'],
+    en: ['The plasma etches through nitride and oxide. Its light shows', 'what is being etched: first CN (nitride), then CO (oxide).', 'SHIFT stops the etcher shortly after the CO line drops.']},
+  implant: {title: ['IMPLANTIEREN · ARSEN', 'IMPLANT · ARSENIC'],
+    de: ['Der Magnet trennt die Ionen nach ihrer Masse.', 'Nur Arsen (As⁺) soll durch den Spalt, bis die Dosis voll ist.', '↑↓ Magnetfeld · SHIFT öffnet den Strahl · das Feld driftet.'],
+    en: ['The magnet separates the ions by their mass.', 'Only arsenic (As⁺) may pass the slit until the dose is full.', '↑↓ magnetic field · SHIFT opens the beam · the field drifts.']},
+};
+function drawBrief(m) {
+  const b = BRIEF[m.type], de = lang === 'de';
+  const a = frame(m, b.title[de ? 0 : 1], (m.ft >> 5) % 2 ? L('SHIFT: STARTEN', 'SHIFT: START') : '');
+  text(L('AUFGABE', 'YOUR TASK'), a.x + a.w / 2, a.y + 12, {align: 'center', size: 16, font: 'Pixelify Sans', weight: 700, color: '#ffcf5a'});
+  const lines = b[de ? 'de' : 'en'];
+  lines.forEach((l, i) => {
+    const last = i === lines.length - 1;
+    text(l, a.x + a.w / 2, a.y + 40 + i * 13 + (last ? 8 : 0), {align: 'center', font: 'IBM Plex Sans', size: 8, color: last ? '#9fe0ff' : '#e9e4d6', max: a.w - 14});
+  });
+  ctx.restore();
+}
 // Skipped with Enter: the tool runs its standard recipe, which is never quite tuned for this lot.
-const SKIP = {clean: {particles: 12}, oxidize: {oxide: 52.4}, coat: {resist: 104, rpm: 1850}, expose: {overlay: 8}, develop: {cd: 43.2, dev: 60}, etch: {overEtch: 8}, implant: {dose: 0.8, purity: 1}};
+const SKIP = {clean: {particles: 12}, oxidize: {oxide: 52.4}, nitride: {nitride: 100.2, nitrideU: 2.4}, coat: {resist: 104, rpm: 1850}, expose: {overlay: 8}, develop: {cd: 43.2, dev: 60}, etch: {overEtch: 8}, implant: {dose: 0.8, purity: 1}};
 function skip(m) {
-  if (m.phase !== 'play') return;
+  if (m.phase === 'result') return;
   finish(m, 0.6, SKIP[m.type], [L('Übersprungen: Die Anlage fährt ihr Standardrezept.', 'Skipped: the tool runs its standard recipe.')]);
 }
 function create(type, o = {}) {
-  const m = {type, t: 0, phase: 'play', score: 0, values: {}, closed: false, resultT: 0, sfx: o.sfx || (() => {})};
+  // With brief, the step first explains itself and starts on SHIFT.
+  const m = {type, t: 0, ft: 0, phase: o.brief ? 'brief' : 'play', score: 0, values: {}, closed: false, resultT: 0, sfx: o.sfx || (() => {})};
   GAMES[type].init(m, o);
   return m;
 }
 function update(m, inp) {
+  m.ft++;
+  if (m.phase === 'brief') { if (inp.pressed && m.ft > 20) { m.phase = 'play'; m.sfx('click'); } return; }
   m.t++;
   if (m.phase === 'play') GAMES[m.type].update(m, inp);
   else { m.resultT++; if ((inp.pressed && m.resultT > 24) || m.resultT > 600) m.closed = true; }
 }
 function draw(c, m, language) {
   ctx = c; F = m.t; lang = language;
-  GAMES[m.type].draw(m);
+  if (m.phase === 'brief') drawBrief(m); else GAMES[m.type].draw(m);
 }
 
-window.SchichtMini = {has: type => !!GAMES[type], create, update, draw, skip, grade, yieldOf, STEPS, radius, fieldFor, cdAfter, DEV: {FPS: DEV_FPS, LAG: DEV_LAG}};
+window.SchichtMini = {has: type => !!GAMES[type], create, update, draw, skip, grade, yieldOf, STEPS, radius, fieldFor, cdAfter, DEV: {FPS: DEV_FPS, LAG: DEV_LAG}, nitRate, nitUniformity};
 })();

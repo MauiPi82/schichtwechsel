@@ -93,3 +93,38 @@ test('develop: rinse so the line ends at 40 nm; too early leaves scum, too late 
   assert.equal(late.phase, 'result'); assert.equal(late.score, 0, 'pattern collapse');
   assert.ok(M.cdAfter(10) === null && Math.abs(M.cdAfter(40) - 40) < 1e-9);
 });
+
+test('nitride: tilting the heater zones against the gas depletion makes every wafer alike', () => {
+  const rateU = z => M.nitUniformity([...Array(12)].map((_, i) => M.nitRate(z, i))).u;
+  assert.ok(rateU([780, 780, 780]) > 10, 'flat zones: the lower wafers starve');
+  assert.ok(rateU([780, 786, 792]) < 1, 'a tilt of about 6 °C per zone fixes it');
+  const play = zones => {
+    const m = M.create('nitride'); run(m, 101);
+    m.set = zones.slice(); m.act = zones.slice(); press(m);
+    for (let i = 0; i < 3000 && m.phase === 'play'; i++) M.update(m, idle);
+    return m;
+  };
+  const good = play([780, 786, 792]);
+  assert.equal(good.phase, 'result'); assert.ok(Math.abs(good.values.nitride - 100) < 0.5, `${good.values.nitride}`); assert.ok(good.score > 0.9, `${good.score}`);
+  assert.ok(play([780, 780, 780]).score < 0.05);
+  // Arrow keys: ↓ picks the bottom zone, → heats it; the real temperature follows its set point.
+  const m = M.create('nitride'); run(m, 101); assert.equal(m.sel, 2);
+  run(m, 50, {...idle, right: true}); assert.ok(Math.abs(m.set[2] - 785) < 1e-6); assert.ok(m.act[2] > 780 && m.act[2] < 785);
+  M.update(m, {...idle, up: true}); M.update(m, idle); assert.equal(m.sel, 1);
+});
+
+test('coat: a brief spin still dries, into a far too thick film, and the drying bar stops at full', () => {
+  const m = M.create('coat');
+  run(m, 50); run(m, 3, {...idle, held: true}); run(m, 200);
+  assert.equal(m.phase, 'result'); assert.ok(m.values.resist > 300); assert.equal(m.score, 0);
+});
+
+test('with a brief, each step first explains itself and starts on SHIFT; Enter still skips', () => {
+  for (const type of M.STEPS) {
+    const m = M.create(type, {brief: true});
+    run(m, 200);
+    assert.equal(m.phase, 'brief', type); assert.equal(m.t, 0, `${type} waits`);
+    press(m); assert.equal(m.phase, 'play', type);
+    const s = M.create(type, {brief: true}); run(s, 40); M.skip(s); assert.equal(s.phase, 'result', `${type} skips from the brief`);
+  }
+});
