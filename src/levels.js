@@ -83,7 +83,7 @@
         de: ['Thermisches Oxid: Bei 1000 °C wächst SiO₂ in trockenem', 'Sauerstoff nur einige zehn Nanometer pro Stunde.', 'Je dicker die Schicht, desto langsamer (Deal-Grove).'],
         en: ['Thermal oxide: at 1000 °C, SiO₂ grows in dry oxygen', 'by only a few tens of nanometres per hour.', 'The thicker it gets, the slower it grows (Deal-Grove).'],
       },
-      hint: {de: 'Ihre Schatten folgen dir auch in deiner Schicht', en: 'Their shadows follow you, even in your shift'},
+      hint: {de: 'Lauf gegen eine Anlage: Ihr Licht lässt sie erstarren', en: 'Walk into a tool: its light makes them freeze'},
       // Announcements over the PA (step, Italian, translation), a note from shift B, one scare.
       pa: [
         {at: 5, it: 'Il lotto 4471 è in attesa. Ripeto: in attesa.', de: 'Los 4471 wartet. Ich wiederhole: wartet.', en: 'Lot 4471 is waiting. I repeat: waiting.'},
@@ -209,7 +209,7 @@
       tools: [
         {x0: 6, y0: 1, type: 'cluster', kind: 'etch', name: 'VALENTA C-5', chambers: 5},
         {x0: 15, y0: 1, type: 'wetbench', name: 'PURA W-6', baths: ['SPM', 'SPM', 'QDR', 'DRY']},
-        {x0: 16, y0: 6, type: 'chamber', kind: 'etch', name: 'VALENTA A-2'},
+        {x0: 16, y0: 6, type: 'chamber', kind: 'asher', name: 'VALENTA A-2'},
         {x0: 6, y0: 7, type: 'gascab', gas: 'C4F8'},
         {x0: 12, y0: 7, type: 'gascab', gas: 'CF4'},
       ],

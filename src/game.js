@@ -23,6 +23,7 @@ const UI = {
     sub: 'TURNO DI NOTTE · LUINO', credit: 'Ein Spiel von Maurizio Odenwaeller für Game Off 2026 · entwickelt mit Claude',
     sound: on => 'Ton: ' + (on ? 'an' : 'aus'), pause: 'Pause', full: 'Vollbild',
     noteHead: 'VOGT MICROELETTRONICA · BAY 7 · TURNO B', q: ['„', '“'],
+    useLight: 'ANLAUFEN: LICHT', useStop: 'ANLAUFEN: NOT-AUS', charging: 'LÄDT',
     // Why a shift was refused: what stands on this spot in the other shift.
     blocked: (to, what) => what === 'o' ? 'IN DER VORSCHICHT FEHLT HIER DER BODEN'
       : `HIER STEHT IN ${to ? 'DER VORSCHICHT' : 'DEINER SCHICHT'} ${what === 'M' ? 'EINE ANLAGE' : 'EINE WAND'}`,
@@ -39,10 +40,41 @@ const UI = {
     sub: 'TURNO DI NOTTE · LUINO', credit: 'A game by Maurizio Odenwaeller for Game Off 2026 · made with Claude',
     sound: on => 'Sound: ' + (on ? 'on' : 'off'), pause: 'Pause', full: 'Fullscreen',
     noteHead: 'VOGT MICROELETTRONICA · BAY 7 · TURNO B', q: ['“', '”'],
+    useLight: 'WALK INTO: LIGHT', useStop: 'WALK INTO: STOP', charging: 'CHARGING',
     blocked: (to, what) => what === 'o' ? 'NO FLOOR HERE IN THE SHIFT BEFORE'
       : `${what === 'M' ? 'A TOOL' : 'A WALL'} STANDS HERE IN ${to ? 'THE SHIFT BEFORE' : 'YOUR SHIFT'}`,
   },
 };
+// What each tool is, shown when you stand next to it.
+const TOOL_INFO = {
+  track: ['Lackbahn: belackt, backt und entwickelt', 'Coater/developer track: coats, bakes, develops'],
+  scanner: ['Scanner: bildet das Retikel mit 193 nm ab', 'Scanner: images the reticle at 193 nm'],
+  'cluster-etch': ['Ätzcluster: Plasma ätzt, wo die Maske offen ist', 'Etch cluster: plasma etches where the mask is open'],
+  'cluster-pvd': ['Sputtercluster: Argon schlägt Aluminium ab', 'Sputter cluster: argon knocks off aluminium'],
+  'cluster-cvd': ['CVD-Cluster: Schichten wachsen aus dem Gas', 'CVD cluster: films grow from the gas'],
+  'chamber-etch': ['Plasmaätzer: Ionen ätzen senkrecht nach unten', 'Plasma etcher: ions etch straight down'],
+  'chamber-cvd': ['PECVD-Kammer: scheidet Oxid aus dem Plasma ab', 'PECVD chamber: deposits oxide from a plasma'],
+  'chamber-pvd': ['Sputterkammer: das Magnetron trägt Aluminium ab', 'Sputter chamber: the magnetron erodes aluminium'],
+  'chamber-asher': ['Asher: verascht Lack im Sauerstoffplasma', 'Asher: burns off resist in an oxygen plasma'],
+  furnace: ['Vertikalofen: oxidiert 100 Wafer auf einmal', 'Vertical furnace: oxidises 100 wafers at once'],
+  tubes: ['Diffusionsofen: heilt das Kristallgitter aus', 'Diffusion furnace: heals the crystal lattice'],
+  wetbench: ['Nassbank: Säuren und Laugen reinigen die Wafer', 'Wet bench: acids and bases clean the wafers'],
+  'implanter-source': ['Ionenquelle: erzeugt und beschleunigt Ionen', 'Ion source: makes and accelerates ions'],
+  'implanter-end': ['Endstation: dreht die Wafer durch den Strahl', 'End station: spins the wafers through the beam'],
+  'metrology-lines': ['CD-SEM: misst Linienbreiten mit Elektronen', 'CD-SEM: measures line widths with electrons'],
+  'metrology-particles': ['Partikelmessung: ein Laser sucht Staub', 'Particle scanner: a laser looks for dust'],
+  'metrology-thickness': ['Ellipsometer: misst Schichtdicken mit Licht', 'Ellipsometer: measures film thickness with light'],
+  'metrology-rs': ['Vierspitzenmessung: Schichtwiderstand', 'Four-point probe: sheet resistance'],
+  stocker: ['Stocker: hier warten die FOUPs', 'Stocker: where the FOUPs wait'],
+  gascab: ['Gasschrank: giftiges Prozessgas', 'Gas cabinet: toxic process gas'],
+  generic: ['Anlage', 'Tool'],
+};
+function toolKey(b) {
+  if (b.type === 'cluster' || b.type === 'chamber') return `${b.type}-${b.kind || 'etch'}`;
+  if (b.type === 'implanter') return `implanter-${b.part || 'end'}`;
+  if (b.type === 'metrology') return `metrology-${b.screen || 'lines'}`;
+  return TOOL_INFO[b.type] ? b.type : 'generic';
+}
 const store = {
   get(k) { try { return localStorage.getItem('schichtwechsel-' + k); } catch (_) { return null; } },
   set(k, v) { try { localStorage.setItem('schichtwechsel-' + k, v); } catch (_) { /* storage blocked */ } },
@@ -272,6 +304,14 @@ const audio = {
       case 'pulse': this.tone('sawtooth', 110, t0, 0.35, 0.07, null, 220); this.burst(t0, 0.3, 0.05, 'bandpass', 1800, 4); break;
       case 'pulse-warning': this.tone('sine', 330, t0, 0.15, 0.03); break;
       case 'furnace-open': this.burst(t0, 0.9, 0.08, 'lowpass', 300); this.tone('sine', 40, t0, 0.8, 0.12); break;
+      case 'flash':
+        // A lamp striking: the ballast thumps, the arc whines, the light hisses.
+        this.tone('triangle', 180, t0, 0.35, 0.14, null, 90); this.tone('sine', 2600, t0, 0.3, 0.07, null, 700);
+        this.burst(t0, 0.35, 0.1, 'highpass', 3000);
+        break;
+      case 'freeze': [1568, 2093, 2637].forEach((f, i) => this.tone('sine', f, t0 + 0.05 + i * 0.05, 0.5, 0.035)); break;
+      case 'emo': this.tone('square', 120, t0, 0.05, 0.18); this.tone('sawtooth', 220, t0 + 0.05, 0.7, 0.08, null, 35); break;
+      case 'tool-wait': this.tone('square', 330, t0, 0.05, 0.04); this.tone('square', 330, t0 + 0.09, 0.05, 0.04); break;
       case 'sting':
         this.tone('sawtooth', 55, t0, 2.4, 0.07); this.tone('sawtooth', 58.3, t0, 2.4, 0.07);
         this.tone('sine', 1250, t0 + 0.1, 1.6, 0.025); this.tone('sine', 1323, t0 + 0.1, 1.6, 0.025);
@@ -410,7 +450,7 @@ function pollPad() {
 let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0, shake = 0;
 let progress = clamp(+store.get('level') || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
 const deathsBy = levels.map(() => 0);
-const BUILD = '0.13 · 2026-11-12';
+const BUILD = '0.14 · 2026-11-12';
 // Testers can jump to an hour: ?stunde=3 or ?hour=3 opens the third hour.
 const jump = +(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || 0);
 if (jump >= 1 && jump <= levels.length) progress = jump - 1;
@@ -432,7 +472,7 @@ const idx = (x, y) => y * C.W + x;
 function introDoors(L) { const d = []; for (let i = 0; i < L.layers[0].length; i++) if (L.layers[0][i] === 'D') d.push(i); return d.sort((a, b) => a - b); }
 /* ---------- Announcements, notes from shift B, scares ---------- */
 // None of these changes the rules: a blackout freezes the clock while it lasts, so it can never cost a life.
-let blockedT = 0, paNow = null, paT = 0, paQueue = [], paDone = new Set(), noteRead = false, noteT = 0, scareDone = false, scare = null, freezeT = 0;
+let flashFx = null, blockedT = 0, paNow = null, paT = 0, paQueue = [], paDone = new Set(), noteRead = false, noteT = 0, scareDone = false, scare = null, freezeT = 0;
 const fade = (tt, a, b, c) => tt < a ? tt / a : tt < b ? 1 : clamp((c - tt) / (c - b), 0, 1);
 const SCARE_LEN = {phone: 330, window: 90, blackout: 54, shadow: 80};
 function paLen(p) { return Math.round((PA_START + paSyllables(p.it).dur + 1.8) * 60); }
@@ -592,7 +632,7 @@ function doStep(action) {
   totalShifts += state.events.filter(e => e === 'shift').length;
   for (const ev of state.events) {
     if (ev === 'enemy-step') continue;
-    if (['shift', 'blocked', 'station', 'bell', 'bell-warning', 'beam-switch', 'beam-warning', 'won', 'lost', 'pulse', 'pulse-warning', 'furnace-open'].includes(ev)) audio.sfx(ev, {cause: state.cause});
+    if (['shift', 'blocked', 'station', 'bell', 'bell-warning', 'beam-switch', 'beam-warning', 'won', 'lost', 'pulse', 'pulse-warning', 'furnace-open', 'flash', 'emo', 'tool-wait'].includes(ev)) audio.sfx(ev, {cause: state.cause});
     if (ev === 'bell' && !reduced) shake = 10;
   }
   if (state.events.includes('enemy-step')) {
@@ -617,6 +657,8 @@ function doStep(action) {
     if (C.walkable(state.level, o, state.x, state.y) && C.walkable(state.level, o, state.x + dx, state.y + dy)) shiftHintT = 120;
   }
   if (state.events.includes('shift')) shiftHintT = 0;
+  if (state.events.includes('freeze')) audio.sfx('freeze');
+  if (state.events.includes('flash')) flashFx = {...state.used, t: 0};
   if (state.events.includes('blocked') && !introMode) {
     const to = 1 - state.layer, what = state.level.layers[to][idx(state.x, state.y)];
     toast(t().blocked(to, what), 110); blockedT = 18;
@@ -655,6 +697,7 @@ function update() {
   if (toastT > 0) toastT--;
   if (shiftHintT > 0) shiftHintT--;
   if (blockedT > 0) blockedT--;
+  if (flashFx && ++flashFx.t > 34) flashFx = null;
   if (mode === 'cinema') updateCinema();
   if (mode === 'process' && ++procT > window.SchichtProcess.DURATION) mode = 'play';
   if (mode === 'shower') updateShower();
@@ -738,8 +781,19 @@ function drawHUD() {
     R('#1a1e2a', W / 2 - 2 - w / 2 + 18, 13, w, 2);
     R(left <= C.BELL_WARNING && (frame >> 3) % 2 ? '#ff6a3a' : '#c9a15a', W / 2 - 2 - w / 2 + 18, 13, Math.round(w * k), 2);
   }
-  const def2 = LEVELS[levelIndex];
-  if (L.beams.length && (hintT >= 300 || !def2.hint)) {
+  const def2 = LEVELS[levelIndex], by = FY + C.H * T - 13;
+  const tool = nearTool();
+  if (tool && (hintT >= 300 || !def2.hint)) {
+    // The tool next to you: maker, what it does, and what walking into it does.
+    const info = TOOL_INFO[toolKey(tool)][lang === 'de' ? 0 : 1], name = tool.name || (tool.type === 'gascab' ? `GAS ${tool.gas || ''}` : tool.type.toUpperCase());
+    const ready = state.step >= (state.toolReady[`${state.layer}:${tool.x0},${tool.y0}`] || 0), use = C.toolUse(L, tool);
+    R('rgba(0,0,0,.66)', 0, by, W, 13); R(night ? '#5a4214' : '#2f6db3', 0, by, W, 1);
+    txt(name, 4, by + 2, {color: night ? '#ffcf5a' : '#9fe0ff', max: 64});
+    ctx.font = '400 8px "Silkscreen", monospace';
+    const nw = Math.min(64, ctx.measureText(name).width);
+    txt(info, 10 + nw, by + 2, {font: 'IBM Plex Sans', size: 8, color: '#e9e4d6', max: W - nw - 98});
+    txt(ready ? (use.stops ? t().useStop : t().useLight) : t().charging, W - 4, by + 2, {align: 'right', color: ready ? '#c9a5ff' : '#6b7190', max: 84});
+  } else if (L.beams.length && (hintT >= 300 || !def2.hint)) {
     const b = L.beams[0], ph = b.phases[C.beamPhase(b, state.step)], next = b.phases[(C.beamPhase(b, state.step) + 1) % b.phases.length];
     R('rgba(0,0,0,.55)', 0, FY + C.H * T - 13, W, 13);
     txt(`${t().ion}: ${ph.species}+ ${ph.mass} u · r = ${ph.radiusMeters.toFixed(2)} m · ${b.keV} keV · ${b.field.B} T`, 4, FY + C.H * T - 11, {color: '#9fe0ff', max: 230});
@@ -753,6 +807,18 @@ function drawHUD() {
   }
 }
 
+// A tool block of this shift right next to the player (not diagonal).
+function nearTool() {
+  if (introMode || !state) return null;
+  const L = state.level;
+  for (const [dx, dy] of [[0, -1], [1, 0], [-1, 0], [0, 1]]) {
+    const x = state.x + dx, y = state.y + dy;
+    if (x < 0 || y < 0 || x >= C.W || y >= C.H) continue;
+    const n = L.blockAt[state.layer][idx(x, y)];
+    if (n >= 0) return L.blocks[state.layer][n];
+  }
+  return null;
+}
 function storyView() {
   const def = LEVELS[levelIndex], sc = scare, d = def.scare;
   if (introMode) return {};
@@ -810,6 +876,7 @@ function renderPlay() {
   const rt = state.level.reticle && !state.reticle && !introMode && !found.has(LEVELS[levelIndex].id) ? state.level.reticle : null;
   window.SchichtWorld.draw(ctx, state, {reticle: rt, reticleN: levelIndex,k: mode === 'play' ? k : 1, frame, reduced, lang, enemies: state.enemies.map(enemyPos),
     playerVisible: !(state.step < state.safeUntil && (frame >> 2) % 2), shiftHint: shiftHintT > 0 && !introMode, civilian: introMode && !suited,
+    frozen: state.enemies.map(e => C.frozen(state, e)), flash: flashFx && {...flashFx, a: 1 - flashFx.t / 34},
     ...storyView()});
   ctx.restore();
   ctx.setTransform(Z, 0, 0, Z, 0, 0);

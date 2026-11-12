@@ -20,6 +20,10 @@
   // After a shift into the shift before, the previous shift cannot catch you for GRACE steps:
   // time to see where they stand and to shift back.
   const SHIFT_COOLDOWN = 3, GRACE = 6;
+  // Tools as help: walking into a tool flares its work light. The previous shift became a layer, and like
+  // photoresist it reacts to light: within FLASH_RADIUS they set for FREEZE steps. Plasma chambers and the
+  // implanter also stop on their emergency button for HAZARD_OFF steps. Every tool needs RECHARGE steps.
+  const FLASH_RADIUS = 4, FREEZE = 18, HAZARD_OFF = 24, RECHARGE = 48;
   const BELL_WARNING = 24;
   // Tiles: # wall, M machine, = glass, o hole, . floor, P start, X airlock exit,
   // 1-8 process stations (visited in order), V previous shift (night only).
@@ -73,6 +77,8 @@
       bell: def.bell || 0,
       dist: distanceFields(walk[NIGHT]),
     };
+    level.blocks = layers.map((map, layer) => toolBlocks(def, map));
+    level.blockAt = level.blocks.map(list => { const a = new Int16Array(N).fill(-1); list.forEach((b, n) => { for (let y = b.y0; y <= b.y1; y++) for (let x = b.x0; x <= b.x1; x++) a[idx(x, y)] = n; }); return a; });
     level.beams = (def.beams || []).map(b => ({...b, phases: b.species.map(sp => traceBeam(level, b, sp))}));
     level.heat = def.heat ? simulateHeat(level, def.heat) : null;
     // One hidden reticle per layer, always in the shift before. Optional; all eight open the secret finale.
@@ -93,6 +99,28 @@
       return {...p, layer: p.layer || DAY, cells};
     });
     return level;
+  }
+
+  // Connected machine rectangles of one map, each matched to its entry in the level's tool list.
+  function toolBlocks(def, map) {
+    const seen = new Uint8Array(N), out = [];
+    for (let i = 0; i < N; i++) {
+      if (map[i] !== 'M' || seen[i]) continue;
+      const x0 = i % W, y0 = (i / W) | 0;
+      let x1 = x0, y1 = y0;
+      while (x1 + 1 < W && map[idx(x1 + 1, y0)] === 'M') x1++;
+      while (y1 + 1 < H && map[idx(x0, y1 + 1)] === 'M') y1++;
+      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) seen[idx(x, y)] = 1;
+      const t = (def.tools || []).find(q => q.x0 === x0 && q.y0 === y0) || {type: 'generic'};
+      out.push({...t, x0, y0, x1, y1});
+    }
+    return out;
+  }
+  // What a tool does when you walk into it: every tool flares its light; tools with a deadly process also stop.
+  function toolUse(level, b) {
+    const stops = b.type === 'implanter' ? (level.beams.length ? 'beam' : null)
+      : (b.type === 'chamber' || b.type === 'cluster') && level.pulses.length ? 'plasma' : null;
+    return {flash: true, stops};
   }
 
   // Furnace heat on the day floor: explicit finite differences of dT/dt = a * laplace(T) - k (T - T0).
@@ -142,10 +170,10 @@
   }
 
   // Hazards that depend only on time: heat by day, plasma in either shift.
-  function timedHazard(level, layer, step, x, y) {
+  function timedHazard(level, layer, step, x, y, plasmaOff = false) {
     const i = idx(x, y);
     if (layer === DAY && level.heat && level.heat.hot[step % level.heat.period][i]) return 'heat';
-    for (const p of level.pulses) if (p.layer === layer && p.cells[i] && pulseOn(p, step)) return 'plasma';
+    if (!plasmaOff) for (const p of level.pulses) if (p.layer === layer && p.cells[i] && pulseOn(p, step)) return 'plasma';
     return null;
   }
 
@@ -210,8 +238,9 @@
     return {
       level, step: 0, layer: level.start.layer,
       x: level.start.x, y: level.start.y, px: level.start.x, py: level.start.y, face: 'down',
-      got: 0, enemies: level.enemyStarts.map(e => ({x: e.x, y: e.y, px: e.x, py: e.y, moved: -1})),
+      got: 0, enemies: level.enemyStarts.map(e => ({x: e.x, y: e.y, px: e.x, py: e.y, moved: -1, frozenUntil: 0})),
       lastShift: -SHIFT_COOLDOWN, shifts: 0, status: 'play', cause: '', events: [], safeUntil: 0, reticle: false,
+      toolReady: {}, hazardOff: {beam: 0, plasma: 0}, used: null,
     };
   }
 
@@ -242,6 +271,9 @@
     return best;
   }
 
+  function hazardStopped(state, kind) { return !!state.hazardOff && state.step < state.hazardOff[kind]; }
+  function frozen(state, e) { return state.step < (e.frozenUntil || 0); }
+
   function bellIn(state) {
     const b = state.level.bell;
     return b ? b - (state.step % b) : Infinity;
@@ -259,7 +291,23 @@
       state.face = action;
       const nx = state.x + DIRS[action][0], ny = state.y + DIRS[action][1];
       if (walkable(L, state.layer, nx, ny)) { state.x = nx; state.y = ny; state.events.push('move'); }
-      else state.events.push('bump');
+      else {
+        state.events.push('bump');
+        const n = nx >= 0 && ny >= 0 && nx < W && ny < H ? L.blockAt[state.layer][idx(nx, ny)] : -1;
+        // The solver proves every hour without this help, so it can only make things easier.
+        if (n >= 0 && !state.noAids) {
+          const b = L.blocks[state.layer][n], key = `${state.layer}:${b.x0},${b.y0}`;
+          if (state.step < (state.toolReady[key] || 0)) state.events.push('tool-wait');
+          else {
+            const use = toolUse(L, b);
+            state.toolReady = {...state.toolReady, [key]: state.step + RECHARGE};
+            state.used = {layer: state.layer, x0: b.x0, y0: b.y0, x1: b.x1, y1: b.y1, step: state.step, stops: use.stops};
+            state.events.push('flash');
+            for (const e of state.enemies) if (Math.max(Math.abs(e.x - state.x), Math.abs(e.y - state.y)) <= FLASH_RADIUS) { e.frozenUntil = state.step + FREEZE; state.events.push('freeze'); }
+            if (use.stops) { state.hazardOff = {...state.hazardOff, [use.stops]: state.step + HAZARD_OFF}; state.events.push('emo'); }
+          }
+        }
+      }
     } else if (action === 'shift') {
       const other = 1 - state.layer;
       if (state.step - state.lastShift < SHIFT_COOLDOWN) state.events.push('cooldown');
@@ -296,13 +344,13 @@
         const crossed = prev.x === state.x && prev.y === state.y && r.x === state.px && r.y === state.py;
         if (hit || crossed) return lose(state, 'robot');
       }
-      for (const b of L.beams) {
+      if (!hazardStopped(state, 'beam')) for (const b of L.beams) {
         if (b.phases[beamPhase(b, state.step)].cells[idx(state.x, state.y)]) return lose(state, 'beam');
       }
     }
-    const hz = safe ? null : timedHazard(L, state.layer, state.step, state.x, state.y);
+    const hz = safe ? null : timedHazard(L, state.layer, state.step, state.x, state.y, hazardStopped(state, 'plasma'));
     if (hz) return lose(state, hz);
-    for (const p of L.pulses) {
+    if (!hazardStopped(state, 'plasma')) for (const p of L.pulses) {
       if ((state.step + 6) % p.period === p.on[0]) state.events.push('pulse-warning');
       if (state.step % p.period === p.on[0]) state.events.push('pulse');
     }
@@ -316,6 +364,7 @@
     // The previous shift creeps at half speed while you are in your own shift.
     if (state.step % (L.enemyEvery * (state.layer === DAY ? 2 : 1)) === 0) {
       for (const e of state.enemies) {
+        if (frozen(state, e)) continue;
         const occupied = (x, y) => state.enemies.some(o => o !== e && o.x === x && o.y === y);
         const next = enemyStep(L, e, state.x, state.y, occupied);
         if (next) { e.x = next[0]; e.y = next[1]; e.moved = state.step; state.events.push('enemy-step'); }
@@ -325,6 +374,7 @@
     // Grace after a shift into the night: time to shift back after a misjudgement.
     if (state.layer === NIGHT && !safe && state.step - state.lastShift >= GRACE) {
       for (const e of state.enemies) {
+        if (frozen(state, e)) continue;
         const onPlayer = e.x === state.x && e.y === state.y;
         const crossed = e.px === state.x && e.py === state.y && e.x === state.px && e.y === state.py;
         if (onPlayer || crossed) return lose(state, 'caught');
@@ -343,7 +393,7 @@
   }
 
   function clone(state) {
-    return {...state, enemies: state.enemies.map(e => ({...e})), events: []};
+    return {...state, enemies: state.enemies.map(e => ({...e})), toolReady: {...state.toolReady}, hazardOff: {...state.hazardOff}, events: []};
   }
 
   // Night-layer path distance from the nearest enemy to the player's tile, for heartbeat and danger cues.
@@ -367,7 +417,8 @@
       .reduce((a, b) => a / gcd(a, b) * b, 1);
     const key = s => `${s.x},${s.y},${s.layer},${s.got},${s.step % period},${Math.min(s.step - s.lastShift, Math.max(SHIFT_COOLDOWN, GRACE))},` +
       s.enemies.map(e => e.x + ':' + e.y).join(';');
-    const start = newState(level);
+    // Proven without the help of the tools: their light and their emergency stops only make an hour easier.
+    const start = {...newState(level), noAids: true};
     const seen = new Map([[key(start), null]]);
     let frontier = [{s: start, path: null}];
     while (frontier.length) {
@@ -394,6 +445,6 @@
     return null;
   }
 
-  return {W, H, DAY, NIGHT, ACTIONS, DIRS, SHIFT_COOLDOWN, GRACE, BELL_WARNING, SPECIES, parseLevel, newState, step, clone,
-    walkable, robotAt, beamPhase, pulseOn, timedHazard, bellIn, nearestEnemy, solve, idx};
+  return {W, H, DAY, NIGHT, ACTIONS, DIRS, SHIFT_COOLDOWN, GRACE, FLASH_RADIUS, FREEZE, HAZARD_OFF, RECHARGE, BELL_WARNING, SPECIES,
+    parseLevel, newState, step, clone, toolUse, hazardStopped, frozen, walkable, robotAt, beamPhase, pulseOn, timedHazard, bellIn, nearestEnemy, solve, idx};
 });

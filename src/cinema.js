@@ -61,15 +61,51 @@ function lakeScene(t, clock, pan) {
   if (flick) { ctx.fillStyle = 'rgba(255,40,30,.25)'; ctx.fillText('VOGT', 600, 147); ctx.fillText('VOGT', 602, 149); }
   ctx.fillStyle = flick ? '#ff4030' : '#5a1810'; ctx.fillText('VOGT', 601, 148);
   ctx.restore();
-  // Water: reflections broken by rain.
-  ctx.fillStyle = '#04070d'; ctx.fillRect(0, 212, W, H - 212);
-  for (let y = 214; y < H; y += 3) {
-    const k = (y - 212) / (H - 212);
-    ctx.fillStyle = `rgba(232,180,80,${0.12 * (1 - k)})`; ctx.fillRect(40 - pan + Math.sin(F / 9 + y) * 4, y, 200, 1);
-    ctx.fillStyle = `rgba(255,60,40,${0.18 * (1 - k)})`; ctx.fillRect(600 - pan + Math.sin(F / 7 + y) * 5, y, 40, 1);
-    ctx.fillStyle = `rgba(200,210,190,${0.08 * (1 - k)})`; ctx.fillRect(460 - pan * 0.2 + Math.sin(F / 11 + y) * 3, y, 12, 1);
+  // Water: a dark blue sheet with ripples, the far shore mirrored upside down, lights drawn out into
+  // shimmering columns, a ferry far out, a moored boat and rain rings close by. Unmistakably a lake.
+  const wy = 212, g2 = ctx.createLinearGradient(0, wy, 0, H);
+  g2.addColorStop(0, '#13233a'); g2.addColorStop(0.35, '#0b1729'); g2.addColorStop(1, '#050a14');
+  ctx.fillStyle = g2; ctx.fillRect(0, wy, W, H - wy);
+  ctx.fillStyle = 'rgba(11,17,29,.55)'; ctx.beginPath(); ctx.moveTo(0, wy);
+  for (let x = 0; x <= W; x += 16) ctx.lineTo(x, wy + (wy - (150 + Math.sin(x / 47) * 18 + Math.sin(x / 13) * 5)) * 0.35);
+  ctx.lineTo(W, wy); ctx.fill();
+  R('rgba(150,170,200,.35)', 0, wy, W, 1);
+  const column = (cx, col, a0, wide) => {
+    for (let y = wy + 2; y < H; y += 2) {
+      const k = (y - wy) / (H - wy), seg = wide * (0.6 + 0.8 * hash(y * 3 + (F >> 3)));
+      ctx.fillStyle = col.replace('A', (a0 * (1 - k * 0.8)).toFixed(3));
+      ctx.fillRect(cx - seg / 2 + Math.sin(F / 13 + y * 0.7) * (2 + k * 6), y, seg, 1);
+    }
+  };
+  column(474 - pan * 0.2, 'rgba(225,230,210,A)', 0.55, 16);
+  ctx.save(); ctx.translate(-pan, 0);
+  for (let i = 0; i < 18; i++) if (hash(i * 3) > 0.45) column(25 + i * 18 + (hash(i * 5) * 6 | 0), 'rgba(240,180,80,A)', 0.4, 4);
+  column(625, 'rgba(255,60,40,A)', 0.5, 34);
+  for (let i = 0; i < 24; i += 3) if (hash(i + 40) > 0.3) column(534 + i * 14, 'rgba(127,180,224,A)', 0.25, 6);
+  ctx.restore();
+  for (let i = 0; i < 70; i++) {
+    const y = wy + 4 + (i * 37) % (H - wy - 4), k = (y - wy) / (H - wy);
+    R(`rgba(160,185,220,${0.07 + 0.1 * k})`, (i * 131 + F * (0.4 + k)) % (W + 40) - 20, y, 6 + k * 18, 1);
   }
-  for (let i = 0; i < 40; i++) R('rgba(180,200,230,.25)', (i * 113 + F * 3) % W, 215 + (i * 37) % (H - 215), 3, 1);
+  // The ferry, lit windows, crossing slowly far out.
+  const fx = ((t * 6 + 120) % (W + 160)) - 80, fy = wy + 10;
+  R('#05080e', fx, fy - 4, 46, 5); R('#05080e', fx + 10, fy - 9, 24, 5); R('#05080e', fx + 28, fy - 14, 3, 5);
+  for (let i = 0; i < 5; i++) R('#ffd27a', fx + 12 + i * 4, fy - 7, 2, 1);
+  R('#ff3a2a', fx + 2, fy - 6, 1, 1); R('#3fe06a', fx + 44, fy - 6, 1, 1);
+  for (let y = fy + 2; y < fy + 14; y += 2) R(`rgba(255,210,122,${0.25 - (y - fy) * 0.016})`, fx + 12 + Math.sin(F / 9 + y) * 2, y, 20, 1);
+  // A rowing boat on its mooring, rocking.
+  const rock = Math.sin(F / 40) * 1.5;
+  ctx.save(); ctx.translate(96, 300 + rock); ctx.rotate(Math.sin(F / 55) * 0.03);
+  ctx.fillStyle = '#04060b'; ctx.beginPath(); ctx.moveTo(-34, -6); ctx.lineTo(34, -6); ctx.lineTo(26, 3); ctx.lineTo(-28, 3); ctx.closePath(); ctx.fill();
+  R('#0d1626', -30, -7, 60, 1);
+  ctx.restore();
+  R('#04060b', 150, 268, 3, 52); R('rgba(140,160,190,.25)', 152, 270 + rock, 1, 30);
+  // Rain rings on the water.
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 14; i++) {
+    const life = ((F + i * 23) % 50) / 50, rx = (i * 173 + Math.floor((F + i * 23) / 50) * 97) % W, ry = 250 + (i * 41 + Math.floor((F + i * 23) / 50) * 31) % 70;
+    ctx.strokeStyle = `rgba(180,200,230,${0.35 * (1 - life)})`; ctx.beginPath(); ctx.ellipse(rx, ry, 2 + life * 9, 1 + life * 2.5, 0, 0, 7); ctx.stroke();
+  }
 }
 
 // Bay 7 seen from the side, in yellow light: three operators at the litho cell.
@@ -160,14 +196,20 @@ function arrivalScene(t) {
   R('#0a0d14', 0, 286, W, 74); R('#1a2030', 0, 286, W, 2);
   for (let x = 30; x < W; x += 110) { R('#0e121c', x, 230, 3, 56); R('#0e121c', x - 4, 228, 11, 3); circle('rgba(255,200,120,.10)', x + 1, 234, 12); R('#ffd890', x - 1, 231, 5, 3); }
   // Gate with sign.
-  R('#141820', 520, 230, 6, 56); R('#141820', 600, 230, 6, 56); for (let x = 526; x < 600; x += 6) R('#1a1f2a', x, 246, 2, 40);
+  R('#141820', 520, 230, 6, 56); for (let gx = 526; gx < 546; gx += 6) R('#1a1f2a', gx, 246, 2, 40); R('#05070b', 546, 236, 38, 50);
   R('#1a1f2a', 506, 214, 120, 14); txt('VOGT MICROELETTRONICA', 566, 217, 8, '#c9ced6');
-  const x = 60 + ease(t / 6.5) * 400, step = Math.floor(F / 8) % 2;
+  // Walk at an even pace to the gate and through it; the legs stop when the walking stops.
+  const walkEnd = 6.4, x = 40 + Math.min(t, walkEnd) / walkEnd * 512, moving = t < walkEnd;
+  const step = moving ? Math.floor(F / 8) % 2 : 0, fadeOut = clamp((x - 528) / 24, 0, 1);
+  ctx.globalAlpha = 1 - fadeOut;
   ctx.fillStyle = 'rgba(0,0,0,.4)'; ctx.beginPath(); ctx.ellipse(x + 8, 287, 10, 3, 0, 0, 7); ctx.fill();
   R('#1a2438', x + 2, 254, 14, 18); R('#24324e', x + 3, 254, 12, 2);
   R('#2a3a5a', x + 4 + step * 2, 272, 4, 14); R('#2a3a5a', x + 10 - step * 2, 272, 4, 14);
   R('#1a2438', x + 4, 242, 10, 12); R('#0e1420', x + 5, 240, 8, 3);
   R('#4a3420', x + 13, 258, 5, 8);
+  ctx.globalAlpha = 1;
+  // The open gate wing in front of the figure as it passes.
+  R('#141820', 600, 230, 6, 56); for (let gx = 584; gx < 600; gx += 6) R('#1a1f2a', gx, 246, 2, 40);
 }
 
 // xin: how long the shot dissolves in over the one before (seconds). The power cut stays short on purpose.

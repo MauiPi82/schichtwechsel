@@ -187,3 +187,33 @@ test('reading a note is an event and changes nothing else', () => {
   assert.ok(s.events.includes('note'));
   assert.equal(s.got, before.got); assert.equal(s.status, 'play'); assert.equal(s.layer, before.layer);
 });
+
+test('walking into a tool flares its light: the previous shift nearby sets, the tool needs time to recharge', () => {
+  const day = ['####################', '#P.MM..............#', '#..MM..............#', '#..................#', '#..................#',
+    '#..................#', '#..................#', '#..................#', '#.................X#', '####################'];
+  const night = day.map((r, y) => y === 4 ? '#....V.............#' : r.replace(/[PX]/g, '.'));
+  const L = core.parseLevel({id: 't7', time: '', title: {}, day, night, enemyEvery: 1, tools: [{x0: 3, y0: 1, type: 'scanner'}]});
+  const s = core.newState(L);
+  core.step(s, 'right');
+  core.step(s, 'right');
+  assert.ok(s.events.includes('flash') && s.events.includes('freeze'), s.events.join());
+  const e = s.enemies[0], at = [e.x, e.y];
+  for (let i = 0; i < core.FREEZE - 2; i++) core.step(s, 'wait');
+  assert.deepEqual([e.x, e.y], at, 'a frozen enemy does not move');
+  core.step(s, 'right');
+  assert.ok(s.events.includes('tool-wait'), 'the light needs to recharge');
+  const solverStart = {...core.newState(L), noAids: true};
+  core.step(solverStart, 'right'); core.step(solverStart, 'right');
+  assert.ok(!solverStart.events.includes('flash'), 'the solver plays without the help of the tools');
+});
+
+test('the emergency stop of a plasma chamber stops its plasma for a while', () => {
+  const def = LEVELS.find(d => d.id === 'ct'), L = core.parseLevel(def);
+  const s = core.newState(L);
+  const p = L.pulses[0];
+  let t = 0; while (!core.pulseOn(p, t)) t++;
+  s.hazardOff.plasma = t + 5; s.step = t;
+  assert.equal(core.timedHazard(L, p.layer, t, p.x0, p.y0, core.hazardStopped(s, 'plasma')), null);
+  assert.equal(core.timedHazard(L, p.layer, t, p.x0, p.y0), 'plasma');
+  assert.ok(L.blocks[0].some(b => core.toolUse(L, b).stops === 'plasma'), 'a chamber in the contacts hour can stop the plasma');
+});

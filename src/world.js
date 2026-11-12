@@ -474,14 +474,13 @@ function stations(L, layer, s, lang) {
   L.stations.forEach((st, n) => {
     if (st.layer !== layer) return;
     const px = st.x * T, py = FY + st.y * T, done = s.got > n, next = s.got === n;
+    // An empty load port: the lot is in your hands. Three kinematic pins wait for the FOUP; the LED shows the state.
     R('rgba(0,0,0,.25)', px + 6, py + 26, 22, 4);
-    R(p.dark, px + 5, py + 14, 22, 14); R(p.darker, px + 5, py + 24, 22, 4);
-    if (!done) {
-      R(p.foup, px + 7, py + 4, 18, 12); R(p.foupLo, px + 7, py + 13, 18, 3);
-      R(p.dark, px + 11, py + 2, 10, 3);
-      R(night ? '#9a6c1e' : '#e8732a', px + 9, py + 7, 14, 5);
-      text('4471', px + 16, py + 6, {align: 'center', size: 8, color: night ? '#1a1004' : '#fff', max: 13});
-    } else R('#3fd06a', px + 12, py + 18, 8, 3);
+    R(p.dark, px + 5, py + 12, 22, 16); R(p.darker, px + 5, py + 24, 22, 4); R(p.grey, px + 6, py + 13, 20, 1);
+    for (const kx of [9, 15, 21]) R(night ? '#4a3d24' : '#b3bbc6', px + kx, py + 16 + (kx === 15 ? 3 : 0), 2, 2);
+    const led = done ? '#3fe06a' : next ? ((F >> 4) % 2 ? (night ? '#ffcf5a' : '#7fd0ff') : p.darker) : night ? '#3a1408' : '#5a2a20';
+    R(led, px + 23, py + 25, 2, 2);
+    text(done ? 'OK' : `${n + 1}`, px + 9, py + 23, {size: 8, color: done ? '#3fe06a' : night ? '#8a6a30' : '#9aa6b5', max: 12});
     if (next) {
       const a = 0.5 + 0.5 * Math.sin(F / 8);
       ctx.strokeStyle = night ? `rgba(255,207,90,${a})` : `rgba(127,208,255,${a})`; ctx.lineWidth = 2;
@@ -548,6 +547,9 @@ const SUIT = {
     zip: '#b8c2d0', badge: '#2c6fb5', glove: '#8a5cd6', gloveLo: '#6a40b0', boot: '#e2e8f0', sole: '#7c8693', skin: '#e2b896'},
   night: {suit: '#e3cf9a', shade: '#b39c62', dark: '#8a7444', frame: '#2a1e0a', lens: '#ffcf5a', hi: '#fff0c0', mask: '#d8c290', pleat: '#a88e58',
     zip: '#9c8452', badge: '#7a5414', glove: '#7a5a8a', gloveLo: '#5a3a6a', boot: '#cdb888', sole: '#4a3a1c', skin: '#c89a6a'},
+  // Set by the light, like exposed resist: pale, violet, without eyes.
+  set: {suit: '#b9b2c8', shade: '#9a92ae', dark: '#6e6684', frame: '#2a2438', lens: '#2a2438', hi: '#2a2438', mask: '#aaa2bc', pleat: '#8a829e',
+    zip: '#8a829e', badge: '#5a4a7a', glove: '#6a5a8a', gloveLo: '#4a3a6a', boot: '#a8a0b8', sole: '#4a4458', skin: '#7a7090'},
   them: {suit: '#8f8466', shade: '#6d6448', dark: '#4e4632', frame: '#050402', lens: '#050402', hi: '#050402', mask: '#7a7258', pleat: '#5e5640',
     zip: '#5e5640', badge: '#3a2a10', glove: '#4a3a4a', gloveLo: '#2a1a2a', boot: '#6a6248', sole: '#2a2418', skin: '#5a4a34'},
 };
@@ -601,8 +603,12 @@ function bunny(px, py, face, walk, c, o = {}) {
     R(c.mask, fx + (dir > 0 ? 1 : -1), y + 6, 5, 4); R(c.pleat, fx + (dir > 0 ? 2 : 0), y + 8, 3, 1);
   } else { R(c.shade, px + 16, y + 1, 1, 9); R(c.dark, px + 12, y + 8, 8, 1); }
   if (o.eyes) { R('#ffb43a', px + (side ? (dir > 0 ? 18 : 13) : 13), y + 4, 2, 1); if (!side) R('#ffb43a', px + 17, y + 4, 2, 1); }
-  // the lot in the player's hands when facing you
-  if (o.carry && face === 'down') { R(c.dark, px + 11, y + 16, 10, 7); R(o.night ? '#6a5a3a' : '#d9dde3', px + 11, y + 15, 10, 6); R(o.night ? '#9a6c1e' : '#e8732a', px + 12, y + 17, 8, 2); }
+  // Lot 4471 in its FOUP, carried in both hands: in front when facing you, at the side when walking sideways.
+  if (o.carry && face !== 'up') {
+    const fx = face === 'down' ? px + 10 : dir > 0 ? px + 17 : px + 5, fy = y + 14;
+    R(c.dark, fx, fy + 1, 12, 8); R(o.night ? '#6a5a3a' : '#d9dde3', fx, fy, 12, 7); R(o.night ? '#4a3d24' : '#a9b1bc', fx, fy + 6, 12, 1);
+    R(o.night ? '#9a6c1e' : '#e8732a', fx + 2, fy + 2, 8, 2); R(o.night ? '#2a1e0a' : '#5a6370', fx + 4, fy - 1, 4, 1);
+  }
 }
 
 // Street clothes before gowning: dark jacket, jeans, a bag over the shoulder.
@@ -622,6 +628,7 @@ function civilian(px, py, face, walk) {
 
 /* ---------- Hazards ---------- */
 function beams(L, s) {
+  const off = C.hazardStopped(s, 'beam');
   for (const b of L.beams) {
     const f = b.field;
     ctx.fillStyle = 'rgba(40,70,140,.08)'; ctx.fillRect(f.x0 * T, FY + f.y0 * T, (f.x1 - f.x0 + 1) * T, (f.y1 - f.y0 + 1) * T);
@@ -631,6 +638,7 @@ function beams(L, s) {
       ctx.beginPath(); ctx.arc(cx, cy, 5, 0, 7); ctx.moveTo(cx - 3, cy - 3); ctx.lineTo(cx + 3, cy + 3); ctx.moveTo(cx + 3, cy - 3); ctx.lineTo(cx - 3, cy + 3); ctx.stroke();
     }
     const ph = b.phases[C.beamPhase(b, s.step)];
+    if (off) { if ((F >> 5) % 2) text('BEAM OFF', b.x * T + 36, FY + b.y * T + 8, {color: '#e0281a', shadow: '#fff'}); continue; }
     if (b.every - (s.step % b.every) <= 6 && (F >> 2) % 2) continue;
     const col = {B: '#9fe0ff', P: '#d59cff', As: '#9cff9c', BF2: '#ffe08a'}[ph.species];
     for (const [w, a] of [[9, 0.12], [5, 0.25], [2, 1]]) {
@@ -652,8 +660,9 @@ function heatAndPlasma(L, layer, s) {
       if (v >= L.heat.threshold && !reduced) for (let k = 0; k < 2; k++) R('rgba(255,230,160,.3)', x + ((F + i * 3 + k * 11) % 28), y + ((i * 7 + k * 13) % 24) + 4, 1, 3);
     }
   }
+  const plasmaOff = C.hazardStopped(s, 'plasma');
   for (const pl of L.pulses) {
-    if (pl.layer !== layer) continue;
+    if (pl.layer !== layer || plasmaOff) continue;
     const on = C.pulseOn(pl, s.step), ph = s.step % pl.period, soon = !on && ((ph + 6) % pl.period) >= pl.on[0] && ((ph + 6) % pl.period) < pl.on[0] + 6;
     if (!on && !soon) continue;
     for (let y = pl.y0; y <= pl.y1; y++) for (let x = pl.x0; x <= pl.x1; x++) {
@@ -719,10 +728,12 @@ function draw(c, s, o) {
   const walkF = (s.px !== s.x || s.py !== s.y) ? (Math.floor(k * 4) % 4) : 0;
   if (o.playerVisible) figures.push({y: lerp(s.py, s.y, k), draw: () => o.civilian ? civilian(ppx, ppy - 4, s.face, walkF)
     : bunny(ppx, ppy - 4, s.face, walkF, night ? SUIT.night : SUIT.day, {carry: !L.intro, night})});
+  const isSet = i => !!(o.frozen && o.frozen[i]);
   if (night) o.enemies.forEach(([ex, ey], i) => figures.push({y: ey, draw: () => {
-    const jit = !reduced && hash(F + i * 9) > 0.97 ? 2 : 0;
+    const jit = !reduced && !isSet(i) && hash(F + i * 9) > 0.97 ? 2 : 0;
     const face = Math.abs(ex - s.x) > Math.abs(ey - s.y) ? (ex > s.x ? 'left' : 'right') : (ey > s.y ? 'up' : 'down');
-    bunny(ex * T + jit, FY + ey * T - 4, face === 'up' ? 'down' : face, 0, SUIT.them, {tall: 5, longArms: true, eyes: true});
+    bunny(ex * T + jit, FY + ey * T - 4, face === 'up' ? 'down' : face, 0, isSet(i) ? SUIT.set : SUIT.them, {tall: 5, longArms: true, eyes: !isSet(i)});
+    if (isSet(i) && !reduced) for (let k = 0; k < 3; k++) R('#efe6ff', ex * T + 8 + ((F + k * 11) % 16), FY + ey * T + ((F * 0.5 + k * 9) % 26), 1, 1);
     R('#3a2a10', ex * T + 12 + jit, FY + ey * T + 10, 4, 3); R('#2a1a08', ex * T + 18 + jit, FY + ey * T + 16, 3, 2);
   }}));
   for (let y = 0; y < C.H; y++) {
@@ -738,7 +749,7 @@ function draw(c, s, o) {
       if (b.y1 !== y) continue;
       const fn = TOOLS[b.type] || TOOLS.generic;
       // Plasma: with pulses in this shift a tool burns with the pulse next to it; without, it runs by day.
-      const near = when => L.pulses.some(pl => pl.layer === layer && pl.x0 <= b.x1 + 1 && pl.x1 >= b.x0 - 1 && pl.y0 <= b.y1 + 2 && pl.y1 >= b.y0 - 2 && C.pulseOn(pl, when));
+      const near = when => !C.hazardStopped(s, 'plasma') && L.pulses.some(pl => pl.layer === layer && pl.x0 <= b.x1 + 1 && pl.x1 >= b.x0 - 1 && pl.y0 <= b.y1 + 2 && pl.y1 >= b.y0 - 2 && C.pulseOn(pl, when));
       const paced = hasPulses && L.pulses.some((pl, i) => pl.layer === layer && pl.x0 <= b.x1 + 1 && pl.x1 >= b.x0 - 1 && pl.y0 <= b.y1 + 2 && pl.y1 >= b.y0 - 2);
       const on = paced ? near(s.step) : !night;
       const tw = b.x1 - b.x0 + 1, row = b.y1 + 1 < C.H ? b.y1 + 1 : b.y1;
@@ -768,8 +779,8 @@ function draw(c, s, o) {
   if (L.showerT > 0) showerAir(L);
   // Shadows of the previous shift on your floor, a little stretched, as if cast from the other shift.
   if (!night) o.enemies.forEach(([ex, ey], i) => {
-    const px = ex * T, py = FY + ey * T, a = 0.26 + 0.07 * Math.sin(F / 9 + i);
-    ctx.fillStyle = `rgba(10,16,30,${a})`;
+    const px = ex * T, py = FY + ey * T, a = isSet(i) ? 0.22 : 0.26 + 0.07 * Math.sin(F / 9 + i);
+    ctx.fillStyle = isSet(i) ? `rgba(90,60,150,${a})` : `rgba(10,16,30,${a})`;
     ctx.beginPath(); ctx.ellipse(px + 16, py + 22, 9, 13, 0.25, 0, 7); ctx.fill();
     ctx.beginPath(); ctx.ellipse(px + 18, py + 6, 6, 6, 0, 0, 7); ctx.fill();
   });
@@ -818,9 +829,16 @@ function draw(c, s, o) {
       const gx = o.note.x * T + 14, gy = FY + o.note.y * T + 15;
       ctx.globalAlpha = Math.sin((F % 90) / 30 * Math.PI) * 0.7; R('#fff6dc', gx, gy, 3, 2); ctx.globalAlpha = 1;
     }
-    o.enemies.forEach(([ex, ey]) => {
+    // The set ones glow faintly violet in the dark, so you can see that they are stuck.
+    o.enemies.forEach(([ex, ey], i) => {
+      if (!isSet(i)) return;
+      const cx = ex * T + 16, cy = FY + ey * T + 12, g2 = ctx.createRadialGradient(cx, cy, 2, cx, cy, 22);
+      g2.addColorStop(0, 'rgba(200,170,255,.45)'); g2.addColorStop(1, 'rgba(200,170,255,0)');
+      ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = g2; ctx.fillRect(cx - 22, cy - 22, 44, 44); ctx.globalCompositeOperation = 'source-over';
+    });
+    o.enemies.forEach(([ex, ey], i) => {
       const d = Math.hypot(ex - s.x, ey - s.y);
-      if (d > 8) return;
+      if (d > 8 || isSet(i)) return;
       ctx.globalAlpha = clamp((8 - d) / 4, 0, 0.95) * (hash(F >> 2) > 0.08 ? 1 : 0.2);
       R('#ffb43a', ex * T + 13, FY + ey * T - 2, 2, 2); R('#ffb43a', ex * T + 18, FY + ey * T - 2, 2, 2);
       ctx.globalAlpha = 1;
@@ -829,6 +847,17 @@ function draw(c, s, o) {
     const v = ctx.createRadialGradient(WW / 2, FY + 160, 140, WW / 2, FY + 160, 420);
     v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(10,20,40,.32)');
     ctx.fillStyle = v; ctx.fillRect(0, FY, WW, C.H * T);
+  }
+  // A tool flares its work light: a violet-white burst that reaches as far as the light sets the previous shift.
+  if (o.flash && o.flash.layer === layer && o.flash.a > 0) {
+    const fl = o.flash, cx = (fl.x0 + fl.x1 + 1) / 2 * T, cy = FY + (fl.y0 + fl.y1 + 1) / 2 * T, rr = (C.FLASH_RADIUS + 0.5) * T;
+    ctx.globalCompositeOperation = 'lighter';
+    const g = ctx.createRadialGradient(cx, cy, 4, cx, cy, rr);
+    g.addColorStop(0, `rgba(240,230,255,${0.75 * fl.a})`); g.addColorStop(0.5, `rgba(170,120,255,${0.35 * fl.a})`); g.addColorStop(1, 'rgba(120,60,255,0)');
+    ctx.fillStyle = g; ctx.fillRect(cx - rr, cy - rr, rr * 2, rr * 2);
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.strokeStyle = `rgba(220,200,255,${0.8 * fl.a})`; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(cx, cy, rr * (1.15 - fl.a * 0.6), 0, 7); ctx.stroke();
   }
   // A power dip: the light dies, and only their eyes are left.
   if (o.blackout > 0) {
