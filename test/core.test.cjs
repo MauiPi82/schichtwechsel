@@ -90,6 +90,17 @@ test('a trial bell: the first strike cannot wall you in, its plasma sleeps throu
   assert.equal(s.status, 'lost'); assert.equal(s.cause, 'crushed');
 });
 
+test('whoever shifts on the strike goes over with the bell, not back', () => {
+  const day = ['####################', '#P.................#', '#..................#', '#..................#', '#..................#',
+    '#..................#', '#..................#', '#..................#', '#.................X#', '####################'];
+  const night = day.map(r => r.replace('P', '.').replace('X', '.'));
+  const L = core.parseLevel({id: 't4', time: '', title: {}, day, night, bell: 5});
+  const s = core.newState(L);
+  for (let i = 0; i < 4; i++) core.step(s, 'wait');
+  core.step(s, 'shift');
+  assert.ok(s.events.includes('bell')); assert.equal(s.layer, core.NIGHT, 'over once, not back');
+});
+
 test('process stations only count in order', () => {
   const day = ['####################', '#P.2.1............X#', '#..................#', '#..................#', '#..................#',
     '#..................#', '#..................#', '#..................#', '#..................#', '####################'];

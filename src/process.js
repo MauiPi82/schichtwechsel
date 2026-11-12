@@ -825,7 +825,14 @@ function readout(type, info, language) {
   return {title: cap[0], text: cap[1], value, ok};
 }
 
-window.SchichtProcess = {draw, duration, readout, passive: type => PASSIVE.has(type), furnace: (c, x, y, w, h, o) => { F = o.t || F; return furnaceView(c, x, y, w, h, o); },
+// What the metrology screens in the fab show: the lot's own numbers once there are any.
+function screens(info) {
+  lotInfo = info && info.lot;
+  const n1 = v => v.toFixed(1);
+  return {thickness: `${n1(val('oxide', 50.1))}nm`, lines: `${n1(cdOf())}nm`, xrf: `Al ${Math.round(val('al', 500))}nm`};
+}
+
+window.SchichtProcess = {draw, duration, readout, screens, passive: type => PASSIVE.has(type), furnace: (c, x, y, w, h, o) => { F = o.t || F; return furnaceView(c, x, y, w, h, o); },
   scanner: (c, x, y, w, h, o, language) => { F = o.t || F; if (language) lang = language; return scannerView(c, x, y, w, h, o); },
   chamber: (c, x, y, w, h, o, language) => { F = o.t || F; if (language) lang = language; return chamberView(c, x, y, w, h, o); }, DURATION: BASE};
 })();

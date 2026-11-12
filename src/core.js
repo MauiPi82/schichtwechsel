@@ -373,7 +373,9 @@
         // The first strike of an hour with a trial bell shows what the bell does, but cannot wall you in.
         const trial = L.bellTrial && bs === L.bell;
         if (trial) state.events.push('bell-trial');
-        if (!walkable(L, other, state.x, state.y)) {
+        // Whoever shifts on the strike itself goes over with the bell, not back with it.
+        if (action === 'shift' && state.lastShift === state.step) { /* already over */ }
+        else if (!walkable(L, other, state.x, state.y)) {
           if (state.step >= state.safeUntil && !trial) return lose(state, 'crushed');
         } else { state.layer = other; state.lastShift = state.step; state.events.push('shift'); }
       }

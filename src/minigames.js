@@ -74,6 +74,11 @@ function result(m, a) {
   // The Italian grade with its meaning underneath.
   text(L(g.de, g.en), a.x + a.w / 2, a.y + a.h / 2 - 9, {align: 'center', font: 'IBM Plex Sans', size: 7, color: '#8c93a8'});
   (m.lines || []).forEach((s, i) => text(s, a.x + a.w / 2, a.y + a.h / 2 + 2 + i * 11, {align: 'center', font: 'IBM Plex Sans', size: 8, color: '#e9e4d6', max: a.w - 16}));
+  // After a retry: which of the two goes into the lot.
+  if (m.first) {
+    const f = grade(m.first.score), better = m.first.score > m.score;
+    text(better ? L(`Es zählt der 1. Versuch: ${f.word}`, `The first try counts: ${f.word}`) : L('Es zählt dieser Versuch.', 'This try counts.'), a.x + a.w / 2, a.y + a.h - 11, {align: 'center', font: 'IBM Plex Sans', size: 8, weight: 700, color: better ? f.color : '#9fe0ff', max: a.w - 16});
+  }
   ctx.globalAlpha = 1;
 }
 function finish(m, score, values, lines) {
@@ -105,8 +110,9 @@ const clean = {
     else if (m.st === 'in') {
       const b = BATHS[m.bath], v = m.bt / BATH_FRAMES * b.max;
       if (inp.pressed || m.bt >= BATH_FRAMES) {
-        const [z0, z1] = b.zone, off = v < z0 ? z0 - v : v > z1 ? v - z1 : 0;
-        m.res.push(clamp(1 - off / b.max * 4, 0, 1)); m.times.push(v);
+        // Inside the green the middle is best (100 %), its edges still 90 %; outside it falls off quickly.
+        const [z0, z1] = b.zone, off = v < z0 ? z0 - v : v > z1 ? v - z1 : 0, mid = (z0 + z1) / 2;
+        m.res.push(off ? clamp(0.9 - off / b.max * 4, 0, 1) : 1 - 0.1 * Math.abs(v - mid) / ((z1 - z0) / 2)); m.times.push(v);
         m.st = 'up'; m.bt = 0; m.sfx('click');
       }
     } else if (m.st === 'up' && m.bt >= 44) {
@@ -282,7 +288,8 @@ const oxidize = {
         L(`SiO₂ ${num(fin)} nm · ${L('im Mittel', 'on average')} ${Math.round(rms)} °C ${L('neben der Kurve', 'off the curve')}`, `SiO₂ ${num(fin)} nm · ${Math.round(rms)} °C off the curve on average`),
         fin > 51.5 ? L('Zu heiß gehalten: Das Oxid ist zu dick geworden.', 'Held too hot: the oxide grew too thick.')
           : fin < 48.5 ? L('Zu kalt gehalten: Das Oxid ist zu dünn.', 'Held too cold: the oxide is too thin.')
-            : L('Die Rampe sauber gefahren. Das Ellipsometer misst nach.', 'A clean ramp. The ellipsometer checks it.')]);
+            : rms > 15 ? L('Die Dicke stimmt, aber der Ofen lag oft neben der Kurve.', 'The thickness is right, but the furnace was often off the curve.')
+              : L('Die Rampe sauber gefahren. Das Ellipsometer misst nach.', 'A clean ramp. The ellipsometer checks it.')]);
     }
   },
   draw(m) {
@@ -599,7 +606,9 @@ const etch = {
     const ry = a.y + a.h - 13, rw = 90, good = m.refl < 12;
     R('#1a2030', a.x + 4, ry + 8, rw, 4); R(good ? '#3fe06a' : m.refl < 35 ? '#ffcf5a' : '#ff6a3a', a.x + 4, ry + 8, rw * m.refl / 100, 4);
     R('rgba(63,224,106,.35)', a.x + 4, ry + 7, rw * 0.12, 1);
-    text(`${L('REFLEKTIERT', 'REFLECTED')} ${Math.round(m.refl)} %`, a.x + 4, ry - 1, {color: good ? '#8fd8a0' : '#ffcf5a', font: 'IBM Plex Sans', size: 7, max: rw});
+    // The match box's phase meter: which way the tuning is off, once it is off enough to matter.
+    const way = good || !lit ? '' : m.match < m.ideal ? ' ↑' : ' ↓';
+    text(`${L('REFLEKTIERT', 'REFLECTED')} ${Math.round(m.refl)} %${way}`, a.x + 4, ry - 1, {color: good ? '#8fd8a0' : '#ffcf5a', font: 'IBM Plex Sans', size: 7, max: rw});
     // A fibre from the window to the spectrometer.
     ctx.strokeStyle = '#3a4058'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(a.x + 96, a.y + 34); ctx.quadraticCurveTo(a.x + 101, a.y + 30, a.x + 104, a.y + 24); ctx.stroke();
     // Right top: optical emission over time; CN while the nitride etches, CO while the oxide etches.
@@ -749,7 +758,7 @@ const develop = {
     }
   },
   draw(m) {
-    const help = {dispense: L('DER ENTWICKLER WIRD AUFGETRAGEN', 'DISPENSING THE DEVELOPER'), puddle: L('SHIFT: SPÜLEN, WENN DIE LINIE 40 NM HAT', 'SHIFT: RINSE WHEN THE LINE IS 40 NM'),
+    const help = {dispense: L('DER ENTWICKLER WIRD AUFGETRAGEN', 'DISPENSING THE DEVELOPER'), puddle: L('SHIFT: SPÜLEN BEI KNAPP 41 NM · DAS WASSER WIRKT 2 S SPÄTER', 'SHIFT: RINSE AT JUST UNDER 41 NM · THE WATER TAKES 2 S'),
       rinse: L('SPÜLEN MIT DI-WASSER, TROCKENSCHLEUDERN', 'DI WATER RINSE, SPIN DRY')}[m.st];
     const a = frame(m, L('ENTWICKELN · LAUGE (TMAH), PFÜTZE', 'DEVELOP · DEVELOPER (TMAH), PUDDLE'), help);
     const sec = this.sec(m), tc = clearTime(m.resist);

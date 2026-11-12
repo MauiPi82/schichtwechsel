@@ -487,7 +487,7 @@ function press(what) {
   if (mode === 'process') { if (procT > 20) endProcess(); return; }
   if (mode === 'note') { if (noteT > 25) { mode = 'play'; queuedDir = null; queuedShift = false; } return; }
   if (mode === 'paused') { if (what === 'enter') mode = 'play'; return; }
-  if (mode === 'play') { if (what === 'shift' && frame - windowClosedAt > 15 && frame - bellAt > 10) { queuedShift = true; shiftQueuedAt = frame; } return; }
+  if (mode === 'play') { if (what === 'shift' && frame - windowClosedAt > 6 && frame - bellAt > 10) { queuedShift = true; shiftQueuedAt = frame; } return; }
   if (mode === 'book') {
     if (bookSel === LEVELS.length) transition(() => { mode = 'finale'; finT = 0; audio.setLayer(0); audio.bell(0.25); }, 24, 40);
     else if (bookSel <= openUpTo()) transition(() => { fromBook = true; startCard(bookSel); }, 24, 30);
@@ -573,7 +573,7 @@ function pollPad() {
 let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0, shake = 0;
 let progress = clamp(parseInt(store.get('level'), 10) || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
 const deathsBy = levels.map(() => 0);
-const BUILD = '0.63 · 2026-11-12';
+const BUILD = '0.64 · 2026-11-12';
 // Testers can jump to an hour: ?stunde=3 or ?hour=3 opens the third hour.
 const jump = parseInt(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || '0', 10) || 0;
 if (jump >= 1 && jump <= levels.length) progress = jump - 1;
@@ -657,9 +657,8 @@ function endMini() {
   // After a retry the better of the two tries goes into the lot.
   const keep = mini.first && mini.first.score > mini.score ? mini.first : mini;
   lot.s[mini.type] = keep.score; Object.assign(lot.v, keep.values); saveLot();
-  if (keep !== mini) toast(lang === 'de' ? 'Der erste Versuch war besser: Er zählt.' : 'The first try was better: it counts.', 200);
   // A loadport that counts one wafer too many.
-  if (mini.type === 'clean') toast(t().slots, 330);
+  if (mini.type === 'clean') laterToast = [t().slots, 330];
   mini = null; mode = 'play'; queuedDir = null; queuedShift = false;
 }
 
@@ -1007,7 +1006,7 @@ function doStep(action) {
 }
 
 // The SHIFT that closes a window must not also shift the layer: for a moment after it, SHIFT is ignored.
-let lastMode = null, windowClosedAt = -99, waitKey = false, bellAt = -99;
+let lastMode = null, windowClosedAt = -99, waitKey = false, bellAt = -99, laterToast = null;
 const trialTold = new Set();
 const CLOSERS = new Set(['mini', 'process', 'note', 'locker', 'gown', 'shower', 'card', 'paused']);
 function update() {
@@ -1057,9 +1056,12 @@ function update() {
   // Once the voice is done, the subtitle only counts down in play: a window or the pause does not eat it.
   if (paNow && (mode === 'play' || paT / 60 < PA_START + paNow.voice) && ++paT > paNow.len) { paNow = null; }
   // A tip on screen goes first: the announcement waits until it has gone.
-  if (!paNow && paQueue.length && mode === 'play' && !introMode && toastT <= 0) startPA(paQueue.shift());
+  if (!paNow && paQueue.length && mode === 'play' && !introMode && toastT <= 0 && !reading) startPA(paQueue.shift());
+  // A tip that should not crowd the room: it waits until the measurement and the announcement are gone.
+  if (laterToast && mode === 'play' && !reading && !paNow && toastT <= 0) { toast(...laterToast); laterToast = null; }
   if (scare && ['play', 'note', 'process'].includes(mode) && ++scare.t > SCARE_LEN[scare.type]) scare = null;
-  if (toastT > 0 && !toastHeld() && mode !== 'note') toastT--;
+  // A tip waits behind a window and shows once it is closed.
+  if (toastT > 0 && !toastHeld() && !['note', 'process', 'mini'].includes(mode)) toastT--;
   if (shiftHintT > 0) shiftHintT--;
   if (blockedT > 0) blockedT--;
   if (flashFx && ++flashFx.t > 34) flashFx = null;
@@ -1325,6 +1327,7 @@ function renderPlay() {
     extraShadow: extra && !introMode ? {x: extra.x, y: extra.y, a: Math.sin(Math.PI * extra.t / 120)} : null,
     // Now and then, for two seconds: your own shadow lags behind you, in their shape.
     selfShadow: !introMode && levelIndex >= 6 && state.layer === 0 && selfTrail.length > 12 && frame % 600 < 130 ? [...selfTrail[selfTrail.length - 12], Math.sin(Math.PI * (frame % 600) / 130)] : null,
+    screens: window.SchichtProcess && window.SchichtProcess.screens({lot}),
     routes: introMode ? null : state.enemies.map(e => {
       // Where a round goes next: the next tiles of its loop, so you can tell its direction before you shift.
       if (e.pt === undefined || e.off || state.step < (e.alert || 0) || C.frozen(state, e)) return null;
@@ -1363,7 +1366,7 @@ function renderPlay() {
   drawPA();
   drawReading();
   if (mode === 'gown') drawGown();
-  if (toastT > 0 && !toastHeld() && !['note', 'gown', 'locker', 'shower'].includes(mode)) {
+  if (toastT > 0 && !toastHeld() && !['note', 'gown', 'locker', 'shower', 'process', 'mini'].includes(mode)) {
     ctx.globalAlpha = clamp(toastT / 20, 0, 1);
     ctx.font = '400 8px "Silkscreen", monospace';
     // Long messages (the intro, the handover) wrap onto balanced lines instead of being squeezed.

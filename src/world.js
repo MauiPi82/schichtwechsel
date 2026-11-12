@@ -465,17 +465,17 @@ const TOOLS = {
     const scr = t.screen || 'lines', ink = night ? '#3a2f1a' : '#9aa3ad', hi = night ? '#5a3a10' : '#7fd0ff';
     if (scr === 'lines') {
       for (let i = 0; i < 5; i++) R(ink, mx + 3 + i * ((mw - 6) / 5), my + 2, 2, mh - 9);
-      if (!night) text('40.2nm', mx + mw / 2, my + mh - 8, {align: 'center', size: 8, color: hi, max: mw - 2});
+      if (!night) text((screensNow && screensNow.lines) || '40.2nm', mx + mw / 2, my + mh - 8, {align: 'center', size: 8, color: hi, max: mw - 2});
     } else if (scr === 'particles') {
       const r = Math.min(mw, mh) / 2 - 2; circle(night ? '#2a1e0a' : '#2a3a50', mx + mw / 2, my + mh / 2, r);
       for (let i = 0; i < 9; i++) { const a = hash(i * 3.1) * 7, d = Math.sqrt(hash(i * 7.7)) * (r - 1); R(i < 2 && !night ? '#ff5a3a' : hi, mx + mw / 2 + Math.cos(a) * d, my + mh / 2 + Math.sin(a) * d, 1, 1); }
     } else if (scr === 'thickness') {
       for (let i = 0; i < mw - 6; i++) R(hi, mx + 3 + i, my + mh - 6 - Math.round((mh - 12) * (0.5 + 0.4 * Math.sin(i / 3))), 1, 1);
-      if (!night) text('50.1nm', mx + mw / 2, my + 1, {align: 'center', size: 8, color: '#e9eef5', max: mw - 2});
+      if (!night) text((screensNow && screensNow.thickness) || '50.1nm', mx + mw / 2, my + 1, {align: 'center', size: 8, color: '#e9eef5', max: mw - 2});
     } else if (scr === 'xrf') {
       // X-ray fluorescence: the Al Kα line stands out of the spectrum; its height gives the film thickness.
       for (let i = 0; i < mw - 6; i++) { const e = i / (mw - 6), pk = Math.exp(-((e - 0.3) ** 2) / 0.002) + 0.3 * Math.exp(-((e - 0.7) ** 2) / 0.003); R(hi, mx + 3 + i, my + mh - 4 - Math.round((mh - 12) * pk), 1, 1); }
-      if (!night) text('Al 500nm', mx + mw / 2, my + 1, {align: 'center', size: 8, color: '#e9eef5', max: mw - 2});
+      if (!night) text((screensNow && screensNow.xrf) || 'Al 500nm', mx + mw / 2, my + 1, {align: 'center', size: 8, color: '#e9eef5', max: mw - 2});
     } else if (scr === 'tw') {
       for (let i = 0; i < mw - 6; i++) R(hi, mx + 3 + i, my + mh / 2 - Math.round(Math.sin(i / 2 + F / 6) * (mh / 2 - 4) * Math.exp(-i / 30)), 1, 1);
       if (!night) text('TW 812', mx + mw / 2, my + 1, {align: 'center', size: 8, color: '#e9eef5', max: mw - 2});
@@ -938,8 +938,10 @@ function lightSprites() {
 }
 
 /* ---------- Scene ---------- */
+// The lot's numbers for the metrology screens, set with every picture.
+let screensNow = null;
 function draw(c, s, o) {
-  ctx = c; F = o.frame; night = s.layer === 1; reduced = o.reduced; p = P[s.layer];
+  ctx = c; F = o.frame; night = s.layer === 1; reduced = o.reduced; p = P[s.layer]; screensNow = o.screens || null;
   const L = s.level, layer = s.layer;
   R(p.void, 0, 0, WW, 360);
   // Tiles in rows; tools and figures are drawn row by row so nearer things overlap farther ones.
