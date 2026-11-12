@@ -377,7 +377,8 @@ const filmOf = rpm => rpm > 200 ? 100 * Math.sqrt(2000 / rpm) : 400;
 // The film only ever gets thinner: what is flung off the edge does not come back. At each speed it thins towards
 // the thickness that speed allows (h ∝ 1/√ω) and stays there; slowing down again leaves it as it is.
 const coat = {
-  init(m) { m.rpm = 0; m.still = 0; m.rot = 0; m.spinning = false; m.film = 400; m.prev = {}; },
+  // Once, for a moment, the wet resist mirrors a hood behind you that is not there.
+  init(m) { m.rpm = 0; m.still = 0; m.rot = 0; m.spinning = false; m.film = 400; m.prev = {}; m.spinT = 0; m.ghost = 150 + Math.random() * 120; },
   update(m, inp) {
     if (m.t < 50) return;
     const tap = k => inp[k] && !m.prev[k];
@@ -386,6 +387,7 @@ const coat = {
     else if (m.spinning && (inp.down || inp.up)) { m.rpm = clamp(m.rpm + (inp.up ? 1 : -1) * (tap(inp.up ? 'up' : 'down') ? 50 : 4), 500, 5000); m.still = 0; }
     else if (m.spinning) m.still++;
     m.prev = {up: inp.up, down: inp.down};
+    if (m.spinning) { m.spinT++; if (m.spinT === Math.floor(m.ghost)) m.sfx('whisper'); }
     m.rot += m.rpm / 6000;
     const eq = filmOf(m.rpm);
     if (eq < m.film) m.film += (eq - m.film) * 0.05;
@@ -418,6 +420,13 @@ const coat = {
       circle(`hsla(${hue},55%,50%,${1 - life})`, ex + tx * d + Math.cos(ang) * d * 0.5, ey + ty * d + Math.sin(ang) * d * 0.5, 0.9);
     }
     R('#0b0f18', cx - 2, cy + r - 2, 4, 3);
+    // The reflection: ten frames, faint, and then only the spinning film again.
+    if (m.spinT >= m.ghost && m.spinT < m.ghost + 10) {
+      ctx.globalAlpha = 0.38 * Math.sin((m.spinT - m.ghost) / 10 * Math.PI);
+      circle('#1a1408', cx + 10, cy - 8, 13); R('#1a1408', cx - 2, cy - 2, 24, 16);
+      R('#050402', cx + 2, cy - 11, 16, 5); R('#ffb43a', cx + 4, cy - 10, 3, 2); R('#ffb43a', cx + 12, cy - 10, 3, 2);
+      ctx.globalAlpha = 1;
+    }
     // The dispense arm swings in over the centre, drops the resist, and swings out again.
     const arm = m.t < 12 ? smooth(m.t / 12) : m.t < 50 ? 1 : 1 - smooth((m.t - 50) / 20);
     if (arm > 0) {

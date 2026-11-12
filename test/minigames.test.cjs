@@ -44,7 +44,8 @@ test('oxidise: following the recipe curve gives 50 nm; a furnace left alone stay
 
 test('etch: a tuned plasma etches at full rate; mistuned it stalls and costs grade', () => {
   const tuned = M.create('etch'), loose = M.create('etch');
-  loose.tn = tuned.tn; loose.te = tuned.te; loose.ph = tuned.ph;
+  for (const m of [tuned, loose]) { m.tn = 150; m.te = 220; m.ph = 0; }
+  loose.match = 0.15;
   for (let i = 0; i < 400; i++) { tuned.match = tuned.ideal; M.update(tuned, idle); M.update(loose, idle); }
   assert.ok(tuned.g > loose.g + 50, `tuned ${tuned.g} loose ${loose.g}`);
   assert.ok(tuned.refl < 1 && loose.refl > 10);

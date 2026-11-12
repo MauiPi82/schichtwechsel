@@ -563,7 +563,7 @@ function pollPad() {
 let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0, shake = 0;
 let progress = clamp(parseInt(store.get('level'), 10) || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
 const deathsBy = levels.map(() => 0);
-const BUILD = '0.60 · 2026-11-12';
+const BUILD = '0.61 · 2026-11-12';
 // Testers can jump to an hour: ?stunde=3 or ?hour=3 opens the third hour.
 const jump = parseInt(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || '0', 10) || 0;
 if (jump >= 1 && jump <= levels.length) progress = jump - 1;
@@ -609,6 +609,8 @@ function stickyCheck() {
 let introMode = false, suited = false, showerT = 0, showerDone = false, introSeen = new Set(), procT = 0, procType = '', introNote = null, gownT = 0;
 // A measurement read over the room (no window); process animations already seen run at double speed.
 let reading = null, procFast = false, seenProc = new Set();
+// The quiet scares of the late hours: one shadow too many, your own shadow lagging behind.
+let selfTrail = [], extra = null, extraDone = false;
 try { const v = JSON.parse(store.get('seenproc') || '[]'); if (Array.isArray(v)) seenProc = new Set(v); } catch (_) { /* fresh */ }
 let lockerT = 0, lockerDone = false, noteSrc = null, clockedIn = false;
 // Gowning: six pieces, GOWN_STEP frames each; the suit covers you from the top during the first four.
@@ -870,7 +872,8 @@ function startLevel(i, resume = false) {
     });
     state.px = state.x; state.py = state.y;
     state.safeUntil = state.step + 14; state.bellFrom = state.step;
-  } else { state = C.newState(levels[i]); hintT = 0; toastT = 0; shiftHintT = 0; paDone = new Set(); paQueue = []; paNow = null; noteRead = false; scareDone = false; reading = null; }
+  } else { state = C.newState(levels[i]); hintT = 0; toastT = 0; shiftHintT = 0; paDone = new Set(); paQueue = []; paNow = null; noteRead = false; scareDone = false; reading = null; extra = null; extraDone = false; }
+  selfTrail = [];
   scare = null; freezeT = 0; history = [];
   queuedDir = null; queuedShift = false;
   audio.setLayer(state.layer);
@@ -952,6 +955,15 @@ function doStep(action) {
     if (levelIndex <= 2 && C.walkable(state.level, o, state.x, state.y) && C.walkable(state.level, o, state.x + dx, state.y + dy)) shiftHintT = 120;
   }
   if (state.events.includes('shift')) shiftHintT = 0;
+  // From one o'clock, once an hour, by day: a fourth shadow a few tiles away, for two seconds.
+  if (!introMode && !extraDone && levelIndex >= 3 && state.layer === 0 && state.step >= 14 + (levelIndex * 7) % 12) {
+    const L = state.level, spots = [];
+    for (let y = 0; y < C.H; y++) for (let x = 0; x < C.W; x++) {
+      const d = Math.max(Math.abs(x - state.x), Math.abs(y - state.y));
+      if (d >= 3 && d <= 5 && C.walkable(L, 0, x, y) && !state.enemies.some(e => e.x === x && e.y === y)) spots.push([x, y]);
+    }
+    if (spots.length) { const [x, y] = spots[Math.floor(hash(levelIndex * 13 + state.step) * spots.length)]; extra = {x, y, t: 0}; extraDone = true; }
+  }
   // The first time the ring shows with shift B around: what it means, once.
   if (state.events.includes('shift') && state.layer === 1 && state.enemies.length && !introMode && store.get('gracetip') !== '1') { store.set('gracetip', '1'); toast(t().graceTip, 360); }
   // Noticed: a sting, and the first time what it means.
@@ -1032,6 +1044,11 @@ function update() {
   if (mode === 'epilogue') updateEpilogue();
   if (mode === 'process' && (procT += procFast ? 2 : 1) > window.SchichtProcess.duration(procType)) endProcess();
   if (reading && mode === 'play' && ++reading.t > READING_LEN) reading = null;
+  if (mode === 'play' && state && !introMode) {
+    const k = clamp(stepFrame / STEP_FRAMES, 0, 1);
+    selfTrail.push([lerp(state.px, state.x, k), lerp(state.py, state.y, k)]); if (selfTrail.length > 24) selfTrail.shift();
+    if (extra && ++extra.t > 120) extra = null;
+  }
   if (mode === 'shower') updateShower();
   if (mode === 'gown') updateGown();
   if (mode === 'locker') updateLocker();
@@ -1278,6 +1295,8 @@ function renderPlay() {
     lockerDone: introMode && lockerDone, lockerSpot: introMode && clockedIn && !lockerDone && mode !== 'locker' ? INTRO.locker.at : null,
     clockSpot: introMode && !clockedIn && mode !== 'process', hideNext: introMode && !showerDone,
     locker: introMode && (mode === 'locker' || (mode === 'note' && noteSrc === 'locker')) ? {no: INTRO.locker.no, t: mode === 'locker' ? lockerT : 99} : null,
+    extraShadow: extra && !introMode ? {x: extra.x, y: extra.y, a: Math.sin(Math.PI * extra.t / 120)} : null,
+    selfShadow: !introMode && levelIndex >= 6 && state.layer === 0 && selfTrail.length > 12 ? selfTrail[selfTrail.length - 12] : null,
     frozen: state.enemies.map(e => C.frozen(state, e)), alert: state.enemies.map(e => state.step < (e.alert || 0)), flash: flashFx && {...flashFx, a: 1 - flashFx.t / 34},
     grace: !introMode && state.layer === 1 && state.enemies.length ? clamp(1 - (C.sinceRing(state) * STEP_FRAMES + stepFrame) / (C.GRACE * STEP_FRAMES), 0, 1) : 0,
     ...storyView()});

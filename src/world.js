@@ -1022,6 +1022,16 @@ function draw(c, s, o) {
     });
   }
   if (!night) (o.ghosts || []).forEach(([gx, gy, a], i) => shadowFigure(gx, gy, 10 + i, false, 'down', 0.45 * a, true, false));
+  // One shadow more than there are of them: it stands for a moment, turned to you, and is gone.
+  if (!night && o.extraShadow) {
+    const {x, y, a} = o.extraShadow, face = Math.abs(x - s.x) > Math.abs(y - s.y) ? (x > s.x ? 'left' : 'right') : (y > s.y ? 'up' : 'down');
+    shadowFigure(x, y, 77, false, face, 0.45 * a, true, true);
+  }
+  // From four o'clock your own shadow lags behind you, and it has their shape.
+  if (!night && o.selfShadow) {
+    const [sx, sy] = o.selfShadow;
+    if (Math.hypot(sx - ppx / T, sy - (ppy - FY) / T) > 0.15) shadowFigure(sx, sy, 88, false, s.face, 0.22, true, false);
+  }
   if (o.grace > 0) {
     ctx.strokeStyle = `rgba(255,207,90,${0.35 + 0.4 * o.grace})`; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(ppx + 16, ppy + 14, 19, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * o.grace); ctx.stroke();
