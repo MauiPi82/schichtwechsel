@@ -391,30 +391,11 @@ const expose = {
     const help = {load: L('DAS RETIKEL WIRD GELADEN', 'LOADING THE RETICLE'), alignX: L('SHIFT: STOPPEN, WENN DIE MARKEN DECKEN · X', 'SHIFT: STOP WHEN THE MARKS MEET · X'),
       alignY: L('SHIFT: STOPPEN, WENN DIE MARKEN DECKEN · Y', 'SHIFT: STOP WHEN THE MARKS MEET · Y'), expose: L('BELICHTUNG LÄUFT, FELD FÜR FELD', 'EXPOSING, FIELD BY FIELD')}[m.st];
     const a = frame(m, L('BELICHTEN · ARF 193 NM, IMMERSION', 'EXPOSE · ARF 193 NM, IMMERSION'), help);
-    // Side view of the scanner: laser, reticle stage, projection lens, water film, wafer stage.
-    const cx = a.x + 58, exp = m.st === 'expose' && m.field < FIELD_GRID.length, pulse = exp && (m.bt % 3) < 2;
-    R('#2a1e4a', cx - 26, a.y + 3, 52, 9); text('ARF 193 NM', cx, a.y + 4, {align: 'center', color: '#d6c8ff', max: 48});
-    R('#5a6270', cx - 50, a.y + 26, 100, 2);
-    const load = m.st === 'load' ? smooth(m.bt / 90) : 1, rx = cx - 30 + (1 - load) * -60, scan = exp ? Math.sin(m.bt / 2) * 6 : 0;
-    R('#cfe8ff', rx + scan, a.y + 19, 60, 6); R('#9fb8d0', rx + scan, a.y + 24, 60, 1);
-    for (let k = 0; k < 9; k++) if (k % 3 !== 1) R('#1a1e24', rx + scan + 10 + k * 4.5, a.y + 20, 3, 4);
-    R('#1a1e24', rx + scan + 2, a.y + 20, 3, 1); R('#1a1e24', rx + scan + 3, a.y + 19, 1, 3); R('#1a1e24', rx + scan + 55, a.y + 20, 3, 1); R('#1a1e24', rx + scan + 56, a.y + 19, 1, 3);
-    text(L('RETIKEL', 'RETICLE'), a.x + 1, a.y + 12, {color: '#8c93a8', font: 'IBM Plex Sans', size: 6, max: 30});
-    // Projection lens: a column of elements in its housing, 4 : 1 reduction.
-    R('#3a4058', cx - 30, a.y + 32, 4, 44); R('#3a4058', cx + 26, a.y + 32, 4, 44);
-    [26, 22, 24, 18, 14, 10].forEach((wd, k) => { ctx.fillStyle = 'rgba(200,225,255,.75)'; ctx.beginPath(); ctx.ellipse(cx, a.y + 36 + k * 7, wd, 2.2, 0, 0, 7); ctx.fill(); });
-    text(L('OBJEKTIV', 'LENS'), a.x + 1, a.y + 40, {color: '#8c93a8', font: 'IBM Plex Sans', size: 6, max: 26});
-    // Exposure light: through the pattern, gathered by the lens onto one field.
-    if (pulse) {
-      ctx.strokeStyle = 'rgba(190,140,255,.85)'; ctx.lineWidth = 1;
-      for (let k = 0; k < 6; k++) { const lx = cx - 20 + k * 8; ctx.beginPath(); ctx.moveTo(lx, a.y + 12); ctx.lineTo(lx, a.y + 19); ctx.moveTo(lx, a.y + 25); ctx.lineTo(cx + (lx - cx) * 0.5, a.y + 50); ctx.lineTo(cx + (lx - cx) * 0.12, a.y + 80); ctx.stroke(); }
-    }
-    // Water film and wafer on the stage; during alignment a red alignment beam comes in from the side.
-    const wx = cx + (exp ? Math.cos(m.bt / 7) * 8 : 0);
-    R('rgba(90,170,255,.6)', cx - 12, a.y + 79, 24, 2);
-    R('#5a6270', wx - 40, a.y + 86, 80, 5); R('#d99a32', wx - 34, a.y + 82, 68, 3); R('#8e98a3', wx - 34, a.y + 85, 68, 1);
-    if (m.st === 'alignX' || m.st === 'alignY') { ctx.strokeStyle = 'rgba(255,90,74,.8)'; ctx.beginPath(); ctx.moveTo(a.x + 4, a.y + 64); ctx.lineTo(cx - 14, a.y + 82); ctx.stroke(); }
-    text(L('WAFERTISCH', 'WAFER STAGE'), cx, a.y + 94, {align: 'center', color: '#6b7190', max: 100});
+    // Side view of the scanner (shared with the process views): reticle loading, alignment beam, then exposure.
+    const exp = m.st === 'expose' && m.field < FIELD_GRID.length, pulse = exp && (m.bt % 3) < 2;
+    const f = FIELD_GRID[Math.min(m.field, FIELD_GRID.length - 1)];
+    window.SchichtProcess.scanner(ctx, a.x + 2, a.y + 2, 114, a.h - 4, {t: m.t, pulse, load: m.st === 'load' ? smooth(m.bt / 90) : 1,
+      scan: exp ? Math.sin(m.bt / 2) : 0, align: m.st === 'alignX' || m.st === 'alignY', step: exp ? Math.round(f.fx / 3) : 0}, lang);
     // Right: reticle library, alignment microscope or the wafer map.
     const px = a.x + 122, pw = a.w - 126, pc = px + pw / 2, pcy = a.y + a.h / 2 + 2;
     if (m.st === 'load') {

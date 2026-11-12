@@ -413,24 +413,81 @@ function fieldsGrid(cx, cy, r) {
   return out.sort((a, b) => a.j - b.j || a.i - b.i);
 }
 
-function expose(t, x, y, w, h) {
-  // Side view: laser, reticle with chrome, projection lens, wafer stage.
-  const sx = x + 8, sw = 104, mid = sx + sw / 2;
-  const pulse = (F >> 1) % 2;
-  R('#3a2a6a', mid - 20, y + 6, 40, 12); text('193 NM', mid, y + 8, {align: 'center', color: '#d6c8ff'});
-  const scan = Math.sin(t / 12) * 14;
-  R('#cfe8ff', sx + 8 + scan, y + 32, sw - 16, 6);
-  for (let i = 0; i < 8; i++) if (i % 3 !== 1) R('#1a1e24', sx + 12 + scan + i * 10, y + 32, 6, 6);
-  text(lang === 'de' ? 'RETIKEL' : 'RETICLE', sx, y + 22, {color: '#9aa6b5'});
-  ctx.fillStyle = 'rgba(200,220,255,.85)'; ctx.beginPath(); ctx.ellipse(mid, y + 62, 34, 6, 0, 0, 7); ctx.fill();
-  text(lang === 'de' ? 'OBJEKTIV' : 'LENS', sx, y + 70, {color: '#9aa6b5'});
-  ctx.strokeStyle = `rgba(170,120,255,${pulse ? 0.9 : 0.4})`; ctx.lineWidth = 1;
-  for (let i = 0; i < 8; i++) if (i % 3 !== 1) {
-    const rx = sx + 15 + scan + i * 10;
-    ctx.beginPath(); ctx.moveTo(rx, y + 18); ctx.lineTo(rx, y + 32); ctx.moveTo(rx, y + 38); ctx.lineTo(mid + (rx - mid) * 0.5, y + 62); ctx.lineTo(mid + (rx - mid) * 0.12 - scan * 0.25, y + 96); ctx.stroke();
+// The scanner cut open from the side: ArF laser, beam over a mirror into the illuminator, the reticle on its scanning
+// stage, the projection lens (4 : 1) with its light cone, the immersion hood with its water film, the wafer stage with
+// the interferometer beam that measures where it is. o: {scan -1..1, pulse, load 0..1, align, step (px), t}.
+function scannerView(c, x, y, w, h, o) {
+  const main = ctx; ctx = c;
+  const de = lang === 'de', mid = x + w / 2 + 6, scan = o.scan || 0, load = o.load === undefined ? 1 : o.load, pulse = o.pulse;
+  const tiny = (s, xx, yy, col = '#6b7190') => text(s, xx, yy, {font: 'IBM Plex Sans', size: 6, color: col, max: 40});
+  // Laser and beam path.
+  R('#2a1e4a', x + 2, y + 2, 34, 11); R('#3a2a64', x + 2, y + 2, 34, 2); text('ArF', x + 19, y + 4, {align: 'center', color: '#d6c8ff', max: 30});
+  R('#2a3040', x + 36, y + 6, mid - x - 36, 3); R('#5a6270', mid - 3, y + 4, 6, 6);
+  if (pulse) { R('rgba(190,140,255,.95)', x + 36, y + 7, mid - x - 36, 1); R('rgba(190,140,255,.95)', mid, y + 8, 1, 6); }
+  R('#3a4058', mid - 14, y + 13, 28, 7); tiny(de ? 'BELEUCHTUNG' : 'ILLUMINATOR', mid + 16, y + 13);
+  // Reticle stage and reticle: quartz with a chrome pattern, sliding in while it loads, then scanning.
+  R('#5a6270', x + 6, y + 27, w - 10, 2);
+  const rx = mid - 24 + scan * 12 - (1 - load) * 70;
+  R('#cfe8ff', rx, y + 22, 48, 5); R('#9fb8d0', rx, y + 26, 48, 1);
+  for (let k = 0; k < 9; k++) if (k % 3 !== 1) R('#1a1e24', rx + 4 + k * 4.6, y + 23, 3, 3);
+  tiny(de ? 'RETIKEL' : 'RETICLE', x + 2, y + 15);
+  // Projection lens: housing and elements; the light cone narrows towards the wafer.
+  R('#3a4058', mid - 22, y + 32, 3, 44); R('#3a4058', mid + 19, y + 32, 3, 44); R('#2a3040', mid - 22, y + 31, 44, 2);
+  if (pulse) { ctx.fillStyle = 'rgba(170,120,255,.28)'; ctx.beginPath(); ctx.moveTo(mid - 16, y + 28); ctx.lineTo(mid + 16, y + 28); ctx.lineTo(mid + 3, y + 80); ctx.lineTo(mid - 3, y + 80); ctx.fill(); }
+  [17, 15, 16, 13, 11, 9, 7].forEach((wd, k) => { ctx.fillStyle = 'rgba(200,225,255,.7)'; ctx.beginPath(); ctx.ellipse(mid, y + 36 + k * 6, wd, 1.8, 0, 0, 7); ctx.fill(); });
+  tiny(de ? 'OBJEKTIV 4:1' : 'LENS 4:1', x + 2, y + 46);
+  // Immersion hood with the water film between lens and wafer.
+  R('#3a4058', mid - 12, y + 76, 24, 3); R('rgba(90,170,255,.75)', mid - 8, y + 79, 16, 2);
+  tiny(de ? 'WASSER' : 'WATER', mid + 14, y + 74, '#5a8ab0');
+  // Wafer stage: moves against the reticle (4 : 1) and steps from field to field; resist-coated wafer on its chuck.
+  const wx = mid - scan * 3 + (o.step || 0);
+  R('#2a3040', x + 6, y + 90, w - 10, 6); R('#5a6270', wx - 34, y + 84, 68, 6); R('#8e98a3', wx - 30, y + 83, 60, 1); R('#d99a32', wx - 30, y + 81, 60, 2);
+  if (pulse) { R('rgba(230,210,255,.95)', mid - 3, y + 81, 6, 2); }
+  // Interferometer: a red beam to the stage mirror, it knows the position to a nanometre.
+  R('#7c8693', wx + 34, y + 84, 2, 6); ctx.strokeStyle = 'rgba(255,80,60,.55)'; ctx.setLineDash([2, 2]); ctx.beginPath(); ctx.moveTo(x + w - 2, y + 87.5); ctx.lineTo(wx + 36, y + 87.5); ctx.stroke(); ctx.setLineDash([]);
+  if (o.align) { ctx.strokeStyle = 'rgba(255,90,74,.85)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x + 2, y + 66); ctx.lineTo(mid - 10, y + 81); ctx.stroke(); }
+  tiny(de ? 'WAFERTISCH' : 'WAFER STAGE', x + 2, y + 92);
+  ctx = main;
+}
+// Contact etch: the plasma chamber on the left, the holes going down through the mask on the right.
+function contacts(t, x, y, w, h) {
+  // The etch removes oxide at a steady rate: the holes deepen linearly until they reach the silicon.
+  const de = lang === 'de', k = clamp((t - 20) / 170, 0, 1), cw = 104, glow = 0.5 + 0.2 * Math.sin(F / 5);
+  // Chamber: showerhead with gas, the glowing plasma, the dark sheath above the wafer, the chuck on 13.56 MHz.
+  R('#3a4058', x + 4, y + 4, cw, h - 8); R('#141a28', x + 8, y + 8, cw - 8, h - 16);
+  R('#7c8693', x + 12, y + 12, cw - 16, 5); for (let i = 0; i < 12; i++) R('#3a4058', x + 15 + i * 7, y + 16, 2, 1);
+  text('C₄F₈ · O₂ · Ar', x + 4 + cw / 2, y + 2, {align: 'center', color: '#9aa6b5', font: 'IBM Plex Sans', size: 6, max: cw});
+  const g = ctx.createLinearGradient(0, y + 18, 0, y + 64);
+  g.addColorStop(0, `rgba(160,90,240,${0.25 * glow})`); g.addColorStop(0.5, `rgba(200,130,255,${0.55 * glow})`); g.addColorStop(1, `rgba(160,90,240,${0.3 * glow})`);
+  ctx.fillStyle = g; ctx.fillRect(x + 10, y + 18, cw - 12, 48);
+  for (let i = 0; i < 14; i++) circle('rgba(240,220,255,.7)', x + 14 + (i * 37 + F * 0.7) % (cw - 20), y + 22 + (i * 23 + F * 0.4) % 40, 0.8);
+  R('#0b0f18', x + 10, y + 66, cw - 12, 8); text(de ? 'RANDSCHICHT' : 'SHEATH', x + 4 + cw / 2, y + 67, {align: 'center', color: '#4c5470', font: 'IBM Plex Sans', size: 6, max: cw});
+  // Ions cross the sheath fast and straight down onto the wafer.
+  for (let i = 0; i < 8; i++) { const iy = (F * 2.5 + i * 11) % 14; R('#e0b8ff', x + 18 + i * 11, y + 62 + iy, 1, 3); }
+  R('#d99a32', x + 22, y + 74, cw - 36, 2); R('#c9ced6', x + 22, y + 76, cw - 36, 2); R('#5a6270', x + 18, y + 78, cw - 28, 8);
+  R('#5a6270', x + 4 + cw / 2 - 1, y + 86, 2, h - 94); text('13,56 MHz', x + 4 + cw / 2 + 4, y + h - 14, {color: '#ffcf5a', font: 'IBM Plex Sans', size: 6, max: 50});
+  // Cross-section: the resist mask, the deposited oxide, the holes etching down, polymer on their walls.
+  const sx = x + cw + 10, sw = w - cw - 14, si = y + h - 22, top = si - 10 - 22, mask = top - 8, holes = [0.2, 0.5, 0.8].map(f => sx + f * sw - 4);
+  R('#4f5866', sx, si, sw, 18); for (const hx of holes) { ctx.fillStyle = 'rgba(150,100,230,.85)'; ctx.beginPath(); ctx.ellipse(hx + 4, si, 10, 7, 0, 0, Math.PI); ctx.fill(); }
+  R('#cfe8ff', sx, si - 6, sw, 6); R('#9fc4a8', sx, si - 10, sw, 4); R('#a9cbe6', sx, top, sw, si - 10 - top);
+  const erode = 2 * k;
+  R('#d99a32', sx, mask + erode, sw, top - mask - erode); R('#f0b850', sx, mask + erode, sw, 1);
+  const depth = (si - top) * k;
+  for (const hx of holes) {
+    R('#0b0f18', hx, mask + erode, 8, top - mask - erode + depth);
+    if (k > 0.1) { R('rgba(230,140,60,.8)', hx, top, 1, depth); R('rgba(230,140,60,.8)', hx + 7, top, 1, depth); }
+    for (let i = 0; i < 3; i++) { const iy = (F * 2 + i * 9 + hx) % Math.max(4, mask - y - 6 + depth); R('#c890ff', hx + 3 + (i % 2), y + 4 + iy, 1, 2); }
+    if (k >= 1) R('rgba(255,240,180,.8)', hx + 1, si - 1, 6, 1);
   }
-  R('#5a6270', sx + 10 - scan * 0.25, y + 100, sw - 20, 8); R('#d99a32', sx + 10 - scan * 0.25, y + 96, sw - 20, 4);
-  text(lang === 'de' ? 'WAFERTISCH' : 'WAFER STAGE', mid, y + 110, {align: 'center', color: '#9aa6b5'});
+  text(de ? 'LACK' : 'RESIST', sx + 2, mask - 9, {color: '#f0b850', font: 'IBM Plex Sans', size: 6});
+  text(de ? 'OXID' : 'OXIDE', sx + 2, top + 2, {color: '#3a5a7a', font: 'IBM Plex Sans', size: 6});
+  if (k > 0.2) text(de ? 'POLYMER AN DEN WÄNDEN' : 'POLYMER ON THE WALLS', sx + sw / 2, y + 2, {align: 'center', color: '#e08c3c', font: 'IBM Plex Sans', size: 6, max: sw});
+  if (k >= 1 && (F >> 4) % 2) text(de ? 'ENDPUNKT: SILIZIUM' : 'ENDPOINT: SILICON', sx + sw / 2, y + 11, {align: 'center', color: '#3fe06a', max: sw});
+}
+function expose(t, x, y, w, h) {
+  // Side view, then the fields on the wafer.
+  const pulse = (F >> 1) % 2;
+  scannerView(ctx, x + 2, y + 4, 112, h - 8, {scan: Math.sin(t / 12), pulse, step: Math.round(Math.sin(t / 40) * 6)});
   // Top view: fields exposed one after another.
   const cx = x + w - 54, cy = y + h / 2 + 2, r = 44, fields = fieldsGrid(cx, cy, r);
   const done = Math.floor(clamp((t - 10) / 170, 0, 1) * fields.length);
@@ -533,21 +590,6 @@ function section(t, x, y, w, h, type) {
       }
       rain('#d8ecff', 30, 0, oxTop - d); break;
     }
-    case 'contacts': {
-      // The photomask from the last step: developed resist on the oxide, open only above each window.
-      // The ions come straight down through the openings; the resist itself is eroded a little.
-      oxide(1); doped(18, 6); holes.forEach(hx => R('#a9cbe6', hx, oxTop, 18, ox)); R('#a9cbe6', bx, oxTop - 22, bw, 22);
-      const rTop = oxTop - 22 - 10 + 2 * k;
-      R('#d99a32', bx, rTop, bw, oxTop - 22 - rTop); R('#f0b850', bx, rTop, bw, 1);
-      holes.forEach(hx => { R('#0b0f18', hx + 5, rTop, 8, oxTop - 22 - rTop); R('#0b0f18', hx + 5, oxTop - 22, 8, (22 + ox) * k); });
-      for (let i = 0; i < 30; i++) {
-        const hx = holes[i % 3] + 6 + (i * 7) % 6, py = y + 10 + ((F * 3 + i * 23) % (rTop - y - 6));
-        circle('#c890ff', hx, py, 1.2);
-      }
-      for (let i = 0; i < 12; i++) circle('rgba(200,144,255,.45)', bx + ((i * 53 + F) % bw), y + 10 + ((F * 2 + i * 31) % (rTop - y - 12)), 1);
-      text(lang === 'de' ? 'LACKMASKE' : 'RESIST MASK', bx + 4, rTop - 9, {color: '#f0b850'});
-      break;
-    }
     case 'sputter': {
       oxide(1); doped(18, 6); holes.forEach(hx => R('#a9cbe6', hx, oxTop, 18, ox)); R('#a9cbe6', bx, oxTop - 22, bw, 22);
       holes.forEach(hx => R('#0b0f18', hx + 5, oxTop - 22, 8, 22 + ox)); holes.forEach(hx => R('#c9ced6', hx + 5, oxTop - 22, 8, (22 + ox) * Math.min(1, k * 1.5)));
@@ -620,7 +662,7 @@ function draw(c, type, t, language, info) {
   text('LOT 4471', PX + PW - 6, y0 + 2, {align: 'right', color: '#ffcf5a'});
   ctx.save(); ctx.beginPath(); ctx.rect(PX, y0 + 12, PW, PH - 28); ctx.clip();
   R('#0d111a', PX, y0 + 12, PW, PH - 28);
-  const fn = {intake, clean, inspect, oxidize, nitride, ellipso, rs, coat, expose, cexpose: expose, develop, measure}[type];
+  const fn = {intake, clean, inspect, oxidize, nitride, ellipso, rs, coat, expose, cexpose: expose, develop, measure, contacts}[type];
   const tp = Math.min(tt, BASE + 10);
   if (fn) fn(tp, PX, y0 + 12, PW, PH - 28); else section(tp, PX, y0 + 12, PW, PH - 28, type);
   ctx.restore();
@@ -629,5 +671,6 @@ function draw(c, type, t, language, info) {
   if (t > 40) text(language === 'de' ? 'SHIFT: WEITER' : 'SHIFT: CONTINUE', W / 2, y0 + PH + 6, {align: 'center', color: '#4c5470'});
 }
 
-window.SchichtProcess = {draw, duration, furnace: (c, x, y, w, h, o) => { F = o.t || F; return furnaceView(c, x, y, w, h, o); }, DURATION: BASE};
+window.SchichtProcess = {draw, duration, furnace: (c, x, y, w, h, o) => { F = o.t || F; return furnaceView(c, x, y, w, h, o); },
+  scanner: (c, x, y, w, h, o, language) => { F = o.t || F; if (language) lang = language; return scannerView(c, x, y, w, h, o); }, DURATION: BASE};
 })();
