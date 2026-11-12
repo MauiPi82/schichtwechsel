@@ -27,6 +27,29 @@ if (!url) throw new Error('Pass the URL of the served repository root.');
         }, {i, solution});
         assert.equal(result.status, 'won', `${LEVELS[i].time} in ${locale}`);
       }
+      // A death after a process step rewinds to that step, also in hours where the shift before walks rounds.
+      for (const i of [1, 2, 5]) {
+        const solution = core.solve(core.parseLevel(LEVELS[i]));
+        const r = await page.evaluate(({i, solution}) => {
+          __schicht.start(i);
+          for (const a of solution) {
+            __schicht.act(a);
+            let g = 0;
+            while (__schicht.mode !== 'play' && g++ < 3000) { if (__schicht.mode === 'mini') __schicht.press('enter'); if (__schicht.mode === 'process') __schicht.press('shift'); __schicht.update(); }
+            if (__schicht.state.got >= 1) break;
+          }
+          const at = {x: __schicht.state.x, y: __schicht.state.y, got: __schicht.state.got};
+          for (let k = 0; k < 4; k++) __schicht.act('wait');
+          __schicht.dead('caught', 0);
+          for (let f = 0; f < 120; f++) { __schicht.update(); __schicht.render(); }
+          __schicht.press('shift');
+          let g = 0; while (__schicht.mode !== 'play' && g++ < 400) { __schicht.update(); __schicht.render(); }
+          const s = __schicht.state;
+          return {at, after: {x: s.x, y: s.y, got: s.got}, safe: s.safeUntil > s.step, mode: __schicht.mode};
+        }, {i, solution});
+        assert.deepEqual(r.after, r.at, `${LEVELS[i].time}: the rewind stops at the last process step`);
+        assert.ok(r.safe && r.mode === 'play', `${LEVELS[i].time}: the hour resumes with a moment of safety`);
+      }
       // Real keyboard input reaches the game: start from the title and walk.
       // A fresh night (no stored progress) starts with the gowning intro.
       await page.evaluate(() => { try { localStorage.clear(); } catch (_) { /* blocked */ } });
@@ -61,6 +84,6 @@ if (!url) throw new Error('Pass the URL of the served repository root.');
       assert.deepEqual(errors, [], `no page errors in ${locale}`);
       await page.close();
     }
-    console.log('PASS: all levels won in the browser (DE and EN), keyboard input, a minigame with the keyboard, reload with saved states, no page errors.');
+    console.log('PASS: all levels won in the browser (DE and EN), rewind to the last process step, keyboard input, a minigame with the keyboard, reload with saved states, no page errors.');
   } finally { await browser.close(); }
 })().catch(e => { console.error(e); process.exit(1); });

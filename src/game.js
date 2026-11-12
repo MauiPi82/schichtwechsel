@@ -478,7 +478,7 @@ function pollPad() {
 let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0, shake = 0;
 let progress = clamp(+store.get('level') || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
 const deathsBy = levels.map(() => 0);
-const BUILD = '0.27 · 2026-11-12';
+const BUILD = '0.28 · 2026-11-12';
 // Testers can jump to an hour: ?stunde=3 or ?hour=3 opens the third hour.
 const jump = +(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || 0);
 if (jump >= 1 && jump <= levels.length) progress = jump - 1;
@@ -679,7 +679,12 @@ function startLevel(i, resume = false) {
   levelIndex = i; mode = 'play'; stepFrame = 0; fx = 0; deadT = 0;
   if (resume && checkpoint) {
     state = C.clone(checkpoint);
-    state.enemies.forEach((e, n) => { const s0 = levels[i].enemyStarts[n]; Object.assign(e, {x: s0.x, y: s0.y, px: s0.x, py: s0.y, moved: -1, fx: undefined, fy: undefined}); });
+    // Chasers go back to their posts; the rounds keep walking where they were (they have no post, only a rhythm).
+    state.enemies.forEach((e, n) => {
+      const s0 = levels[i].enemyStarts[n];
+      if (s0 && e.pt === undefined) Object.assign(e, {x: s0.x, y: s0.y});
+      Object.assign(e, {px: e.x, py: e.y, moved: -1, fx: undefined, fy: undefined});
+    });
     state.px = state.x; state.py = state.y;
     state.safeUntil = state.step + 14; state.bellFrom = state.step;
   } else { state = C.newState(levels[i]); hintT = 0; toastT = 0; shiftHintT = 0; paDone = new Set(); paQueue = []; paNow = null; noteRead = false; scareDone = false; }
@@ -1114,10 +1119,20 @@ function deathPicture(cause, d) {
 
 function renderDead() {
   renderDeadPicture();
-  if (deadT > DEAD_LEN) txt(t().rewind, W / 2, H / 2 + 14, {align: 'center', color: '#8c93a8'});
+  if (deadT > DEAD_LEN) {
+    txt(t().rewind, W / 2, H / 2 + 14, {align: 'center', color: '#8c93a8'});
+    txt(rewindTarget(true), W / 2, H / 2 + 25, {align: 'center', color: '#5a6280', max: W - 20});
+  }
 }
 /* ---------- Rewind: the shift slips back to the last station ---------- */
 // Every step since the last station is kept. After a death the hour runs backwards, like a tape, in under a second.
+// Where the tape stops: the last process step of this hour, or its start when none is done yet.
+function rewindTarget(long) {
+  const de = lang === 'de', step = checkpoint && LEVELS[levelIndex].route && LEVELS[levelIndex].route[checkpoint.got - 1];
+  if (!step) return de ? (long ? 'ZURÜCK ZUM BEGINN DER STUNDE' : 'STUNDENBEGINN') : (long ? 'BACK TO THE START OF THE HOUR' : 'START OF HOUR');
+  const name = `${checkpoint.got} · ${step[lang].toUpperCase()}`;
+  return long ? `${de ? 'ZURÜCK ZU SCHRITT' : 'BACK TO STEP'} ${name}` : name;
+}
 function startRewind() {
   mode = 'rewind'; rewT = 0; rewFrom = history.length; audio.sfx('rewind');
   if (!history.length) endRewind();
@@ -1147,7 +1162,7 @@ function renderRewind() {
   ctx.fillStyle = '#e9eef5'; ctx.beginPath();
   for (const ox of [0, 9]) { ctx.moveTo(14 + ox, FY + 8); ctx.lineTo(14 + ox, FY + 20); ctx.lineTo(5 + ox, FY + 14); }
   ctx.fill();
-  txt('REW', 34, FY + 9, {color: '#e9eef5', size: 8});
+  txt(`REW → ${rewindTarget(false)}`, 34, FY + 9, {color: '#e9eef5', size: 8, max: W - 44});
 }
 function renderDeadPicture() {
   renderPlay();
