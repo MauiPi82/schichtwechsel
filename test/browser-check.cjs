@@ -59,7 +59,10 @@ if (!url) throw new Error('Pass the URL of the served repository root.');
           const settle = () => { let g = 0; while (S.mode !== 'play' && g++ < 2000) { if (S.mode === 'note' && S.noteT > 30) S.press('shift'); S.update(); } };
           const walk = moves => { for (const m of moves) { S.act(m); for (let f = 0; f < 10; f++) S.update(); settle(); } return [S.state.x, S.state.y]; };
           S.intro();
-          walk(['up', 'right', 'up', 'up', 'right', 'right', 'right', 'right', 'up', 'right']);
+          // First the time clock in the corridor, then into the gowning room.
+          walk(['up', 'right', 'right', 'right']); S.act('right'); for (let f = 0; f < 10; f++) S.update();
+          log.push(S.mode === 'process' ? 'clock in' : `no clock (${S.mode})`); settle();
+          walk(['left', 'left', 'left', 'up', 'up', 'right', 'right', 'right', 'right', 'up', 'right']);
           log.push(S.state.x === 6 && S.state.y === 3 ? 'door shut' : `door open at ${S.state.x},${S.state.y}`);
           walk(['up']); log.push(S.mode === 'play' ? 'locker first' : 'suit without locker');
           // A window opens only once the figure stands on the field: right after the step it is still walking.
@@ -77,7 +80,7 @@ if (!url) throw new Error('Pass the URL of the served repository root.');
           log.push(S.mode);
           return log;
         });
-        assert.deepEqual(r, ['door shut', 'locker first', 'locker', 'gowning', 'note read', 'lot picked up', 'card'], 'the gowning intro plays through');
+        assert.deepEqual(r, ['clock in', 'door shut', 'locker first', 'locker', 'gowning', 'note read', 'lot picked up', 'card'], 'the gowning intro plays through');
       }
       // Real keyboard input reaches the game: start from the title and walk.
       // A fresh night (no stored progress) starts with the gowning intro.

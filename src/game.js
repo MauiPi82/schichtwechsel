@@ -489,7 +489,7 @@ function pollPad() {
 let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0, shake = 0;
 let progress = clamp(+store.get('level') || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
 const deathsBy = levels.map(() => 0);
-const BUILD = '0.40 · 2026-11-12';
+const BUILD = '0.41 · 2026-11-12';
 // Testers can jump to an hour: ?stunde=3 or ?hour=3 opens the third hour.
 const jump = +(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || 0);
 if (jump >= 1 && jump <= levels.length) progress = jump - 1;
@@ -532,7 +532,7 @@ function stickyCheck() {
 }
 /* ---------- Intro: corridor, gowning room, air shower ---------- */
 let introMode = false, suited = false, showerT = 0, showerDone = false, introSeen = new Set(), procT = 0, procType = '', introNote = null, gownT = 0;
-let lockerT = 0, lockerDone = false, noteSrc = null;
+let lockerT = 0, lockerDone = false, noteSrc = null, clockedIn = false;
 // Gowning: six pieces, GOWN_STEP frames each; the suit covers you from the top during the first four.
 const GOWN_STEP = 30, GOWN_REVEAL = [0.24, 0.36, 0.84, 1];
 // The tear into the shift before during the air shower: in at GL_IN, back at GL_OUT; the door opens SHOWER_END later.
@@ -674,7 +674,7 @@ function startIntro() {
   // The door to the air shower opens once you wear the suit.
   L.open = new Set(); L.showerT = 0;
   introMode = true; suited = false; showerT = 0; showerDone = false; introSeen = new Set(); introNote = null; gownT = 0; pendingMode = null;
-  lockerT = 0; lockerDone = false; noteSrc = null;
+  lockerT = 0; lockerDone = false; noteSrc = null; clockedIn = false;
   state = C.newState(L); mode = 'play'; stepFrame = 0; fx = 0; hintT = 999; toastT = 0; checkpoint = null;
   audio.setLayer(0);
 }
@@ -685,10 +685,14 @@ function endIntro() {
 function introStep() {
   const L = state.level;
   INTRO.triggers.forEach((tr, n) => {
-    if (!introSeen.has(n) && (!tr.suited || suited) && Math.abs(tr.x - state.x) + Math.abs(tr.y - state.y) <= 1) { introSeen.add(n); toast(tr.text[lang], 420); }
+    if (!introSeen.has(n) && (!tr.suited || suited) && (!tr.clocked || clockedIn) && Math.abs(tr.x - state.x) + Math.abs(tr.y - state.y) <= 1) { introSeen.add(n); toast(tr.text[lang], 420); }
   });
-  const lk = INTRO.locker;
-  if (!lockerDone && mode === 'play' && state.x === lk.at[0] && state.y === lk.at[1]) { mode = 'locker'; lockerT = 0; state.face = 'up'; audio.sfx('door'); }
+  const lk = INTRO.locker, cl = INTRO.clock;
+  if (!clockedIn && mode === 'play' && state.x === cl.at[0] && state.y === cl.at[1]) { procType = 'clockin'; procT = 0; mode = 'process'; state.face = 'up'; }
+  if (!lockerDone && mode === 'play' && state.x === lk.at[0] && state.y === lk.at[1]) {
+    if (clockedIn) { mode = 'locker'; lockerT = 0; state.face = 'up'; audio.sfx('door'); }
+    else toast(lang === 'de' ? 'Erst einstempeln: Die Uhr hängt im Gang.' : 'Clock in first: the clock is in the corridor.', 200);
+  }
   if (!suited && mode === 'play' && state.x === INTRO.gownAt[0] && state.y === INTRO.gownAt[1]) {
     if (lockerDone) { mode = 'gown'; gownT = 0; state.face = 'down'; }
     else toast(lang === 'de' ? `Erst die Straßensachen in deinen Spind, Nr. ${lk.no}.` : `First your street clothes into your locker, no. ${lk.no}.`, 200);
@@ -708,6 +712,7 @@ function introStep() {
 function endProcess() {
   mode = 'play';
   if (procType === 'intake' && introMode) toast(INTRO.pickup[lang], 480);
+  if (procType === 'clockin' && introMode) { clockedIn = true; toast(INTRO.clock.after[lang], 480); }
 }
 function updateLocker() {
   if (++lockerT === 34) audio.sfx('rustle');
@@ -975,7 +980,7 @@ function drawHUD() {
       ctx.font = '400 8px "Silkscreen", monospace';
       const a = 4 + ctx.measureText(`${INTRO.time} · ${INTRO.layer[lang].toUpperCase()}`).width, b = W - 4 - ctx.measureText(lang === 'de' ? 'ENTER: ÜBERSPRINGEN' : 'ENTER: SKIP').width;
       const got = state.got > 0, de = lang === 'de';
-      const goal = !lockerDone ? `${de ? 'SPIND' : 'LOCKER'} ${INTRO.locker.no}` : !suited ? (de ? 'ANZUG ANZIEHEN' : 'PUT ON THE SUIT') : !showerDone ? (de ? 'LUFTDUSCHE' : 'AIR SHOWER') : got ? 'HOT LOT · 06:00' : INTRO.route[0][lang].toUpperCase();
+      const goal = !clockedIn ? (de ? 'EINSTEMPELN' : 'CLOCK IN') : !lockerDone ? `${de ? 'SPIND' : 'LOCKER'} ${INTRO.locker.no}` : !suited ? (de ? 'ANZUG ANZIEHEN' : 'PUT ON THE SUIT') : !showerDone ? (de ? 'LUFTDUSCHE' : 'AIR SHOWER') : got ? 'HOT LOT · 06:00' : INTRO.route[0][lang].toUpperCase();
       txt(goal, (a + b) / 2, 4, {align: 'center', color: got ? '#ff6a5a' : '#c9c2ae', max: b - a - 8});
     }
     return;
@@ -1105,7 +1110,8 @@ function renderPlay() {
   const rt = state.level.reticle && !state.reticle && !introMode && !found.has(LEVELS[levelIndex].id) ? state.level.reticle : null;
   window.SchichtWorld.draw(ctx, state, {reticle: rt, reticleN: levelIndex,k: mode === 'play' ? k : 1, frame, reduced, lang, enemies: introGhosts() || state.enemies.map(enemyPos),
     playerVisible: cheatSafe || !(state.step < state.safeUntil && (frame >> 2) % 2), shiftHint: shiftHintT > 0 && !introMode, civilian: introMode && !suited, gownSpot: introMode && lockerDone && !suited && mode !== 'gown', ...gownView(),
-    lockerDone: introMode && lockerDone, lockerSpot: introMode && !lockerDone && mode !== 'locker' ? INTRO.locker.at : null,
+    lockerDone: introMode && lockerDone, lockerSpot: introMode && clockedIn && !lockerDone && mode !== 'locker' ? INTRO.locker.at : null,
+    clockSpot: introMode && !clockedIn && mode !== 'process',
     locker: introMode && (mode === 'locker' || (mode === 'note' && noteSrc === 'locker')) ? {no: INTRO.locker.no, t: mode === 'locker' ? lockerT : 99} : null,
     frozen: state.enemies.map(e => C.frozen(state, e)), flash: flashFx && {...flashFx, a: 1 - flashFx.t / 34},
     grace: !introMode && state.layer === 1 && state.enemies.length ? clamp(1 - ((state.step - state.lastShift) * STEP_FRAMES + stepFrame) / (C.GRACE * STEP_FRAMES), 0, 1) : 0,

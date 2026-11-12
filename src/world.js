@@ -179,6 +179,15 @@ function showerAir(L) {
   for (let i = 0; i < 18; i++) R('rgba(255,255,255,.9)', x0 + (i * 29 + F * 2) % (x1 - x0), y0 + 8 + (i * 17 + F) % 16, 1, 1);
 }
 // Plain wall signs from the level: position is the wall tile, the sign hangs on its front.
+// The time clock on the corridor wall, its card rack beside it with three cards sticking out of the IN row.
+function timeClockWall(cl, glow) {
+  const px = cl.x * T, py = FY + cl.y * T;
+  R(night ? '#4a4232' : '#d8cfb8', px + 4, py + 4, 14, 20); R(night ? '#2a2418' : '#b8ae96', px + 4, py + 22, 14, 2);
+  circle(night ? '#2a2418' : '#efe4be', px + 11, py + 8, 3); R('#0b0f18', px + 6, py + 13, 10, 4); R(night ? '#1a4a24' : '#3fe06a', px + 7, py + 14, 6, 1);
+  R(night ? '#2a2216' : '#3a3226', px + 20, py + 2, 10, 22);
+  for (const r of [0, 2, 3]) R(night ? '#6a5a3a' : '#efe6c8', px + 21, py + 4 + r * 5, 4, 3);
+  if (glow) glowSpot(px, py + T);
+}
 function wallSigns(L, layer, lang) {
   for (const sg of L.signs || []) {
     const label = typeof sg.text === 'string' ? sg.text : sg.text[lang];
@@ -905,6 +914,7 @@ function draw(c, s, o) {
     ctx = c;
   }
   wallSigns(L, layer, o.lang);
+  if (L.clock) timeClockWall(L.clock, o.clockSpot);
   if (o.phone) phone(o.phone, o.phone.ringing);
   if (o.windowFace && !night) windowFace(o.windowFace);
   if (L.showerT > 0) showerAir(L);

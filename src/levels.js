@@ -508,8 +508,8 @@
     layer: {de: 'Einschleusen', en: 'Gowning'}, stack: {de: '', en: ''},
     title: {de: 'Einschleusen', en: 'Gowning'}, log: {de: [], en: []}, fact: {de: [], en: []}, hint: {de: '', en: ''},
     triggers: [
-      {x: 1, y: 7, text: {de: 'Vogt Microelettronica, Luino. 21:56. Du übernimmst Bay 7 von Turno B. Keiner von ihnen hat ausgestempelt.', en: 'Vogt Microelettronica, Luino. 21:56. You take over Bay 7 from shift B. None of them clocked out.'}},
-      {x: 2, y: 5, text: {de: 'Umkleide. Straßensachen in deinen Spind, Nr. 18. Der Reinraumanzug hängt hinten an der Stange. Ein Mensch verliert Millionen Partikel pro Minute.', en: 'Gowning room. Street clothes go into your locker, no. 18. The cleanroom suit hangs on the rail at the back. A person sheds millions of particles a minute.'}},
+      {x: 1, y: 7, text: {de: 'Vogt Microelettronica, Luino. 21:56. Nachtschicht in Bay 7. Zuerst einstempeln.', en: 'Vogt Microelettronica, Luino. 21:56. Night shift in Bay 7. Clock in first.'}},
+      {x: 2, y: 5, clocked: true, text: {de: 'Umkleide. Straßensachen in deinen Spind, Nr. 18. Der Reinraumanzug hängt hinten an der Stange. Ein Mensch verliert Millionen Partikel pro Minute.', en: 'Gowning room. Street clothes go into your locker, no. 18. The cleanroom suit hangs on the rail at the back. A person sheds millions of particles a minute.'}},
       {x: 7, y: 3, suited: true, text: {de: 'Luftdusche: Düsen blasen gefilterte Luft mit etwa 25 m/s und lösen die letzten Partikel vom Anzug.', en: 'Air shower: nozzles blow filtered air at about 25 m/s and loosen the last particles from the suit.'}},
       {x: 13, y: 3, text: {de: 'Bay 7. Die Anlagen laufen. Niemand ist hier. Am Übergabewagen steht ein Los.', en: 'Bay 7. The tools are running. Nobody is here. A lot stands on the handover cart.'}},
     ],
@@ -521,6 +521,10 @@
     route: [{de: 'Los 4471 abholen', en: 'Pick up lot 4471'}],
     // The suit hangs on the gowning rack (G); standing in front of it you put it on, top to bottom.
     gownAt: [6, 2],
+    // The time clock on the corridor wall: your card in; three cards of shift B still in the IN row since 14:00.
+    clock: {x: 5, y: 5, at: [5, 6],
+      after: {de: 'Drei Karten stecken noch im Eingang: Rossi, Colombo, Ferrari. Eingestempelt um 14:00, nie ausgestempelt.',
+        en: 'Three cards are still in the IN row: Rossi, Colombo, Ferrari. Clocked in at 14:00, never clocked out.'}},
     // Before that, your locker: jacket and bag go in. Inside the door a note in your own handwriting, from 06:12.
     locker: {at: [4, 2], no: 18, note: {
       head: {de: 'SPIND 18 · INNEN AN DER TÜR', en: 'LOCKER 18 · INSIDE THE DOOR'},

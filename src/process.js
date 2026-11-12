@@ -17,6 +17,8 @@ function text(s, x, y, o = {}) {
 const CAP = {
   clean: {de: ['REINIGEN · RCA', 'SC-1 hebt Partikel ab, SC-2 löst Metalle, HF nimmt das native Oxid.'],
     en: ['CLEAN · RCA', 'SC-1 lifts particles, SC-2 dissolves metals, HF strips the native oxide.']},
+  clockin: {de: ['STEMPELUHR · 21:56', 'Deine Karte: eingestempelt. Drei andere stecken noch im Eingang.'],
+    en: ['TIME CLOCK · 21:56', 'Your card: clocked in. Three others are still in the IN row.']},
   intake: {de: ['EINGANGSKONTROLLE · LOS 4471', 'Ein Los: 25 Siliziumscheiben in einer Box (FOUP). Jede bekommt dieselben Schichten.'],
     en: ['INCOMING CHECK · LOT 4471', 'A lot: 25 silicon wafers in a box (FOUP). Every one gets the same layers.']},
   inspect: {de: ['PRÜFEN · PARTIKELMESSUNG', 'Ein Laser fährt spiralförmig über den Wafer. Jedes Streulicht ist ein Partikel.'],
@@ -244,6 +246,43 @@ function nitride(t, x, y, w, h) {
   text('SiO₂ 50 nm', px + 4, st.base - 6 - 8, {color: '#cfe8ff'});
   if (k > 0.2) text(`Si₃N₄ ${Math.round(100 * k)} nm`, px + pw - 4, st.top - 10, {align: 'right', color: '#bfe6c8'});
   text('3 SiH₂Cl₂ + 4 NH₃ → Si₃N₄', px + pw / 2, y + 4, {align: 'center', color: '#9aa6b5', font: 'IBM Plex Sans', size: 7, max: pw});
+}
+// Clocking in: card 18 goes into the slot and is stamped 21:56; in the rack, the cards of shift B are still in the IN
+// row, stamped 14:00, and their OUT slots are empty.
+function clockin(t, x, y, w, h) {
+  const de = lang === 'de', cx = x + 52;
+  R('#d8cfb8', cx - 40, y + 6, 80, h - 12); R('#c4bba4', cx - 40, y + 6, 80, 4);
+  circle('#2a2418', cx, y + 18, 10); circle('#efe4be', cx, y + 18, 9);
+  ctx.strokeStyle = '#1a1208'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(cx, y + 18); ctx.lineTo(cx + 5, y + 14); ctx.moveTo(cx, y + 18); ctx.lineTo(cx - 3, y + 18); ctx.stroke();
+  R('#0b0f18', cx - 32, y + 32, 64, 18);
+  const stamped = t > 120;
+  text(stamped ? 'ENTRATA 21:56' : 'TIMBRA', cx, y + 34, {align: 'center', color: '#3fe06a', max: 60});
+  text(stamped ? '18 · OK' : '----', cx, y + 42, {align: 'center', color: '#3fe06a', max: 60});
+  // The slot and the card going in and coming out with its stamp.
+  const slot = y + h - 22; R('#2a2418', cx - 10, slot, 20, 3);
+  const k = clamp((t - 40) / 130, 0, 1), dip = k < 0.45 ? ease(k / 0.45) : k < 0.55 ? 1 : 1 - ease((k - 0.55) / 0.3);
+  if (t > 30 && t < 200) {
+    const vis = 30 - dip * 24, top = slot - vis;
+    R('#efe6c8', cx - 8, top, 16, vis); R('#c9b98a', cx - 8, top, 16, 3);
+    if (vis > 14) text('18', cx, top + 4, {align: 'center', color: '#5a4a2a'});
+    if (stamped && vis > 22) { R('#2a8a3a', cx - 6, top + 14, 12, 6); }
+    R('#8a5cd6', cx - 9, top - 6, 18, 7);
+  }
+  // The rack: IN on the left, OUT on the right.
+  const rx = x + 112, rw = w - 118, rowH = 12, cols = [rx + 4, rx + rw / 2 + 2], cw = rw / 2 - 6;
+  R('#3a3226', rx, y + 4, rw, h - 8);
+  text(de ? 'EINGANG' : 'IN', cols[0] + cw / 2, y + 7, {align: 'center', color: '#c9b98a', max: cw});
+  text(de ? 'AUSGANG' : 'OUT', cols[1] + cw / 2, y + 7, {align: 'center', color: '#c9b98a', max: cw});
+  for (let r = 0; r < 6; r++) for (const c of cols) R('#2a2418', c, y + 18 + r * rowH, cw, rowH - 3);
+  const cards = [['ROSSI', 0, '14:00'], ['COLOMBO', 2, '14:00'], ['FERRARI', 3, '14:00']];
+  if (t > 200) cards.push(['18', 5, '21:56']);
+  cards.forEach(([n, r, at]) => {
+    R('#efe6c8', cols[0], y + 17 + r * rowH, cw, rowH - 2);
+    text(n, cols[0] + 3, y + 18 + r * rowH, {color: '#5a4a2a', font: 'IBM Plex Sans', size: 6, max: cw - 22});
+    text(at, cols[0] + cw - 2, y + 18 + r * rowH, {align: 'right', color: '#2a8a3a', font: 'IBM Plex Sans', size: 6, max: 22});
+  });
+  // Their OUT slots stay empty; the three blink once, then stay.
+  if (t > 220 && (F >> 4) % 2) for (const r of [0, 2, 3]) { ctx.strokeStyle = '#e0402a'; ctx.strokeRect(cols[1] + 0.5, y + 18.5 + r * rowH, cw - 1, rowH - 4); }
 }
 // Incoming check: the FOUP opens, a laser maps its 25 slots, one wafer comes out and is shown from above.
 function intake(t, x, y, w, h) {
@@ -655,7 +694,7 @@ function drawReticleFound(t, info) {
 // The animations are written for 230 frames. Each one plays slower than that, so there is time to look:
 // the clean takes about ten seconds, one bath after another. At the end the picture rests a moment.
 const BASE = 230, HOLD = 150;
-const DUR = {intake: 620, clean: 620, inspect: 480, oxidize: 540, nitride: 480, ellipso: 460, rs: 420, reticle: 230};
+const DUR = {clockin: 420, intake: 620, clean: 620, inspect: 480, oxidize: 540, nitride: 480, ellipso: 460, rs: 420, reticle: 230};
 function duration(type) { return (DUR[type] || 330) + (type === 'reticle' ? 0 : HOLD); }
 function draw(c, type, t, language, info) {
   ctx = c; lang = language; lotInfo = info && info.lot;
@@ -671,7 +710,7 @@ function draw(c, type, t, language, info) {
   text('LOT 4471', PX + PW - 6, y0 + 2, {align: 'right', color: '#ffcf5a'});
   ctx.save(); ctx.beginPath(); ctx.rect(PX, y0 + 12, PW, PH - 28); ctx.clip();
   R('#0d111a', PX, y0 + 12, PW, PH - 28);
-  const fn = {intake, clean, inspect, oxidize, nitride, ellipso, rs, coat, expose, cexpose: expose, develop, measure, contacts}[type];
+  const fn = {clockin, intake, clean, inspect, oxidize, nitride, ellipso, rs, coat, expose, cexpose: expose, develop, measure, contacts}[type];
   const tp = Math.min(tt, BASE + 10);
   if (fn) fn(tp, PX, y0 + 12, PW, PH - 28); else section(tp, PX, y0 + 12, PW, PH - 28, type);
   ctx.restore();
