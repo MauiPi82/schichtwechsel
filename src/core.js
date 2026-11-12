@@ -25,6 +25,8 @@
   // implanter also stop on their emergency button for HAZARD_OFF steps. Every tool needs RECHARGE steps.
   const FLASH_RADIUS = 4, FREEZE = 18, HAZARD_OFF = 24, RECHARGE = 48;
   const BELL_WARNING = 24;
+  // The warning comes in the last third of the interval, at most BELL_WARNING steps before the bell.
+  const bellWarning = bell => Math.min(BELL_WARNING, Math.floor(bell / 3));
   // Tiles: # wall, M machine, = glass, o hole, . floor, P start, X airlock exit,
   // 1-8 process stations (visited in order), V previous shift (night only).
   // K lockers, B bench, D door (closed until the game opens it; only in the intro).
@@ -334,7 +336,8 @@
     if (L.bell) {
       // bellFrom: after a resume the bell starts a full interval again (0 for a fresh hour and the solver).
       const bs = state.step - (state.bellFrom || 0), left = L.bell - (bs % L.bell);
-      if (left === BELL_WARNING || left === BELL_WARNING / 2) state.events.push('bell-warning');
+      const warn = bellWarning(L.bell);
+      if (left === warn || left === Math.floor(warn / 2)) state.events.push('bell-warning');
       if (bs % L.bell === 0) {
         const other = 1 - state.layer;
         state.events.push('bell');
@@ -472,6 +475,6 @@
     return null;
   }
 
-  return {W, H, DAY, NIGHT, ACTIONS, DIRS, SHIFT_COOLDOWN, GRACE, FLASH_RADIUS, FREEZE, HAZARD_OFF, RECHARGE, BELL_WARNING, SPECIES,
+  return {W, H, DAY, NIGHT, ACTIONS, DIRS, SHIFT_COOLDOWN, GRACE, FLASH_RADIUS, FREEZE, HAZARD_OFF, RECHARGE, BELL_WARNING, bellWarning, SPECIES,
     parseLevel, newState, step, clone, toolUse, hazardStopped, frozen, walkable, robotAt, beamPhase, pulseOn, timedHazard, bellIn, nearestEnemy, solve, idx};
 });

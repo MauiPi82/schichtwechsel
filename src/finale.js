@@ -110,8 +110,8 @@ function board(u) {
 /* ---------- Sequence ---------- */
 // The chip comes together (exposed, cut, bonded, moulded, on its board), then the story ends: the time clock takes all four cards, four leave by the lake.
 const PHASES = [
-  {id: 'expose', d: 3.4}, {id: 'wafer', d: 2.6}, {id: 'die', d: 3.4}, {id: 'bond', d: 3.6}, {id: 'mold', d: 2.8}, {id: 'board', d: 4.2},
-  {id: 'clock', d: 6.2}, {id: 'gate', d: 9.0}, {id: 'dawn', d: 999},
+  {id: 'expose', d: 3.0}, {id: 'wafer', d: 2.2}, {id: 'die', d: 2.8}, {id: 'bond', d: 3.0}, {id: 'mold', d: 2.6}, {id: 'board', d: 3.4},
+  {id: 'clock', d: 5.6}, {id: 'gate', d: 7.8}, {id: 'dawn', d: 999},
 ];
 function phaseAt(t) {
   for (const p of PHASES) { if (t < p.d) return [p.id, t, p.d]; t -= p.d; }
@@ -131,7 +131,7 @@ function draw(c, t, frame, lang, texts) {
       if (u < arrive) continue;
       reticle(ctx, lerp(40 + i * 70, wx - 40 + i * 4, kk), lerp(-60, 50 + i * 3, kk), 80, i);
     }
-    if (u > 3.0) { ctx.fillStyle = `rgba(210,190,255,${clamp((3.4 - u) * 3, 0, 1)})`; ctx.fillRect(0, 0, W, H); }
+    if (u > 2.6) { ctx.fillStyle = `rgba(210,190,255,${clamp((3.0 - u) * 3, 0, 1)})`; ctx.fillRect(0, 0, W, H); }
   } else if (id === 'wafer' || id === 'die') {
     const zoom = id === 'wafer' ? 1 + ease(k) * 1.6 : 0;
     if (id === 'wafer') {
@@ -179,6 +179,7 @@ function draw(c, t, frame, lang, texts) {
       txt(lang === 'de' ? 'ODENCHIP FREIGESCHALTET' : 'ODENCHIP UNLOCKED', W / 2 + 40, 290, 8, '#ffd27a', {align: 'left'});
       txt('odenwaeller.org/spiele/elektron', W / 2 + 40, 302, 8, '#c9c2ae', {align: 'left'});
     }
+    if (u > 5 && (F >> 5) % 2) txt(lang === 'de' ? 'SHIFT: ZUM TITEL' : 'SHIFT: TO THE TITLE', W - 16, BAR + 6, 8, '#8a8fa8', {align: 'right'});
   }
   // Grain, bars, caption.
   for (let i = 0; i < 160; i++) R(`rgba(255,255,255,${hash(i + frame) * 0.05})`, hash(i * 3 + frame) * W, hash(i * 7 + frame) * H, 1, 1);

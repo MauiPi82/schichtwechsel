@@ -758,8 +758,10 @@ function drawReticleFound(t, info) {
 // The animations are written for 230 frames. Each one plays slower than that, so there is time to look:
 // the clean takes about ten seconds, one bath after another. At the end the picture rests a moment.
 const BASE = 230, HOLD = 150;
-const DUR = {clockin: 420, intake: 620, clean: 620, inspect: 480, oxidize: 540, nitride: 480, ellipso: 460, rs: 420, reticle: 230};
-function duration(type) { return (DUR[type] || 330) + (type === 'reticle' ? 0 : HOLD); }
+// The measurements only read a number: they run shorter and rest less.
+const DUR = {clockin: 420, intake: 620, clean: 620, inspect: 360, oxidize: 540, nitride: 480, ellipso: 340, rs: 300, measure: 280, reticle: 230};
+const PASSIVE = new Set(['inspect', 'ellipso', 'rs', 'measure']);
+function duration(type) { return (DUR[type] || 330) + (type === 'reticle' ? 0 : PASSIVE.has(type) ? 90 : HOLD); }
 function draw(c, type, t, language, info) {
   ctx = c; lang = language; lotInfo = info && info.lot;
   if (type === 'reticle') { F = t; return drawReticleFound(t, info || {n: 1, found: 1, total: 8}); }

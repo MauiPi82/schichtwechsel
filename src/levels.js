@@ -34,6 +34,7 @@
       // Announcements over the PA (step, Italian, translation), a note from shift B, one scare.
       pa: [
         {at: 3, it: 'Attenzione. Turno B, presentarsi in Bay 7.', de: 'Achtung. Schicht B, bitte in Bay 7 melden.', en: 'Attention. Shift B, please report to Bay 7.'},
+        {at: 22, it: 'Mancano otto reticoli. Ultimo prelievo: turno B.', de: 'Acht Retikel fehlen. Zuletzt ausgeliehen: Schicht B.', en: 'Eight reticles are missing. Last signed out: shift B.'},
       ],
       note: {x: 11, y: 4, by: 'Rossi', text: {
         de: ['21:31. Los 4471 vom Stocker geholt.', 'Der Scanner summt, obwohl er im Leerlauf ist.', 'Colombo sagt, das ist normal.', 'Ist es nicht.'],

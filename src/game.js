@@ -22,7 +22,7 @@ const UI = {
     resume: 'Weiter ab', fresh: 'N: neue Nacht ab 22:00', physics: 'PHYSIK DER SCHICHT',
     caught: 'ERWISCHT', crushed: 'EINGEMAUERT', robot: 'ÜBERFAHREN', beam: 'IM STRAHL', heat: 'VERBRANNT', plasma: 'IM PLASMA',
     paused: 'PAUSE', pausedHint: 'P oder ESC: weiter', bell: 'GLOCKE', ion: 'IONEN', retry: 'R: neu versuchen',
-    stats: (d, s) => `Erwischt: ${d}   Schichtwechsel: ${s}`, thanks: 'Danke fürs Spielen.',
+    stats: (d, s) => `Erwischt: ${d}   Schichtwechsel: ${s}`, perHour: 'ERWISCHT JE STUNDE', thanks: 'Danke fürs Spielen.',
     sub: 'TURNO DI NOTTE · LUINO', credit: 'Ein Spiel von Maurizio Odenwaeller für Game Off 2026 · entwickelt mit Claude',
     sound: on => 'Ton: ' + (on ? 'an' : 'aus'), pause: 'Pause', full: 'Vollbild', menu: 'Menü', home: 'H: Hauptmenü',
     noteHead: 'VOGT MICROELETTRONICA · BAY 7 · TURNO B', q: ['„', '“'],
@@ -40,7 +40,7 @@ const UI = {
     resume: 'Continue from', fresh: 'N: new night from 22:00', physics: 'PHYSICS OF THE SHIFT',
     caught: 'CAUGHT', crushed: 'WALLED IN', robot: 'RUN OVER', beam: 'IN THE BEAM', heat: 'BURNED', plasma: 'IN THE PLASMA',
     paused: 'PAUSED', pausedHint: 'P or ESC: resume', bell: 'BELL', ion: 'IONS', retry: 'R: try again',
-    stats: (d, s) => `Caught: ${d}   Shift changes: ${s}`, thanks: 'Thank you for playing.',
+    stats: (d, s) => `Caught: ${d}   Shift changes: ${s}`, perHour: 'CAUGHT PER HOUR', thanks: 'Thank you for playing.',
     sub: 'TURNO DI NOTTE · LUINO', credit: 'A game by Maurizio Odenwaeller for Game Off 2026 · made with Claude',
     sound: on => 'Sound: ' + (on ? 'on' : 'off'), pause: 'Pause', full: 'Fullscreen', menu: 'Menu', home: 'H: main menu',
     noteHead: 'VOGT MICROELETTRONICA · BAY 7 · TURNO B', q: ['“', '”'],
@@ -438,8 +438,9 @@ addEventListener('keyup', e => {
 addEventListener('blur', () => { held.clear(); shiftHeld = false; if (mode === 'play') mode = 'paused'; });
 function press(what) {
   if (veilPhase === 'out') return;
-  if (mode === 'cinema') { if (cinemaT > 0.4) transition(() => startIntro(), 28, 60); return; }
-  if (mode === 'epilogue') { if (epiT > 1) transition(endEpilogue, 24, 1); return; }
+  // Skipping is ENTER everywhere (a tap on touch): SHIFT, the key of the game, never throws a scene away.
+  if (mode === 'cinema') { if (what === 'enter' && cinemaT > 0.4) transition(() => startIntro(), 28, 60); return; }
+  if (mode === 'epilogue') { if (what === 'enter' && epiT > 1) transition(endEpilogue, 24, 1); return; }
   if (introMode && (mode === 'play' || mode === 'shower' || mode === 'gown' || mode === 'locker')) { if (what === 'enter') transition(endIntro, 30, 1); return; }
   if (mode === 'mini') { if (what === 'enter') window.SchichtMini.skip(mini); else miniPressed = true; return; }
   // After a death the picture waits; a key brings you back to the last process step, in your own shift.
@@ -447,7 +448,7 @@ function press(what) {
   if (mode === 'process') { if (procT > 40) endProcess(); return; }
   if (mode === 'note') { if (noteT > 25) { mode = 'play'; queuedDir = null; queuedShift = false; } return; }
   if (mode === 'paused') { if (what === 'enter') mode = 'play'; return; }
-  if (mode === 'play') { if (what === 'shift') { queuedShift = true; shiftQueuedAt = frame; } return; }
+  if (mode === 'play') { if (what === 'shift' && frame - windowClosedAt > 15) { queuedShift = true; shiftQueuedAt = frame; } return; }
   if (mode === 'book') { if (bookSel <= openUpTo()) transition(() => startCard(bookSel), 24, 30); return; }
   if (mode === 'title') { audio.unlock(); if (progress === 0) transition(startCinema, 36, 1); else transition(() => startCard(progress), 30, 30); return; }
   if (mode === 'card' && cardT > 20) { transition(() => { checkpoint = null; startLevel(levelIndex); }, 22, 36); return; }
@@ -518,7 +519,7 @@ function pollPad() {
 let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0, shake = 0;
 let progress = clamp(parseInt(store.get('level'), 10) || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
 const deathsBy = levels.map(() => 0);
-const BUILD = '0.47 · 2026-11-12';
+const BUILD = '0.48 · 2026-11-12';
 // Testers can jump to an hour: ?stunde=3 or ?hour=3 opens the third hour.
 const jump = parseInt(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || '0', 10) || 0;
 if (jump >= 1 && jump <= levels.length) progress = jump - 1;
@@ -879,7 +880,8 @@ function doStep(action) {
   }
   if (state.events.includes('bump')) {
     const [dx, dy] = C.DIRS[state.face], o = 1 - state.layer;
-    if (C.walkable(state.level, o, state.x, state.y) && C.walkable(state.level, o, state.x + dx, state.y + dy)) shiftHintT = 120;
+    // Only in the first hours: later the player knows.
+    if (levelIndex <= 2 && C.walkable(state.level, o, state.x, state.y) && C.walkable(state.level, o, state.x + dx, state.y + dy)) shiftHintT = 120;
   }
   if (state.events.includes('shift')) shiftHintT = 0;
   if (state.events.includes('freeze')) audio.sfx('freeze');
@@ -899,8 +901,12 @@ function doStep(action) {
   if (WINDOW_MODES.has(mode)) { pendingMode = mode; mode = 'play'; }
 }
 
+// The SHIFT that closes a window must not also shift the layer: for a moment after it, SHIFT is ignored.
+let lastMode = null, windowClosedAt = -99;
+const CLOSERS = new Set(['mini', 'process', 'note', 'locker', 'gown', 'shower', 'card', 'paused']);
 function update() {
   frame++; pollPad();
+  if (mode !== lastMode) { if (mode === 'play' && CLOSERS.has(lastMode)) { windowClosedAt = frame; queuedShift = false; } lastMode = mode; }
   if (veilPhase) { stepVeil(); if (veilPhase === 'out') return; }
   if (mode === 'card' || mode === 'ending') cardT++;
   if (mode === 'finale') updateFinale();
@@ -1036,7 +1042,7 @@ function drawHUD() {
   if (L.bell) {
     const left = C.bellIn(state), w = 40, k = 1 - left / L.bell;
     R('#1a1e2a', W / 2 - 2 - w / 2 + 18, 13, w, 2);
-    R(left <= C.BELL_WARNING && (frame >> 3) % 2 ? '#ff6a3a' : '#c9a15a', W / 2 - 2 - w / 2 + 18, 13, Math.round(w * k), 2);
+    R(left <= C.bellWarning(L.bell) && (frame >> 3) % 2 ? '#ff6a3a' : '#c9a15a', W / 2 - 2 - w / 2 + 18, 13, Math.round(w * k), 2);
   }
   const def2 = LEVELS[levelIndex], by = FY + C.H * T - 13;
   const tool = nearTool();
@@ -1094,7 +1100,22 @@ function storyView() {
   };
 }
 // The strip never covers the player: at the top, or above the bottom bar when the player is up there.
-function paY() { return state && state.y <= 3 ? FY + C.H * T - 13 - 26 : FY + 3; }
+// The PA bar and the toasts sit at the top or the bottom of the room, wherever they cover neither the player
+// nor the next station (the player counts double).
+function nextTarget() {
+  if (!state || introMode) return null;
+  const L = state.level, st = L.stations[state.got];
+  return st || L.exits.find(x => x.layer === state.layer) || null;
+}
+function covers(y, h, x0, w) {
+  const hit = (tx, ty) => FY + ty * T + T > y - 6 && FY + ty * T < y + h + 6 && (w === undefined || Math.abs(tx * T + 8 - x0) < w / 2 + 10);
+  const tg = nextTarget();
+  return (state && hit(state.x, state.y) ? 2 : 0) + (tg && hit(tg.x, tg.y) ? 1 : 0);
+}
+function paY() {
+  const top = FY + 3, bottom = FY + C.H * T - 13 - 26;
+  return covers(bottom, 24) < covers(top, 24) ? bottom : top;
+}
 // The announcement as a strip under the bar: loudspeaker, the Italian words as they are spoken, the translation.
 function drawPA() {
   if (!paNow || introMode || mode === 'rewind') return;
@@ -1149,7 +1170,7 @@ function renderPlay() {
   window.SchichtWorld.draw(ctx, state, {reticle: rt, reticleN: levelIndex,k: mode === 'play' ? k : 1, frame, reduced, lang, enemies: introGhosts() || state.enemies.map(enemyPos),
     playerVisible: cheatSafe || !(state.step < state.safeUntil && (frame >> 2) % 2), shiftHint: shiftHintT > 0 && !introMode, civilian: introMode && !suited, gownSpot: introMode && lockerDone && !suited && mode !== 'gown', ...gownView(),
     lockerDone: introMode && lockerDone, lockerSpot: introMode && clockedIn && !lockerDone && mode !== 'locker' ? INTRO.locker.at : null,
-    clockSpot: introMode && !clockedIn && mode !== 'process',
+    clockSpot: introMode && !clockedIn && mode !== 'process', hideNext: introMode && !showerDone,
     locker: introMode && (mode === 'locker' || (mode === 'note' && noteSrc === 'locker')) ? {no: INTRO.locker.no, t: mode === 'locker' ? lockerT : 99} : null,
     frozen: state.enemies.map(e => C.frozen(state, e)), flash: flashFx && {...flashFx, a: 1 - flashFx.t / 34},
     grace: !introMode && state.layer === 1 && state.enemies.length ? clamp(1 - ((state.step - state.lastShift) * STEP_FRAMES + stepFrame) / (C.GRACE * STEP_FRAMES), 0, 1) : 0,
@@ -1162,18 +1183,19 @@ function renderPlay() {
     ctx.strokeRect(state.x * T + 0.5, FY + state.y * T + 0.5, T - 1, T - 1);
     ctx.globalAlpha = 1;
   }
+  bellPreview();
   drawHUD();
   drawPA();
   if (mode === 'gown') drawGown();
-  if (toastT > 0 && !toastHeld() && mode !== 'note') {
+  if (toastT > 0 && !toastHeld() && !['note', 'gown', 'locker', 'shower'].includes(mode)) {
     ctx.globalAlpha = clamp(toastT / 20, 0, 1);
     ctx.font = '400 8px "Silkscreen", monospace';
     // Long messages (the intro, the handover) wrap onto balanced lines instead of being squeezed.
     const lines = wrapLine(toastText, W - 30), h = 3 + lines.length * 10;
     const w = Math.min(W - 16, Math.max(...lines.map(l => ctx.measureText(l).width)) + 14);
     // Over the top of the room, unless the player stands there: then over the bottom, so you see yourself.
-    const top = paNow && !introMode && paY() === FY + 3 ? FY + 30 : FY + 4;
-    const ty = state && FY + state.y * T < top + h + 2 && Math.abs(state.x * T + 8 - W / 2) < w / 2 + 8 ? FY + C.H * T - h - 16 : top;
+    const top = paNow && !introMode && paY() === FY + 3 ? FY + 30 : FY + 4, bottom = FY + C.H * T - h - 16;
+    const ty = covers(bottom, h, W / 2, w) < covers(top, h, W / 2, w) ? bottom : top;
     R('rgba(5,6,10,.85)', W / 2 - w / 2, ty, w, h); R(state.layer ? '#ffb43a' : '#9fe0ff', W / 2 - w / 2, ty + h - 1, w, 1);
     lines.forEach((l, i) => txt(l, W / 2, ty + 3 + i * 10, {align: 'center', color: '#e9e4d6', max: w - 10}));
     ctx.globalAlpha = 1;
@@ -1193,6 +1215,28 @@ function renderPlay() {
     ctx.fillStyle = fxLayer ? `rgba(255,180,50,${0.35 * a})` : `rgba(230,245,255,${0.45 * a})`;
     ctx.fillRect(0, 0, W, H);
   }
+}
+
+// Before the bell: a double exposure of the other layer around the player. Its walls show through in red,
+// and the own tile is framed green (the bell carries you over) or red (there is a wall: move).
+function bellPreview() {
+  const L = state.level;
+  if (!L.bell || introMode || mode !== 'play' || state.status !== 'play') return;
+  const left = C.bellIn(state), warn = C.bellWarning(L.bell);
+  if (left > warn) return;
+  const other = 1 - state.layer, a = 0.35 + 0.25 * Math.sin(frame / 4);
+  for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+    const x = state.x + dx, y = state.y + dy;
+    // Only what differs: walls of the other layer where yours is open.
+    if (x < 0 || y < 0 || x >= C.W || y >= C.H || C.walkable(L, other, x, y) || !C.walkable(L, state.layer, x, y)) continue;
+    ctx.globalAlpha = a * (1 - Math.max(Math.abs(dx), Math.abs(dy)) * 0.25);
+    for (let k = 0; k < T; k += 3) R('#ff6a3a', x * T + k, FY + y * T + (k % 2 ? 0 : T - 1), 1, 1);
+    ctx.strokeStyle = '#ff6a3a'; ctx.lineWidth = 1; ctx.strokeRect(x * T + 1.5, FY + y * T + 1.5, T - 3, T - 3);
+  }
+  ctx.globalAlpha = 0.6 + 0.4 * Math.sin(frame / 3);
+  ctx.strokeStyle = C.walkable(L, other, state.x, state.y) ? '#3fe06a' : '#ff4a3a'; ctx.lineWidth = 1;
+  ctx.strokeRect(state.x * T + 0.5, FY + state.y * T + 0.5, T - 1, T - 1);
+  ctx.globalAlpha = 1;
 }
 
 // Every way to fail has its own picture: their visor, the wall that closes, the ion beam, the furnace heat, the plasma.
@@ -1475,7 +1519,8 @@ function renderEnding() {
   if (cardT > 200) txt(ENDING.stack[lang], 254, 100, {align: 'center', color: '#e0402a', font: 'IBM Plex Sans', size: 7});
   if (cardT > 260) {
     txt(t().stats(deaths, totalShifts), 16, 136, {color: '#8c93a8', max: 180});
-    txt(LEVELS.map((d, i) => `${i + 1}:${deathsBy[i]}`).join('  '), 16, 146, {color: '#6b7190', max: 180});
+    txt(t().perHour, 16, 146, {color: '#4c5470', font: 'IBM Plex Sans', size: 6});
+    txt(LEVELS.map((d, i) => `${d.time.slice(0, 2)}h ${deathsBy[i]}`).join('  '), 16, 153, {color: '#6b7190', font: 'IBM Plex Sans', size: 7, max: 180});
   }
   if (cardT > 280 && Object.keys(lot.s).length) {
     const y = lotYield(), g = window.SchichtMini.grade((y - 26) / 71);
@@ -1510,13 +1555,13 @@ function renderMode() {
   if (mode === 'cinema') {
     ctx.setTransform(Z / 2, 0, 0, Z / 2, 0, 0); window.SchichtCinema.draw(ctx, cinemaT, frame);
     ctx.setTransform(Z, 0, 0, Z, 0, 0);
-    if (cinemaT > 1) txt(lang === 'de' ? 'SHIFT: ÜBERSPRINGEN' : 'SHIFT: SKIP', W - 6, H - 12, {align: 'right', color: '#3a4058', shadow: null});
+    if (cinemaT > 1) txt(lang === 'de' ? 'ENTER: ÜBERSPRINGEN' : 'ENTER: SKIP', W - 6, H - 12, {align: 'right', color: '#3a4058', shadow: null});
     return;
   }
   if (mode === 'epilogue') {
     ctx.setTransform(Z / 2, 0, 0, Z / 2, 0, 0); window.SchichtCinema.drawEnd(ctx, epiT, frame, ENDING.shots[lang]);
     ctx.setTransform(Z, 0, 0, Z, 0, 0);
-    if (epiT > 1) txt(lang === 'de' ? 'SHIFT: ÜBERSPRINGEN' : 'SHIFT: SKIP', W - 6, 4, {align: 'right', color: '#3a4058', shadow: null});
+    if (epiT > 1) txt(lang === 'de' ? 'ENTER: ÜBERSPRINGEN' : 'ENTER: SKIP', W - 6, 4, {align: 'right', color: '#3a4058', shadow: null});
     return;
   }
   if (mode === 'title') return renderTitle();

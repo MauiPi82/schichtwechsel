@@ -531,7 +531,7 @@ function toolBlocks(L, layer) {
 }
 
 /* ---------- Stations, airlock, rail ---------- */
-function stations(L, layer, s, lang) {
+function stations(L, layer, s, lang, hideNext) {
   // The next station lies in the other shift: its place shows as a dashed outline, so you know where to shift.
   const nx = L.stations[s.got];
   if (nx && nx.layer !== layer && !L.intro) {
@@ -559,7 +559,7 @@ function stations(L, layer, s, lang) {
     R(led, px + 23, py + 25, 2, 2);
     text(done ? 'OK' : `${n + 1}`, px + 9, py + 23, {size: 8, color: done ? '#3fe06a' : night ? '#8a6a30' : '#9aa6b5', max: 12});
     }
-    if (next) {
+    if (next && !hideNext) {
       const a = 0.5 + 0.5 * Math.sin(F / 8);
       ctx.strokeStyle = night ? `rgba(255,207,90,${a})` : `rgba(127,208,255,${a})`; ctx.lineWidth = 2;
       ctx.strokeRect(px + 1, py + 1, T - 2, T - 2);
@@ -741,8 +741,15 @@ function beams(L, s) {
     }
     const ph = b.phases[C.beamPhase(b, s.step)];
     if (off) { if ((F >> 5) % 2) text('BEAM OFF', b.x * T + 36, FY + b.y * T + 8, {color: '#e0281a', shadow: '#fff'}); continue; }
-    if (b.every - (s.step % b.every) <= 6 && (F >> 4) % 2) continue;
     const col = {B: '#9fe0ff', P: '#d59cff', As: '#9cff9c', BF2: '#ffe08a'}[ph.species];
+    // Shortly before the magnet switches, the next ion's path shows dashed: you see where the beam will go.
+    if (b.every - (s.step % b.every) <= 6) {
+      const nx = b.phases[(C.beamPhase(b, s.step) + 1) % b.phases.length];
+      ctx.strokeStyle = {B: '#9fe0ff', P: '#d59cff', As: '#9cff9c', BF2: '#ffe08a'}[nx.species]; ctx.globalAlpha = 0.7; ctx.lineWidth = 2; ctx.setLineDash([4, 4]); ctx.lineDashOffset = -F / 2;
+      ctx.beginPath(); nx.points.forEach(([x, y], i) => i ? ctx.lineTo(x * T, FY + y * T) : ctx.moveTo(x * T, FY + y * T)); ctx.stroke();
+      ctx.setLineDash([]); ctx.lineDashOffset = 0; ctx.globalAlpha = 1;
+      if ((F >> 4) % 2) continue;
+    }
     for (const [w, a] of [[9, 0.12], [5, 0.25], [2, 1]]) {
       ctx.strokeStyle = col; ctx.globalAlpha = a * (0.85 + 0.15 * Math.sin(F / 3)); ctx.lineWidth = w;
       ctx.beginPath(); ph.points.forEach(([x, y], i) => i ? ctx.lineTo(x * T, FY + y * T) : ctx.moveTo(x * T, FY + y * T)); ctx.stroke();
@@ -909,7 +916,9 @@ function draw(c, s, o) {
     if (layer === 0 && y === C.H - 1) beams(L, s);
     for (const f of figures) if (Math.floor(f.y + 0.5) === y) f.draw();
   }
-  stations(L, layer, s, o.lang);
+  // The rail hangs over the floor, but the station labels stay readable above it.
+  rail(L, layer);
+  stations(L, layer, s, o.lang, o.hideNext);
   if (o.lockerSpot) glowSpot(o.lockerSpot[0] * T, FY + o.lockerSpot[1] * T);
   if (o.reticle && night && window.SchichtOdenchip) {
     const rx = o.reticle.x * T, ry = FY + o.reticle.y * T, bob = Math.round(Math.sin(F / 14) * 2);
@@ -935,7 +944,6 @@ function draw(c, s, o) {
     ctx.beginPath(); ctx.ellipse(px + 16, py + 22, 9, 13, -0.2, 0, 7); ctx.fill();
     ctx.beginPath(); ctx.ellipse(px + 15, py + 6, 6, 6, 0, 0, 7); ctx.fill();
   });
-  rail(L, layer);
   if (o.grace > 0) {
     ctx.strokeStyle = `rgba(255,207,90,${0.35 + 0.4 * o.grace})`; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(ppx + 16, ppy + 14, 19, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * o.grace); ctx.stroke();

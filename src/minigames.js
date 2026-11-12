@@ -268,7 +268,7 @@ const oxidize = {
  * its way down, so the lower wafers get less. Tilt the three heater zones until every wafer grows alike. ---------- */
 // Rate per wafer: Arrhenius in the local temperature (Ea about 1.8 eV: +1.9 % per kelvin near 780 °C) times the gas
 // left at that height (down to 74 % at the bottom). The zones follow their set point with some delay.
-const NIT_EA = 1.8, KB = 8.617e-5, NIT_T0 = 780, NIT_N = 12, NIT_TARGET = 100, NIT_RATE = 100 / 520, NIT_LAG = 70;
+const NIT_EA = 1.8, KB = 8.617e-5, NIT_T0 = 780, NIT_N = 12, NIT_TARGET = 100, NIT_RATE = 100 / 520, NIT_LAG = 35;
 const nitGas = i => 1 - 0.26 * i / (NIT_N - 1);
 const nitTemp = (z, i) => {
   // Zone centres at wafers 1.5, 5.5 and 9.5; the profile runs linearly through them and on past the ends.
@@ -293,8 +293,8 @@ const nitride = {
     for (let i = 0; i < NIT_N; i++) m.th[i] += NIT_RATE * nitRate(m.act, i);
     const {mean, u} = nitUniformity(m.th);
     if (mean >= NIT_TARGET) {
-      // ±0.5 % is as good as the tool gets; from about ±5.5 % the lot is scrap.
-      finish(m, 1 - Math.max(0, u - 0.5) / 5, {nitride: mean, nitrideU: u}, [
+      // ±1 % is as good as the tool gets; from about ±7 % the lot is scrap.
+      finish(m, 1 - Math.max(0, u - 1) / 6, {nitride: mean, nitrideU: u}, [
         L(`Si₃N₄ ${num(mean)} nm · Gleichmäßigkeit ±${num(u)} %`, `Si₃N₄ ${num(mean)} nm · uniformity ±${num(u)} %`),
         L(`Zonen ${m.set.map(v => num(v)).join(' / ')} °C. Das Ellipsometer misst nach.`, `Zones ${m.set.map(v => num(v)).join(' / ')} °C. The ellipsometer checks it.`)]);
     }
@@ -504,14 +504,15 @@ const etch = {
     const T = m.te + 40, p = (m.g - T) / T * 100;
     if (inp.pressed || p > 120) {
       m.sfx('click');
-      const s = p < 0 ? 1 + p / 25 : p < 15 ? 0.8 + 0.2 * p / 15 : p <= 35 ? 1 : 1 - (p - 35) / 60;
+      const s = p < 0 ? 1 + p / 25 : p < 20 ? 0.8 + 0.2 * p / 20 : p <= 30 ? 1 : 1 - (p - 30) / 60;
       finish(m, s, {overEtch: p}, [
         p < 0 ? L('Zu früh gestoppt: Oxidreste in den Gräben.', 'Stopped too early: oxide left in the trenches.') : L(`Überätzung ${Math.round(p)} %`, `Over-etch ${Math.round(p)} %`),
         L('20 bis 30 % sind richtig, mehr greift das Silizium an.', '20 to 30 % is right, more attacks the silicon.')]);
     }
   },
   draw(m) {
-    const a = frame(m, L('ÄTZEN · PLASMA, ENDPUNKT', 'ETCH · PLASMA, ENDPOINT'), L('SHIFT: STOPP, ETWAS NACH DEM CO-ABFALL', 'SHIFT: STOP A LITTLE AFTER THE CO DROP'));
+    const T = m.te + 40, p = (m.g - T) / T * 100, past = m.g >= T;
+    const a = frame(m, L('ÄTZEN · PLASMA, ENDPUNKT', 'ETCH · PLASMA, ENDPOINT'), past ? L('SHIFT: STOPP BEI ÜBERÄTZEN 20 BIS 30 %', 'SHIFT: STOP AT OVER-ETCH 20 TO 30 %') : L('WARTEN: CN FÄLLT, DANN CO', 'WAIT: CN DROPS, THEN CO'));
     // Left: the chamber. The plasma glows in the colour of what it etches: CN blue-violet on nitride, CO violet on oxide.
     const lit = m.t >= 30, cn = m.cn.length ? m.cn[m.cn.length - 1] : 0.9, co = m.co.length ? m.co[m.co.length - 1] : 0.1;
     const mix = [Math.round(110 * cn + 214 * co + 60), Math.round(200 * cn + 120 * co + 20), 255];
@@ -528,6 +529,14 @@ const etch = {
       shown.forEach((v, i) => ctx[i ? 'lineTo' : 'moveTo'](gx + gw - 1 - shown.length + i, gy + gh - 3 - v * (gh - 8)));
       ctx.stroke();
     });
+    // When the CO line has dropped, the tool calls the endpoint and counts the over-etch from there.
+    if (past) {
+      const ex = gx + gw - 1 - (m.g - T);
+      if (ex > gx) { ctx.globalAlpha = 0.7; R('#ffcf5a', ex, gy + 2, 1, gh - 4); ctx.globalAlpha = 1; }
+      const good = p >= 20 && p <= 30;
+      R('rgba(11,15,24,.9)', gx + gw / 2, gy + gh - 13, gw / 2 - 1, 11);
+      text(`${L('ÜBERÄTZEN', 'OVER-ETCH')} ${Math.max(0, Math.round(p))} %`, gx + gw - 3, gy + gh - 12, {align: 'right', color: good ? '#3fe06a' : p < 20 ? '#ffcf5a' : '#ff8a5a', max: gw - 4});
+    }
     // Right bottom: cross-section. Resist, nitride, oxide; the holes go down, polymer on their walls, then the silicon.
     const sx = gx, sw = gw, si = a.y + a.h - 8, nit = 5, ox = 13, holes = [0.18, 0.5, 0.82].map(f => sx + f * sw - 6);
     R('#4f5866', sx, si, sw, 8); R('#cfe8ff', sx, si - ox, sw, ox); R('#9fc4a8', sx, si - ox - nit, sw, nit); R('#d99a32', sx, si - ox - nit - 8, sw, 8);
@@ -792,7 +801,7 @@ function drawBrief(m) {
 const SKIP = {clean: {particles: 12}, oxidize: {oxide: 52.4}, nitride: {nitride: 100.2, nitrideU: 2.4}, coat: {resist: 104, rpm: 1850}, expose: {overlay: 8}, develop: {cd: 43.2, dev: 60}, etch: {overEtch: 8}, implant: {dose: 0.8, purity: 1}};
 function skip(m) {
   if (m.phase === 'result') return;
-  finish(m, 0.6, SKIP[m.type], [L('Übersprungen: Die Anlage fährt ihr Standardrezept.', 'Skipped: the tool runs its standard recipe.')]);
+  finish(m, 0.45, SKIP[m.type], [L('Übersprungen: Die Anlage fährt ihr Standardrezept.', 'Skipped: the tool runs its standard recipe.')]);
 }
 function create(type, o = {}) {
   // With brief, the step first explains itself and starts on SHIFT.
