@@ -6,7 +6,9 @@
  * route: names of the process stations. fact: the physics behind the layer.
  * beams: implanter beams (your shift), bent by a magnet: r = sqrt(2 m E) / (q B).
  * heat: furnace mouths that open in turns; the floor heat follows the heat equation.
- * pulses: plasma that fires in a fixed rhythm inside a rectangle of one map. */
+ * pulses: plasma that fires in a fixed rhythm inside a rectangle of one map.
+ * pa: announcements over the loudspeakers (from step "at", Italian with translation). note: a note from shift B,
+ * read by standing on it (in the shift before unless layer: "day"). scare: one harmless scare per hour. */
 (function (root, factory) {
   const api = factory();
   if (typeof module === 'object' && module.exports) module.exports = api;
@@ -28,6 +30,15 @@
         en: ['Chip-grade silicon is 99.9999999 % pure: at most one foreign', 'atom per billion silicon atoms. Hence the cleanroom, the suit', 'and the airlock. Down here, a speck of dust is a boulder.'],
       },
       hint: {de: 'SHIFT wechselt die Schicht', en: 'SHIFT changes the shift'},
+      // Announcements over the PA (step, Italian, translation), a note from shift B, one scare.
+      pa: [
+        {at: 3, it: 'Attenzione. Turno B, presentarsi in Bay 7.', de: 'Achtung. Schicht B, bitte in Bay 7 melden.', en: 'Attention. Shift B, please report to Bay 7.'},
+      ],
+      note: {x: 10, y: 4, by: 'Rossi', text: {
+        de: ['21:31. Los 4471 vom Stocker geholt.', 'Der Scanner summt, obwohl er im Leerlauf ist.', 'Colombo sagt, das ist normal.', 'Ist es nicht.'],
+        en: ['21:31. Took lot 4471 from the stocker.', 'The scanner hums, though it is idle.', 'Colombo says that is normal.', 'It is not.'],
+      }},
+      scare: {type: 'phone', at: 12, x: 4, y: 0},
       tools: [
         {x0: 6, y0: 1, type: 'stocker'},
         {x0: 3, y0: 5, type: 'wetbench', name: 'PURA W-6', baths: ['SPM', 'HF', 'SC-1', 'SC-2', 'DRY']},
@@ -73,6 +84,15 @@
         en: ['Thermal oxide: at 1000 °C, SiO₂ grows in dry oxygen', 'by only a few tens of nanometres per hour.', 'The thicker it gets, the slower it grows (Deal-Grove).'],
       },
       hint: {de: 'Ihre Schatten folgen dir auch in deiner Schicht', en: 'Their shadows follow you, even in your shift'},
+      // Announcements over the PA (step, Italian, translation), a note from shift B, one scare.
+      pa: [
+        {at: 5, it: 'Il lotto 4471 è in attesa. Ripeto: in attesa.', de: 'Los 4471 wartet. Ich wiederhole: wartet.', en: 'Lot 4471 is waiting. I repeat: waiting.'},
+      ],
+      note: {x: 9, y: 8, by: 'Colombo', text: {
+        de: ['Die Öfen stehen auf 1000 °C.', 'Es läuft kein Rezept.', 'Ich hab es ins Schichtbuch geschrieben.', 'Danach war die Seite leer.'],
+        en: ['The furnaces sit at 1000 °C.', 'No recipe is running.', 'I wrote it in the shift log.', 'Afterwards the page was blank.'],
+      }},
+      scare: {type: 'window'},
       enemyEvery: 4,
       tools: [
         {x0: 3, y0: 1, type: 'furnace', n: 3, name: 'FORNO V-3', temp: '1000°C'},
@@ -119,6 +139,15 @@
         en: ['Photoresist reacts to short wavelengths. A photon of', 'yellow light (580 nm) carries only E = hc/λ ≈ 2.1 eV.', 'Too little to expose it. That is why the shift before is yellow.'],
       },
       hint: {de: 'Die Schritte in Reihenfolge, dann zur Schleuse', en: 'The steps in order, then to the airlock'},
+      // Announcements over the PA (step, Italian, translation), a note from shift B, one scare.
+      pa: [
+        {at: 4, it: 'Litografia: luce gialla. Non aprire le porte.', de: 'Lithografie: Gelblicht. Türen nicht öffnen.', en: 'Lithography: yellow light. Do not open the doors.'},
+      ],
+      note: {x: 9, y: 5, by: 'Ferrari', text: {
+        de: ['Gelblicht an. Auf dem Boden liegen Schatten.', 'Außer uns ist niemand hier.', 'Wir zählen sie: einer, zwei, drei.', 'Vier.'],
+        en: ['Yellow light on. There are shadows on the floor.', 'Nobody is here but us.', 'We count them: one, two, three.', 'Four.'],
+      }},
+      scare: {type: 'blackout', at: 14, layer: 'night'},
       route: [{de: 'Belacken', en: 'Coat', proc: 'coat'}, {de: 'Belichten', en: 'Expose', proc: 'expose'}, {de: 'Entwickeln', en: 'Develop', proc: 'develop'}],
       enemyEvery: 4,
       tools: [
@@ -165,6 +194,15 @@
         en: ['The scanner exposes at 193 nm, through water (n ≈ 1.44).', 'Smallest feature ≈ k₁ · λ / NA = 0.28 · 193 nm / 1.35 ≈ 40 nm.', 'Etching then transfers the pattern into the oxide.'],
       },
       hint: {de: 'Die Glocke wechselt für dich. Steh auf festem Boden', en: 'The bell shifts for you. Stand on solid ground'},
+      // Announcements over the PA (step, Italian, translation), a note from shift B, one scare.
+      pa: [
+        {at: 6, it: 'Si ricorda: il turno di notte finisce alle sei.', de: 'Zur Erinnerung: Die Nachtschicht endet um sechs.', en: 'A reminder: the night shift ends at six.'},
+      ],
+      note: {x: 15, y: 3, by: 'Rossi', text: {
+        de: ['Der Campanile hat geschlagen,', 'und ich stand woanders. Gleiche Bay, andere Schicht.', 'Colombo stand direkt neben mir.', 'Er hat mich nicht gehört.'],
+        en: ['The campanile struck,', 'and I stood somewhere else. Same bay, other shift.', 'Colombo stood right next to me.', 'He did not hear me.'],
+      }},
+      scare: {type: 'shadow', at: 10, n: 1},
       route: [{de: 'Ätzen', en: 'Etch', proc: 'etch'}, {de: 'Lack entfernen', en: 'Strip resist', proc: 'strip'}],
       enemyEvery: 4,
       bell: 30,
@@ -214,6 +252,15 @@
         en: ['In the magnet every ion flies on a circle: r = √(2mE) / (qB).', 'At 40 keV and 0.25 T: boron 0.38 m, phosphorus 0.64 m, arsenic 1.00 m.', 'That is how the tool separates them. The beam is deadly.'],
       },
       hint: {de: 'Lies den Strahl. Schwere Ionen fliegen weiter', en: 'Read the beam. Heavy ions fly wider'},
+      // Announcements over the PA (step, Italian, translation), a note from shift B, one scare.
+      pa: [
+        {at: 3, it: "Attenzione: alta tensione nell'area impianti.", de: 'Achtung: Hochspannung im Implanterbereich.', en: 'Caution: high voltage in the implanter area.'},
+      ],
+      note: {x: 4, y: 2, by: 'Colombo', text: {
+        de: ['Ich habe die acht Retikel versteckt,', 'eins in jeder Schicht, in der Vorschicht.', 'Wer alle findet, macht 4471 fertig.', 'Dann dürfen wir gehen.'],
+        en: ['I hid the eight reticles,', 'one in every layer, in the shift before.', 'Whoever finds them all finishes 4471.', 'Then we may leave.'],
+      }},
+      scare: {type: 'blackout', at: 18, layer: 'day'},
       route: [{de: 'Implantieren', en: 'Implant', proc: 'implant'}],
       enemyEvery: 4,
       beams: [{x: 1, y: 8, dir: 'right', keV: 40, metersPerTile: 0.15, field: {x0: 3, y0: 1, x1: 12, y1: 8, B: 0.25}, species: ['B', 'P', 'As'], every: 24}],
@@ -261,6 +308,15 @@
         en: ['Heat spreads as ∂T/∂t = α·∇²T. Dopant atoms wander', 'the same way: diffusion length ≈ 2·√(D·t). That is why rapid', 'thermal anneals go past 1000 °C for seconds, then cool at once.'],
       },
       hint: {de: 'Warte, bis die Hitze zurückweicht', en: 'Wait for the heat to fall back'},
+      // Announcements over the PA (step, Italian, translation), a note from shift B, one scare.
+      pa: [
+        {at: 4, it: 'Il signor Rossi è atteso in portineria.', de: 'Herr Rossi wird an der Pforte erwartet.', en: 'Signor Rossi is expected at the gate.'},
+      ],
+      note: {x: 10, y: 3, by: 'Ferrari', text: {
+        de: ['03:00. Wir wollten ausstempeln.', 'Die Karte geht durch die Uhr wie durch Luft.', 'Auf dem Display: USCITA NEGATA.', 'Ausgang verweigert.'],
+        en: ['03:00. We tried to clock out.', 'The card passes through the clock like air.', 'The display says: USCITA NEGATA.', 'Exit denied.'],
+      }},
+      scare: {type: 'phone', at: 14, x: 2, y: 0},
       route: [{de: 'Ausheilen', en: 'Anneal', proc: 'anneal'}],
       enemyEvery: 4,
       heat: {
@@ -311,6 +367,15 @@
         en: ['The etcher strikes a plasma at 13.56 MHz. Ions fall straight', 'down through the sheath onto the wafer. That is how straight,', 'deep contact holes form instead of round dents.'],
       },
       hint: {de: 'Das Plasma zündet im Takt', en: 'The plasma fires in rhythm'},
+      // Announcements over the PA (step, Italian, translation), a note from shift B, one scare.
+      pa: [
+        {at: 4, it: 'Allarme gas rientrato. Ripeto: rientrato.', de: 'Gasalarm aufgehoben. Ich wiederhole: aufgehoben.', en: 'Gas alarm cleared. I repeat: cleared.'},
+      ],
+      note: {x: 4, y: 6, by: 'Rossi', text: {
+        de: ['ROSSI_01 ist mein Rezept.', 'Ich habe es nicht gestartet.', 'Ich kann nichts mehr starten.', 'Ich kann nichts mehr anfassen.'],
+        en: ['ROSSI_01 is my recipe.', 'I did not start it.', 'I cannot start anything any more.', 'I cannot touch anything any more.'],
+      }},
+      scare: {type: 'blackout', at: 22, layer: 'night'},
       route: [{de: 'Oxid abscheiden', en: 'Deposit oxide', proc: 'deposit'}, {de: 'Kontakte ätzen', en: 'Etch contacts', proc: 'contacts'}],
       enemyEvery: 4,
       pulses: [
@@ -364,6 +429,16 @@
         en: ['Sputtering in vacuum: mean free path λ = kT / (√2·π·d²·p).', 'At 10⁻⁶ mbar an argon atom flies about 70 m on average.', 'So the aluminium atoms reach the wafer in straight lines.'],
       },
       hint: {de: 'Alles zugleich. Die Glocke schlägt öfter', en: 'Everything at once. The bell strikes more often'},
+      // Announcements over the PA (step, Italian, translation), a note from shift B, one scare.
+      pa: [
+        {at: 2, it: 'Turno B: Rossi. Colombo. Ferrari.', de: 'Schicht B: Rossi. Colombo. Ferrari.', en: 'Shift B: Rossi. Colombo. Ferrari.'},
+        {at: 24, it: '... e tu.', de: '... und du.', en: '... and you.'},
+      ],
+      note: {x: 5, y: 8, layer: 'day', by: 'Rossi, Colombo, Ferrari', text: {
+        de: ['Wenn du das liest, bist du schon lange hier.', 'Mach das Los fertig.', 'Und bleib nicht stehen,', 'wenn die Glocke schlägt.'],
+        en: ['If you are reading this, you have been here long.', 'Finish the lot.', 'And do not stand still', 'when the bell strikes.'],
+      }},
+      scare: {type: 'shadow', afterPa: 1, n: 3},
       route: [{de: 'Sputtern', en: 'Sputter', proc: 'sputter'}, {de: 'Messen', en: 'Measure', proc: 'measure'}],
       enemyEvery: 4,
       bell: 36,

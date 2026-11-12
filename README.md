@@ -10,17 +10,24 @@ Press **SHIFT** to change between them.
 - By night you pass where walls stand by day. You only see what your helmet lamp shows.
 - Take lot 4471 through the process steps in the right order, then reach the airlock.
 
-Every hour of the night is built on real semiconductor physics:
+Every hour adds one layer to lot 4471, in the order of a real process flow, and is built on real semiconductor physics:
 
-| Hour | Mechanic | Physics |
-| --- | --- | --- |
-| 22:00 Handover | changing shifts | cleanroom particle limits (ISO class 3) |
-| 23:00 Yellow Light | the previous shift follows you | photon energy E = hc/λ: why litho rooms are yellow |
-| 00:00 Lot 4471 | coat, expose, develop in order | resolution ≈ k₁ · λ / NA of 193 nm immersion lithography |
-| 01:00 Campanile | the bell forces the shift | thermal oxidation (Deal-Grove) |
-| 02:00 Implanter | an ion beam sweeps the room | Lorentz force: r = √(2mE)/(qB) for B, P and As ions |
+| Hour | Layer | Mechanic | Physics |
+| --- | --- | --- | --- |
+| 22:00 Handover | Silicon | changing shifts | 99.9999999 % purity: why cleanrooms, suits and airlocks |
+| 23:00 Shadows | Oxide | the previous shift follows you | thermal oxidation (Deal-Grove) |
+| 00:00 Yellow Light | Photoresist | coat, expose, develop in order | photon energy E = hc/λ: why litho rooms are yellow |
+| 01:00 Campanile | Pattern | the bell forces the shift | resolution ≈ k₁ · λ / NA of 193 nm immersion lithography |
+| 02:00 Implanter | Doping | an ion beam sweeps the room | Lorentz force: r = √(2mE)/(qB) for B, P and As ions |
+| 03:00 Furnace Row | Anneal | heat spreads from the furnace doors | heat equation, diffusion length ≈ 2√(Dt) |
+| 04:00 Plasma | Contacts | plasma fires in rhythm | 13.56 MHz RF plasma, ions falling through the sheath |
+| 05:00 Airlock | Metal | everything at once, a faster bell | mean free path ≈ 70 m at 10⁻⁶ mbar |
 
-The implanter beam is traced with the real formula: at 40 keV and 0.25 T, boron flies on a 0.38 m circle, phosphorus on 0.64 m and arsenic on 1.00 m.
+The implanter beam is traced with the real formula: at 40 keV and 0.25 T, boron flies on a 0.38 m circle, phosphorus on 0.64 m and arsenic on 1.00 m. The heat on the floor is solved with finite differences, and every level is proven solvable by a search over all game states.
+
+The tools are drawn after real equipment types under invented maker names: coater/developer track, immersion scanner, etch, CVD and sputter clusters, vertical and horizontal furnaces, implanter source and end station, wet benches, metrology and gas cabinets.
+
+The night goes on around you: announcements over the loudspeakers in Italian with subtitles, notes from Rossi, Colombo and Ferrari of shift B, and one scare per hour that never costs a life. Every layer also hides a reticle in the shift before. Find all eight for the other ending.
 
 ## Play
 

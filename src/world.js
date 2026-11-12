@@ -665,6 +665,36 @@ function heatAndPlasma(L, layer, s) {
   }
 }
 
+/* ---------- Notes, the telephone, faces at the window ---------- */
+// A sheet of paper from shift B on the floor: ruled lines and a few lines of handwriting.
+function paperNote(n) {
+  const px = n.x * T, py = FY + n.y * T;
+  R('rgba(0,0,0,.25)', px + 9, py + 13, 17, 13);
+  ctx.save(); ctx.translate(px + 16, py + 18); ctx.rotate(-0.18);
+  R(night ? (n.read ? '#6a5a3a' : '#9a8a62') : (n.read ? '#cfcab8' : '#f3eedc'), -8, -6, 16, 12);
+  R(night ? '#7a6a48' : '#e2dcc4', -8, 4, 16, 2);
+  for (let i = 0; i < 3; i++) R(night ? '#3a3020' : '#5a6aa0', -6, -4 + i * 3, 8 + (i % 2) * 3, 1);
+  ctx.restore();
+}
+// Wall telephone on a wall face; while it rings, the lamp blinks and the handset trembles.
+function phone(ph, ringing) {
+  const px = ph.x * T, py = FY + ph.y * T + T - 14, j = ringing && !reduced ? (F >> 1) % 2 : 0;
+  R(night ? '#2a2216' : '#5a6370', px + 9, py + 1, 14, 12); R(night ? '#3a2e1c' : '#8a94a2', px + 10, py + 2, 12, 10);
+  R(night ? '#1a140a' : '#262b33', px + 11 + j, py + 2, 4, 9); R(night ? '#1a140a' : '#262b33', px + 10 + j, py + 2, 6, 2); R(night ? '#1a140a' : '#262b33', px + 10 + j, py + 9, 6, 2);
+  for (let i = 0; i < 6; i++) R(night ? '#4a3c24' : '#c9d0d8', px + 17 + (i % 2) * 2, py + 3 + (i >> 1) * 2, 1, 1);
+  R(ringing && (F >> 3) % 2 ? '#ff3a2a' : night ? '#3a1a10' : '#6a2a20', px + 20, py + 9, 2, 2);
+  if (ringing && !reduced) { R(night ? '#ffcf5a' : '#26303d', px + 5, py + 3 - j, 2, 1); R(night ? '#ffcf5a' : '#26303d', px + 25, py + 3 + j, 2, 1); }
+}
+// Someone stands outside on the lake, behind the glass, in a suit like yours.
+function windowFace(g) {
+  const px = g.x * T, py = FY + g.y * T;
+  ctx.save(); ctx.beginPath(); ctx.rect(px, py + 9, T, T - 9); ctx.clip();
+  ctx.globalAlpha = g.a;
+  R('#6d6448', px + 7, py + 21, 18, 11); R('#8f8466', px + 10, py + 11, 12, 12); R('#8f8466', px + 9, py + 14, 14, 8);
+  R('#050402', px + 11, py + 14, 10, 4); R('#ffb43a', px + 12, py + 15, 2, 2); R('#ffb43a', px + 18, py + 15, 2, 2);
+  ctx.restore(); ctx.globalAlpha = 1;
+}
+
 /* ---------- Scene ---------- */
 function draw(c, s, o) {
   ctx = c; F = o.frame; night = s.layer === 1; reduced = o.reduced; p = P[s.layer];
@@ -679,6 +709,7 @@ function draw(c, s, o) {
   }
   airlock(L, layer, s);
   heatAndPlasma(L, layer, s);
+  if (o.note && o.note.layer === layer) paperNote(o.note);
   const blocks = toolBlocks(L, layer);
   const hasPulses = L.pulses.some(pl => pl.layer === layer);
   const heatAt = (x, y) => L.heat ? clamp((L.heat.temps[s.step % L.heat.period][y * C.W + x] - 22) / 600, 0, 1) : 0;
@@ -732,6 +763,8 @@ function draw(c, s, o) {
     ctx = c;
   }
   wallSigns(L, layer, o.lang);
+  if (o.phone) phone(o.phone, o.phone.ringing);
+  if (o.windowFace && !night) windowFace(o.windowFace);
   if (L.showerT > 0) showerAir(L);
   // Shadows of the previous shift on your floor, a little stretched, as if cast from the other shift.
   if (!night) o.enemies.forEach(([ex, ey], i) => {
@@ -739,6 +772,12 @@ function draw(c, s, o) {
     ctx.fillStyle = `rgba(10,16,30,${a})`;
     ctx.beginPath(); ctx.ellipse(px + 16, py + 22, 9, 13, 0.25, 0, 7); ctx.fill();
     ctx.beginPath(); ctx.ellipse(px + 18, py + 6, 6, 6, 0, 0, 7); ctx.fill();
+  });
+  if (!night) (o.ghosts || []).forEach(([gx, gy, a]) => {
+    const px = gx * T, py = FY + gy * T;
+    ctx.fillStyle = `rgba(10,16,30,${0.34 * a})`;
+    ctx.beginPath(); ctx.ellipse(px + 16, py + 22, 9, 13, -0.2, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(px + 15, py + 6, 6, 6, 0, 0, 7); ctx.fill();
   });
   rail(L, layer);
   if (o.shiftHint && (F >> 3) % 4) {
@@ -762,6 +801,11 @@ function draw(c, s, o) {
       lg.addColorStop(0, 'rgba(255,170,50,.32)'); lg.addColorStop(1, 'rgba(255,170,50,0)');
       ctx.fillStyle = lg; ctx.fillRect(cx - 70, cy - 70, 140, 140);
     });
+    if (o.phone && o.phone.ringing && (F >> 3) % 2) {
+      const cx = o.phone.x * T + 21, cy = FY + o.phone.y * T + T - 4, rg = ctx.createRadialGradient(cx, cy, 1, cx, cy, 26);
+      rg.addColorStop(0, 'rgba(255,60,40,.55)'); rg.addColorStop(1, 'rgba(255,60,40,0)');
+      ctx.fillStyle = rg; ctx.fillRect(cx - 26, cy - 26, 52, 52);
+    }
     ctx.globalCompositeOperation = 'source-over';
     if (o.reticle) {
       // A glint of quartz in the dark, visible from afar.
@@ -769,6 +813,10 @@ function draw(c, s, o) {
       ctx.globalAlpha = 0.5 + 0.5 * Math.sin(tw * Math.PI);
       R('#dff6ff', gx - 4 + tw * 8, gy, 3, 1); R('#dff6ff', gx, gy - 2, 1, 5); R('#ffffff', gx, gy, 1, 1);
       ctx.globalAlpha = 1;
+    }
+    if (o.note && o.note.layer === layer && !o.note.read && (F % 90) < 30) {
+      const gx = o.note.x * T + 14, gy = FY + o.note.y * T + 15;
+      ctx.globalAlpha = Math.sin((F % 90) / 30 * Math.PI) * 0.7; R('#fff6dc', gx, gy, 3, 2); ctx.globalAlpha = 1;
     }
     o.enemies.forEach(([ex, ey]) => {
       const d = Math.hypot(ex - s.x, ey - s.y);
@@ -781,6 +829,11 @@ function draw(c, s, o) {
     const v = ctx.createRadialGradient(WW / 2, FY + 160, 140, WW / 2, FY + 160, 420);
     v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(10,20,40,.32)');
     ctx.fillStyle = v; ctx.fillRect(0, FY, WW, C.H * T);
+  }
+  // A power dip: the light dies, and only their eyes are left.
+  if (o.blackout > 0) {
+    ctx.fillStyle = `rgba(0,0,0,${0.97 * o.blackout})`; ctx.fillRect(0, FY, WW, C.H * T);
+    if (o.blackout > 0.6) o.enemies.forEach(([ex, ey]) => { R('#ffb43a', ex * T + 13, FY + ey * T - 2, 2, 2); R('#ffb43a', ex * T + 18, FY + ey * T - 2, 2, 2); });
   }
 }
 

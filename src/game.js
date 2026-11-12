@@ -22,6 +22,7 @@ const UI = {
     stats: (d, s) => `Erwischt: ${d}   Schichtwechsel: ${s}`, thanks: 'Danke fürs Spielen.',
     sub: 'TURNO DI NOTTE · LUINO', credit: 'Ein Spiel von Maurizio Odenwaeller für Game Off 2026 · entwickelt mit Claude',
     sound: on => 'Ton: ' + (on ? 'an' : 'aus'), pause: 'Pause', full: 'Vollbild',
+    noteHead: 'VOGT MICROELETTRONICA · BAY 7 · TURNO B', q: ['„', '“'],
   },
   en: {
     day: 'YOUR SHIFT', night: 'THE SHIFT BEFORE', open: 'AIRLOCK OPEN', airlock: 'TO THE AIRLOCK', layerWord: 'LAYER',
@@ -34,6 +35,7 @@ const UI = {
     stats: (d, s) => `Caught: ${d}   Shift changes: ${s}`, thanks: 'Thank you for playing.',
     sub: 'TURNO DI NOTTE · LUINO', credit: 'A game by Maurizio Odenwaeller for Game Off 2026 · made with Claude',
     sound: on => 'Sound: ' + (on ? 'on' : 'off'), pause: 'Pause', full: 'Fullscreen',
+    noteHead: 'VOGT MICROELETTRONICA · BAY 7 · TURNO B', q: ['“', '”'],
   },
 };
 const store = {
@@ -61,7 +63,7 @@ const lerp = (a, b, k) => a + (b - a) * k;
 const R = (c, x, y, w, h) => { ctx.fillStyle = c; ctx.fillRect(Math.round(x), Math.round(y), w, h); };
 function txt(s, x, y, o = {}) {
   const size = o.size || 8, font = o.font || 'Silkscreen';
-  ctx.font = `${o.weight || 400} ${size}px "${font}", ui-monospace, monospace`;
+  ctx.font = `${o.italic ? 'italic ' : ''}${o.weight || 400} ${size}px "${font}", ui-monospace, monospace`;
   ctx.textAlign = o.align || 'left'; ctx.textBaseline = 'top';
   if (o.shadow !== null) { ctx.fillStyle = o.shadow || '#000'; ctx.fillText(s, Math.round(x) + 1, Math.round(y) + 1, o.max || W - 8); }
   ctx.fillStyle = o.color || '#e9e4d6'; ctx.fillText(s, Math.round(x), Math.round(y), o.max || W - 8);
@@ -93,10 +95,11 @@ const audio = {
     this.radio = a.createGain(); this.radio.gain.value = 0.09;
     const band = a.createBiquadFilter(); band.type = 'bandpass'; band.frequency.value = 1400; band.Q.value = 0.6;
     this.radio.connect(band); band.connect(this.master);
+    this.paBus = a.createGain(); this.paBus.gain.value = 1; this.paBus.connect(band);
     this.echo = a.createDelay(1); this.echo.delayTime.value = 0.37;
     const fb = a.createGain(); fb.gain.value = 0.45; this.echo.connect(fb); fb.connect(this.echo);
     this.echoOut = a.createGain(); this.echoOut.gain.value = 0; this.echo.connect(this.echoOut); this.echoOut.connect(band);
-    this.radio.connect(this.echo);
+    this.radio.connect(this.echo); this.paBus.connect(this.echo);
     this.radioNext = a.currentTime + 0.2;
     setInterval(() => this.scheduleRadio(), 100);
   },
@@ -172,6 +175,45 @@ const audio = {
     }
     this.rainGain.gain.setTargetAtTime(level, this.ctx.currentTime, 0.4);
   },
+  // Announcement: a three-tone gong, then a voice made of a buzzing larynx and two moving formants,
+  // one syllable per vowel of the Italian text, through the loudspeaker band (echoed in the shift before).
+  announce(text) {
+    if (!this.ctx) return;
+    const a = this.ctx, t0 = a.currentTime + 0.05;
+    [[784, 0], [659.3, 0.34], [523.3, 0.68]].forEach(([f, dt]) => {
+      this.tone('sine', f, t0 + dt, 1.2, 0.2, this.paBus); this.tone('sine', f * 2.005, t0 + dt, 0.5, 0.035, this.paBus);
+    });
+    const {syl, dur} = paSyllables(text), v0 = t0 + PA_START;
+    const o = a.createOscillator(), f1 = a.createBiquadFilter(), f2 = a.createBiquadFilter(), g = a.createGain();
+    o.type = 'sawtooth'; f1.type = f2.type = 'bandpass'; f1.Q.value = 5; f2.Q.value = 8; g.gain.value = 0.0001;
+    o.connect(f1); o.connect(f2); f1.connect(g); f2.connect(g); g.connect(this.paBus);
+    const VOW = {a: [730, 1090], e: [530, 1840], i: [270, 2290], o: [570, 840], u: [300, 870]};
+    o.frequency.setValueAtTime(122, v0);
+    for (const sy of syl) {
+      const ts = v0 + sy.t;
+      if (sy.hiss) { this.burst(ts, sy.len, 0.05, 'highpass', 3800, 1, undefined, this.paBus); continue; }
+      const [a1, a2] = VOW[sy.v], k = sy.t / Math.max(0.5, dur);
+      f1.frequency.setTargetAtTime(a1, ts, 0.02); f2.frequency.setTargetAtTime(a2, ts, 0.02);
+      o.frequency.setTargetAtTime(120 + 18 * Math.sin(k * Math.PI) - 14 * k + sy.len * 40, ts, 0.04);
+      g.gain.setTargetAtTime(0.7, ts, 0.012); g.gain.setTargetAtTime(0.0001, ts + sy.len * 0.75, 0.025);
+    }
+    o.start(v0); o.stop(v0 + dur + 0.4);
+    const norm = this.layer ? 0.07 : 0.09;
+    this.radio.gain.setTargetAtTime(0.012, t0, 0.15); this.radio.gain.setTargetAtTime(norm, v0 + dur + 0.6, 0.6);
+  },
+  // An old wall telephone: the bell hammer at 25 strokes a second, three rings, the last one cut short.
+  ring(pan) {
+    if (!this.ctx) return;
+    const a = this.ctx, t0 = a.currentTime;
+    let out = this.master;
+    if (a.createStereoPanner) { out = a.createStereoPanner(); out.pan.value = clamp(pan, -1, 1); out.connect(this.master); }
+    for (const [start, len] of [[0, 1.0], [2.5, 1.0], [5.0, 0.36]]) {
+      for (let k = 0; k < len * 25; k++) {
+        const tk = t0 + start + k / 25;
+        this.tone('triangle', 1180, tk, 0.035, 0.06, out); this.tone('triangle', 1430, tk + 0.018, 0.035, 0.045, out);
+      }
+    }
+  },
   sfx(name, o = {}) {
     if (!this.ctx) return;
     const t0 = this.ctx.currentTime;
@@ -211,6 +253,21 @@ const audio = {
       case 'pulse': this.tone('sawtooth', 110, t0, 0.35, 0.07, null, 220); this.burst(t0, 0.3, 0.05, 'bandpass', 1800, 4); break;
       case 'pulse-warning': this.tone('sine', 330, t0, 0.15, 0.03); break;
       case 'furnace-open': this.burst(t0, 0.9, 0.08, 'lowpass', 300); this.tone('sine', 40, t0, 0.8, 0.12); break;
+      case 'sting':
+        this.tone('sawtooth', 55, t0, 2.4, 0.07); this.tone('sawtooth', 58.3, t0, 2.4, 0.07);
+        this.tone('sine', 1250, t0 + 0.1, 1.6, 0.025); this.tone('sine', 1323, t0 + 0.1, 1.6, 0.025);
+        this.burst(t0, 1.2, 0.05, 'bandpass', 900, 3);
+        break;
+      case 'blackout':
+        this.tone('square', 140, t0, 0.04, 0.2); this.burst(t0, 0.08, 0.15, 'lowpass', 900);
+        this.tone('sawtooth', 120, t0, 0.55, 0.1, null, 25); this.tone('sine', 50, t0, 0.6, 0.12, null, 20);
+        this.tone('sine', 1250, t0 + 0.2, 0.6, 0.025); this.tone('sine', 1258, t0 + 0.2, 0.6, 0.025);
+        this.tone('sine', 50, t0 + 0.75, 0.4, 0.08, null, 100); this.tone('square', 160, t0 + 0.8, 0.03, 0.12);
+        break;
+      case 'whisper':
+        for (let i = 0; i < 7; i++) this.burst(t0 + i * 0.13 + (i > 3 ? 0.25 : 0), 0.09 + hash(i) * 0.08, 0.05, 'bandpass', 3200 + hash(i * 3) * 1800, 2, o.pan);
+        this.tone('sine', 1250, t0, 1.2, 0.015);
+        break;
     }
   },
   // Shift radio: an original waltz with mandolin tremolo. At night the same tune plays slower, lower and echoed.
@@ -249,6 +306,21 @@ const RADIO = [
   [74, 1, Dm], [70, 1], [67, 1], [69, 3, A7], [0, 3, Dm],
 ];
 
+// Syllables of an announcement: one per vowel, a hiss for s, z, c, f, pauses at spaces and punctuation.
+const PA_START = 1.4;
+function paSyllables(text) {
+  const syl = [];
+  let tt = 0, i = 0;
+  for (const ch of text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')) {
+    i++;
+    if ('aeiou'.includes(ch)) { const len = 0.1 + hash(i * 7.3) * 0.06; syl.push({t: tt, len, v: ch}); tt += len + 0.025; }
+    else if ('szcf'.includes(ch)) { syl.push({t: tt, len: 0.05, hiss: true}); tt += 0.03; }
+    else if (ch === ' ') tt += 0.06;
+    else if ('.,:;!?'.includes(ch)) tt += 0.32;
+  }
+  return {syl, dur: tt};
+}
+
 /* ---------- Input ---------- */
 const held = new Set();
 let queuedDir = null, queuedShift = false, lastDir = null;
@@ -257,7 +329,7 @@ addEventListener('keydown', e => {
   if (e.target instanceof Element && e.target.closest('select,input,textarea,button,a')) return;
   audio.unlock();
   const d = KEYDIR[e.code];
-  if (d) { e.preventDefault(); if (!e.repeat) { held.add(d); lastDir = d; queuedDir = d; } return; }
+  if (d) { e.preventDefault(); if (!e.repeat) { held.add(d); lastDir = d; queuedDir = d; if (mode === 'note' && noteT > 25) mode = 'play'; } return; }
   if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'Space') {
     e.preventDefault(); if (e.repeat) return;
     press('shift');
@@ -276,6 +348,7 @@ function press(what) {
   if (mode === 'cinema') { if (cinemaT > 0.4) startIntro(); return; }
   if (introMode && (mode === 'play' || mode === 'shower')) { if (what === 'enter') endIntro(); return; }
   if (mode === 'process') { if (procT > 40) mode = 'play'; return; }
+  if (mode === 'note') { if (noteT > 25) mode = 'play'; return; }
   if (mode === 'play') { if (what === 'shift') queuedShift = true; return; }
   if (mode === 'title') { audio.unlock(); if (progress === 0) startCinema(); else startCard(progress); return; }
   if (mode === 'card' && cardT > 20) { checkpoint = null; startLevel(levelIndex); return; }
@@ -316,12 +389,12 @@ function pollPad() {
 let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0, shake = 0;
 let progress = clamp(+store.get('level') || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
 const deathsBy = levels.map(() => 0);
-const BUILD = '0.9 · 2026-11-12';
+const BUILD = '0.10 · 2026-11-12';
 // Testers can jump to an hour: ?stunde=3 or ?hour=3 opens the third hour.
 const jump = +(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || 0);
 if (jump >= 1 && jump <= levels.length) progress = jump - 1;
 function startCard(i) {
-  levelIndex = i; mode = 'card'; cardT = 0;
+  levelIndex = i; mode = 'card'; cardT = 0; paNow = null; paQueue = []; scare = null;
   audio.setLayer(0); audio.bell(0.2);
 }
 let checkpoint = null, toastText = '', toastT = 0, shiftHintT = 0, stickyTimes = [], stickyWarned = store.get('sticky') === '1';
@@ -336,6 +409,46 @@ function stickyCheck() {
 let introMode = false, suited = false, showerT = 0, showerDone = false, introSeen = new Set(), procT = 0, procType = '';
 const idx = (x, y) => y * C.W + x;
 function introDoors(L) { const d = []; for (let i = 0; i < L.layers[0].length; i++) if (L.layers[0][i] === 'D') d.push(i); return d.sort((a, b) => a - b); }
+/* ---------- Announcements, notes from shift B, scares ---------- */
+// None of these changes the rules: a blackout freezes the clock while it lasts, so it can never cost a life.
+let paNow = null, paT = 0, paQueue = [], paDone = new Set(), noteRead = false, noteT = 0, scareDone = false, scare = null, freezeT = 0;
+const fade = (tt, a, b, c) => tt < a ? tt / a : tt < b ? 1 : clamp((c - tt) / (c - b), 0, 1);
+const SCARE_LEN = {phone: 330, window: 90, blackout: 54, shadow: 80};
+function paLen(p) { return Math.round((PA_START + paSyllables(p.it).dur + 1.8) * 60); }
+function startPA(p) { paNow = {...p, len: paLen(p), voice: paSyllables(p.it).dur}; paT = 0; audio.announce(p.it); }
+function phoneRinging(tt) { return tt < 60 || (tt >= 150 && tt < 210) || (tt >= 300 && tt < 322); }
+function blackoutAt(tt) {
+  if (reduced) return fade(tt, 6, 40, 54);
+  return tt < 6 ? tt / 6 : tt < 36 ? 1 : tt < 40 ? 0.3 : tt < 46 ? 1 : clamp((54 - tt) / 8, 0, 1);
+}
+function storyStep() {
+  const def = LEVELS[levelIndex], L = state.level;
+  (def.pa || []).forEach((p, i) => { if (!paDone.has(i) && state.step >= p.at) { paDone.add(i); paQueue.push(p); } });
+  if (!paNow && paQueue.length) startPA(paQueue.shift());
+  if (state.events.includes('note') && !noteRead && state.status === 'play' && mode === 'play') {
+    noteRead = true; mode = 'note'; noteT = 0; audio.sfx('rustle');
+  }
+  const sc = def.scare;
+  if (!sc || scareDone || scare || state.status !== 'play') return;
+  if (sc.afterPa !== undefined ? !(paDone.has(sc.afterPa) && !paNow) : state.step < (sc.at || 0)) return;
+  if (sc.type === 'phone') { scare = {type: 'phone', t: 0}; audio.ring((sc.x - state.x) / 10); }
+  else if (sc.type === 'blackout' && state.layer === (sc.layer === 'day' ? 0 : 1)) { scare = {type: 'blackout', t: 0}; freezeT = SCARE_LEN.blackout; audio.sfx('blackout'); }
+  else if (sc.type === 'window' && state.layer === 0) {
+    let best = null;
+    for (let i = 0; i < L.layers[0].length; i++) {
+      if (L.layers[0][i] !== '=') continue;
+      const x = i % C.W, y = (i / C.W) | 0, d = Math.abs(x - state.x) + Math.abs(y - state.y);
+      if (d <= 3 && (!best || d < best.d)) best = {x, y, d};
+    }
+    if (best) { scare = {type: 'window', t: 0, x: best.x, y: best.y}; audio.sfx('sting'); }
+  } else if (sc.type === 'shadow' && state.layer === 0 && state.events.includes('move')) {
+    const [dx, dy] = C.DIRS[state.face], bx = state.x - dx, by = state.y - dy;
+    const spots = [[bx, by], [bx - dy, by + dx], [bx + dy, by - dx]].slice(0, sc.n || 1).filter(([x, y]) => C.walkable(L, 0, x, y));
+    if (spots.length) { scare = {type: 'shadow', t: 0, spots}; audio.sfx('whisper', {pan: -dx * 0.6}); }
+  }
+  if (scare) scareDone = true;
+}
+
 /* ---------- Reticles and the secret finale ---------- */
 let found = new Set(), finT = 0;
 try { found = new Set(JSON.parse(store.get('reticles') || '[]')); } catch (_) { found = new Set(); }
@@ -411,7 +524,8 @@ function startLevel(i, resume = false) {
     state.enemies.forEach((e, n) => { const s0 = levels[i].enemyStarts[n]; Object.assign(e, {x: s0.x, y: s0.y, px: s0.x, py: s0.y, moved: -1, fx: undefined, fy: undefined}); });
     state.px = state.x; state.py = state.y;
     state.safeUntil = state.step + 14;
-  } else { state = C.newState(levels[i]); hintT = 0; toastT = 0; shiftHintT = 0; }
+  } else { state = C.newState(levels[i]); hintT = 0; toastT = 0; shiftHintT = 0; paDone = new Set(); paQueue = []; paNow = null; noteRead = false; scareDone = false; }
+  scare = null; freezeT = 0;
   queuedDir = null; queuedShift = false;
   audio.setLayer(state.layer);
 }
@@ -462,6 +576,7 @@ function doStep(action) {
     if (C.walkable(state.level, o, state.x, state.y) && C.walkable(state.level, o, state.x + dx, state.y + dy)) shiftHintT = 120;
   }
   if (state.events.includes('shift')) shiftHintT = 0;
+  if (!introMode) storyStep();
   if (introMode) introStep();
   if (state.status === 'lost') { mode = 'dead'; deadT = 0; deaths++; deathsBy[levelIndex]++; }
   if (state.status === 'won' && introMode) { audio.sfx('door'); endIntro(); return; }
@@ -477,7 +592,8 @@ function update() {
   if (mode === 'finale') updateFinale();
   if (mode === 'play') {
     hintT++;
-    if (++stepFrame >= STEP_FRAMES) { stepFrame = 0; doStep(nextAction()); }
+    if (freezeT > 0) freezeT--;
+    else if (++stepFrame >= STEP_FRAMES) { stepFrame = 0; doStep(nextAction()); }
     // Heartbeat: faster and louder the closer the previous shift is, louder at night.
     const d = state.enemies.length ? C.nearestEnemy(state) : Infinity;
     if (d <= 7 && audio.ctx) {
@@ -487,6 +603,9 @@ function update() {
   }
   if (fx > 0) fx--;
   if (shake > 0) shake--;
+  if (mode === 'note') noteT++;
+  if (paNow && ++paT > paNow.len) { paNow = null; if (paQueue.length && mode !== 'card') startPA(paQueue.shift()); }
+  if (scare && ['play', 'note', 'process'].includes(mode) && ++scare.t > SCARE_LEN[scare.type]) scare = null;
   if (toastT > 0) toastT--;
   if (shiftHintT > 0) shiftHintT--;
   if (mode === 'cinema') updateCinema();
@@ -587,6 +706,52 @@ function drawHUD() {
   }
 }
 
+function storyView() {
+  const def = LEVELS[levelIndex], sc = scare, d = def.scare;
+  if (introMode) return {};
+  return {
+    note: def.note ? {x: def.note.x, y: def.note.y, layer: def.note.layer === 'day' ? 0 : 1, read: noteRead} : null,
+    phone: d && d.type === 'phone' ? {x: d.x, y: d.y, ringing: !!(sc && sc.type === 'phone' && phoneRinging(sc.t))} : null,
+    windowFace: sc && sc.type === 'window' ? {x: sc.x, y: sc.y, a: fade(sc.t, 10, 70, 90)} : null,
+    ghosts: sc && sc.type === 'shadow' ? sc.spots.map(([x, y]) => [x, y, fade(sc.t, 15, 55, 80)]) : [],
+    blackout: sc && sc.type === 'blackout' ? blackoutAt(sc.t) : 0,
+  };
+}
+// The announcement as a strip under the bar: loudspeaker, the Italian words as they are spoken, the translation.
+function drawPA() {
+  if (!paNow || introMode) return;
+  const a = clamp(Math.min(paT / 12, (paNow.len - paT) / 24), 0, 1), night = state.layer === 1;
+  const x = 10, y = FY + 3, w = W - 20, speaking = paT / 60 > PA_START && paT / 60 < PA_START + paNow.voice;
+  ctx.globalAlpha = a;
+  R('rgba(6,8,12,.9)', x, y, w, 24); R(night ? '#ffb43a' : '#9fe0ff', x, y + 23, w, 1);
+  R('#c9c2ae', x + 6, y + 9, 3, 6);
+  ctx.fillStyle = '#c9c2ae'; ctx.beginPath(); ctx.moveTo(x + 9, y + 9); ctx.lineTo(x + 14, y + 5); ctx.lineTo(x + 14, y + 19); ctx.lineTo(x + 9, y + 15); ctx.fill();
+  if (speaking || paT / 60 < PA_START) for (let i = 0; i < 2; i++) if ((frame >> 3) % 3 > i) R('#c9c2ae', x + 17 + i * 3, y + 9 - i * 2, 1, 6 + i * 4);
+  const k = clamp((paT / 60 - PA_START) / Math.max(0.3, paNow.voice), 0, 1), it = paNow.it.slice(0, Math.ceil(paNow.it.length * k));
+  const [q0, q1] = t().q;
+  txt(paT / 60 < PA_START ? '· · ·' : `${q0}${it}${k < 1 ? '' : q1}`, x + 26, y + 2, {font: 'IBM Plex Sans', size: 9, italic: true, color: night ? '#ffcf5a' : '#e9eef5', max: w - 32});
+  if (k >= 1) txt(paNow[lang], x + 26, y + 13, {font: 'IBM Plex Sans', size: 7, color: '#8c93a8', max: w - 32});
+  ctx.globalAlpha = 1;
+}
+// A note from shift B: torn ruled paper, a coffee ring, blue handwriting, the signature.
+function drawNote() {
+  const n = LEVELS[levelIndex].note, a = clamp(noteT / 10, 0, 1);
+  ctx.globalAlpha = a;
+  R('rgba(0,0,0,.62)', 0, FY, W, H - FY);
+  const pw = 212, ph = 116, px = Math.round(W / 2 - pw / 2), py = Math.round(34 + (1 - a) * 6);
+  R('rgba(0,0,0,.5)', px + 3, py + 4, pw, ph);
+  R('#ece4cc', px, py, pw, ph);
+  for (let i = 0; i < pw; i += 3) { const h = 1 + Math.floor(hash(i + levelIndex * 50) * 3); R('#ece4cc', px + i, py - h, Math.min(3, pw - i), h); }
+  for (let yy = py + 30; yy < py + ph - 4; yy += 14) R('#bccadf', px + 4, yy, pw - 8, 1);
+  R('#e3a8a0', px + 20, py + 2, 1, ph - 4);
+  ctx.strokeStyle = 'rgba(140,96,50,.28)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(px + pw - 30, py + ph - 26, 15, 0.3, 5.9); ctx.stroke();
+  txt(t().noteHead, px + 26, py + 7, {font: 'IBM Plex Sans', size: 6, color: '#8a8470', shadow: null, max: pw - 32});
+  n.text[lang].forEach((line, i) => txt(line, px + 26, py + 20 + i * 14, {font: 'IBM Plex Sans', size: 9, italic: true, color: '#1f2c6e', shadow: null, max: pw - 34}));
+  txt(`— ${n.by}`, px + pw - 10, py + ph - 14, {font: 'IBM Plex Sans', size: 9, italic: true, weight: 600, align: 'right', color: '#1f2c6e', shadow: null, max: pw - 30});
+  if (noteT > 25 && (frame >> 5) % 2) txt(t().cont, W / 2, py + ph + 8, {align: 'center', color: '#8c93a8'});
+  ctx.globalAlpha = 1;
+}
+
 function renderPlay() {
   const k = clamp(stepFrame / STEP_FRAMES, 0, 1);
   R('#000', 0, 0, W, H);
@@ -597,16 +762,19 @@ function renderPlay() {
   if (shake > 0) ctx.translate(Math.round((hash(frame * 3) - 0.5) * shake * 0.8), Math.round((hash(frame * 5) - 0.5) * shake * 0.6));
   const rt = state.level.reticle && !state.reticle && !introMode && !found.has(LEVELS[levelIndex].id) ? state.level.reticle : null;
   window.SchichtWorld.draw(ctx, state, {reticle: rt, reticleN: levelIndex,k: mode === 'play' ? k : 1, frame, reduced, lang, enemies: state.enemies.map(enemyPos),
-    playerVisible: !(state.step < state.safeUntil && (frame >> 2) % 2), shiftHint: shiftHintT > 0 && !introMode, civilian: introMode && !suited});
+    playerVisible: !(state.step < state.safeUntil && (frame >> 2) % 2), shiftHint: shiftHintT > 0 && !introMode, civilian: introMode && !suited,
+    ...storyView()});
   ctx.restore();
   ctx.setTransform(Z, 0, 0, Z, 0, 0);
   drawHUD();
+  drawPA();
   if (toastT > 0) {
     ctx.globalAlpha = clamp(toastT / 20, 0, 1);
     ctx.font = '400 8px "Silkscreen", monospace';
     const w = Math.min(W - 16, ctx.measureText(toastText).width + 14);
-    R('rgba(5,6,10,.85)', W / 2 - w / 2, FY + 4, w, 13); R(state.layer ? '#ffb43a' : '#9fe0ff', W / 2 - w / 2, FY + 16, w, 1);
-    txt(toastText, W / 2, FY + 7, {align: 'center', color: '#e9e4d6', max: w - 10});
+    const ty = paNow && !introMode ? FY + 30 : FY + 4;
+    R('rgba(5,6,10,.85)', W / 2 - w / 2, ty, w, 13); R(state.layer ? '#ffb43a' : '#9fe0ff', W / 2 - w / 2, ty + 12, w, 1);
+    txt(toastText, W / 2, ty + 3, {align: 'center', color: '#e9e4d6', max: w - 10});
     ctx.globalAlpha = 1;
   }
   if (fx > 0) {
@@ -751,6 +919,7 @@ function render() {
   }
   if (mode === 'dead') return renderDead();
   renderPlay();
+  if (mode === 'note') drawNote();
   if (mode === 'process') window.SchichtProcess.draw(ctx, procType, procT, lang, {n: levelIndex + 1, found: found.size, total: LEVELS.length});
   if (mode === 'clear') {
     ctx.fillStyle = `rgba(0,0,0,${clamp(deadT / 60, 0, 1)})`; ctx.fillRect(0, 0, W, H);
@@ -799,6 +968,8 @@ if (new URLSearchParams(location.search).has('test')) {
     finale: () => { mode = 'finale'; finT = 0; }, get finT() { return finT; }, found,
     process: (type, tt) => { procType = type; procT = tt; mode = 'process'; },
     setLayer: l => audio.setLayer(l), lang: l => { lang = l; applyLanguage(); },
+    get paNow() { return paNow; }, get paT() { return paT; }, set paT(v) { paT = v; }, get scare() { return scare; }, get noteT() { return noteT; }, set noteT(v) { noteT = v; },
+    pa: i => startPA(LEVELS[levelIndex].pa[i]), setMode: m => { mode = m; }, calm: () => { fx = 0; shake = 0; }, scareNow: (type, extra = {}) => { scare = {type, t: 0, ...extra}; },
   };
 }
 render();

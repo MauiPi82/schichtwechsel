@@ -79,6 +79,12 @@
       if (!walkable(level, NIGHT, rx, ry)) throw new Error(`Level ${def.id}: reticle on a solid night tile`);
       level.reticle = {x: rx, y: ry, layer: NIGHT};
     }
+    // A note left by shift B, read by standing on it in the shift it lies in (default: the shift before).
+    if (def.note) {
+      const layer = def.note.layer === 'day' ? DAY : NIGHT;
+      if (!walkable(level, layer, def.note.x, def.note.y)) throw new Error(`Level ${def.id}: note on a solid tile`);
+      level.note = {x: def.note.x, y: def.note.y, layer};
+    }
     level.pulses = (def.pulses || []).map(p => {
       const cells = new Uint8Array(N);
       for (let y = p.y0; y <= p.y1; y++) for (let x = p.x0; x <= p.x1; x++) cells[idx(x, y)] = 1;
@@ -273,6 +279,8 @@
 
     const rt = L.reticle;
     if (rt && !state.reticle && rt.layer === state.layer && rt.x === state.x && rt.y === state.y) { state.reticle = true; state.events.push('reticle'); }
+    const nt = L.note;
+    if (nt && nt.layer === state.layer && nt.x === state.x && nt.y === state.y) state.events.push('note');
     const st = L.stations[state.got];
     if (st && st.layer === state.layer && st.x === state.x && st.y === state.y) {
       state.got++; state.events.push('station');

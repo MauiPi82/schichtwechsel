@@ -149,3 +149,40 @@ test('a reticle is picked up only in the shift before', () => {
   core.step(s, 'shift');
   assert.equal(s.reticle, true); assert.ok(s.events.includes('reticle'));
 });
+
+test('every hour has announcements, a reachable note from shift B and one harmless scare', () => {
+  for (const def of LEVELS) {
+    const level = core.parseLevel(def);
+    assert.ok(def.pa && def.pa.length, `${def.id} has announcements`);
+    for (const p of def.pa) assert.ok(p.it && p.de && p.en && p.at >= 0, `${def.id} announcement texts`);
+    const n = def.note;
+    assert.ok(n && n.by && n.text.de.length === n.text.en.length, `${def.id} note`);
+    const {x, y, layer} = level.note;
+    assert.ok(!level.stations.some(t => t.x === x && t.y === y) && !level.exits.some(t => t.x === x && t.y === y), `${def.id}: note not on a station or exit`);
+    assert.ok(!(level.reticle && level.reticle.x === x && level.reticle.y === y), `${def.id}: note not on the reticle`);
+    const seen = new Set([`${level.start.x},${level.start.y},${level.start.layer}`]), q = [[level.start.x, level.start.y, level.start.layer]];
+    while (q.length) {
+      const [cx, cy, l] = q.shift();
+      for (const [nx, ny, nl] of [[cx + 1, cy, l], [cx - 1, cy, l], [cx, cy + 1, l], [cx, cy - 1, l], [cx, cy, 1 - l]]) {
+        const k = `${nx},${ny},${nl}`;
+        if (!seen.has(k) && core.walkable(level, nl, nx, ny) && (nl === l || core.walkable(level, l, nx, ny))) { seen.add(k); q.push([nx, ny, nl]); }
+      }
+    }
+    assert.ok(seen.has(`${x},${y},${layer}`), `${def.id}: note reachable`);
+    const sc = def.scare;
+    assert.ok(['phone', 'window', 'blackout', 'shadow'].includes(sc.type), `${def.id} scare type`);
+    if (sc.type === 'phone') assert.ok(def.day[sc.y][sc.x] === '#' && def.day[sc.y + 1][sc.x] !== '#', `${def.id}: phone hangs on a wall face`);
+    if (sc.type === 'window') assert.ok(def.day.some(r => r.includes('=')), `${def.id}: a window for the face`);
+    if (sc.afterPa !== undefined) assert.ok(def.pa[sc.afterPa], `${def.id}: scare after an existing announcement`);
+  }
+});
+
+test('reading a note is an event and changes nothing else', () => {
+  const def = LEVELS.find(d => d.id === 'si'), level = core.parseLevel(def);
+  const s = core.newState(level);
+  s.x = level.note.x - 1; s.y = level.note.y; s.layer = level.note.layer; s.lastShift = -10;
+  const before = core.clone(s);
+  core.step(s, 'right');
+  assert.ok(s.events.includes('note'));
+  assert.equal(s.got, before.got); assert.equal(s.status, 'play'); assert.equal(s.layer, before.layer);
+});
