@@ -62,7 +62,8 @@ function serve() {
   await save('shot-5-clean.png');
 
   // Cover: the same spot split into your shift and the shift before, the title across it.
-  await scene(3, 9, 6, 0, 'down', 44); const day = await grab();
+  // Both stations done: no station label runs into the title or the border.
+  await scene(3, 9, 6, 0, 'down', 44); await page.evaluate(() => { __schicht.state.got = __schicht.state.level.stations.length; }); const day = await grab();
   await page.evaluate(() => { __schicht.state.layer = 1; }); const night = await grab();
   const cover = await page.evaluate(async ({day, night}) => {
     const load = src => new Promise(r => { const im = new Image(); im.onload = () => r(im); im.src = src; });
@@ -72,14 +73,16 @@ function serve() {
     // A window of the fab without the bars above and below, in the cover's 1.26 : 1, scaled up.
     const sh = 584, sw = Math.round(sh * 1.26), sy = 66, sx = Math.max(0, Math.min(1280 - sw, 608 - sw / 2));
     x.drawImage(a, sx, sy, sw, sh, 0, 0, 1260, 1000);
-    x.save(); x.beginPath(); x.moveTo(700, 0); x.lineTo(1260, 0); x.lineTo(1260, 1000); x.lineTo(560, 1000); x.closePath(); x.clip();
+    // The border between the shifts runs through the gap between SCHICHT and WECHSEL at the height of the title.
+    x.textBaseline = 'top'; x.font = '700 118px "Pixelify Sans"';
+    const w1 = x.measureText('SCHICHT').width, w2 = x.measureText('WECHSEL').width, left = 630 - (w1 + w2) / 2;
+    const mid = left + w1, ty = 50 + 59, slope = 140 / 1000, top = mid + slope * ty, bottom = mid - slope * (1000 - ty);
+    x.save(); x.beginPath(); x.moveTo(top, 0); x.lineTo(1260, 0); x.lineTo(1260, 1000); x.lineTo(bottom, 1000); x.closePath(); x.clip();
     x.drawImage(b, sx, sy, sw, sh, 0, 0, 1260, 1000); x.restore();
-    x.strokeStyle = '#ffb43a'; x.lineWidth = 6; x.beginPath(); x.moveTo(700, 0); x.lineTo(560, 1000); x.stroke();
+    x.strokeStyle = '#ffb43a'; x.lineWidth = 6; x.beginPath(); x.moveTo(top, 0); x.lineTo(bottom, 1000); x.stroke();
     const g = x.createLinearGradient(0, 0, 0, 330); g.addColorStop(0, 'rgba(5,6,10,.92)'); g.addColorStop(1, 'rgba(5,6,10,0)');
     x.fillStyle = g; x.fillRect(0, 0, 1260, 330);
-    x.textAlign = 'center'; x.textBaseline = 'top';
-    x.font = '700 118px "Pixelify Sans"';
-    const w1 = x.measureText('SCHICHT').width, w2 = x.measureText('WECHSEL').width, left = 630 - (w1 + w2) / 2;
+    x.textAlign = 'center';
     x.textAlign = 'left';
     x.fillStyle = '#2f6db3'; x.fillText('SCHICHT', left + 6, 56); x.fillStyle = '#e9eef5'; x.fillText('SCHICHT', left, 50);
     x.fillStyle = '#3a2200'; x.fillText('WECHSEL', left + w1 + 6, 56); x.fillStyle = '#ffb43a'; x.fillText('WECHSEL', left + w1, 50);
