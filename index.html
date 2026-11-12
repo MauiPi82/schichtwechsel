@@ -21,7 +21,8 @@
   .tools label{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--muted)}
   input[type=range]{width:90px;accent-color:var(--night)}
   select,.tool{font:12px "Silkscreen",monospace;background:var(--panel);color:var(--text);border:1px solid var(--edge);border-radius:6px;padding:7px 10px;min-height:36px;cursor:pointer}
-  .tool:hover,.tool:focus-visible,select:focus-visible{border-color:var(--night);outline:none}
+  .tool:hover,.tool:focus-visible,select:focus-visible{border-color:var(--night);outline:2px solid var(--night);outline-offset:2px}
+  .tool:hover{outline:none}
   .frame{width:100%;max-width:980px;background:#000;border:1px solid var(--edge);border-radius:10px;padding:8px}
   canvas{display:block;width:100%;aspect-ratio:16/9;image-rendering:auto;border-radius:4px;touch-action:none;user-select:none;-webkit-user-select:none}
   body:fullscreen{padding:6px;justify-content:center;overflow:auto}
@@ -45,12 +46,20 @@
   footer a{color:var(--muted)} footer a:hover,footer a:focus-visible{color:var(--night)}
   @media (prefers-reduced-motion:reduce){*{transition:none!important}}
   /* Embedded (itch.io iframe or ?embed): only the game, as large as the frame allows; the pad lies over it. */
-  body.embed{padding:0;gap:0;min-height:100vh;height:100vh;justify-content:center;overflow:hidden}
+  body.embed{padding:0;gap:0;min-height:100vh;height:100vh;height:100dvh;justify-content:center;overflow:hidden}
   body.embed header,body.embed .about,body.embed footer{display:none}
-  body.embed .frame{width:min(100vw,calc(100vh*16/9));max-width:none;padding:0;border:0;border-radius:0}
+  body.embed .frame{width:min(100vw,calc(100vh*16/9));width:min(100vw,calc(100dvh*16/9));max-width:none;padding:0;border:0;border-radius:0}
   body.embed canvas{border-radius:0}
   body.embed .pad{position:fixed;left:0;right:0;bottom:10px;max-width:none;padding:0 14px;pointer-events:none}
   body.embed .pad button{pointer-events:auto;opacity:.75}
+  /* A phone on its side: the picture leaves a strip left and right, the cross and SHIFT sit there, not on the fab. */
+  @media (pointer:coarse) and (orientation:landscape){
+    body.embed .frame{width:min(calc(100vw - 300px),calc(100dvh*16/9))}
+    body.embed .pad{top:0;bottom:0;align-items:center;padding:0 6px}
+    body.embed .dpad{grid-template-columns:repeat(3,44px);grid-template-rows:repeat(3,44px)}
+    body.embed .pad [data-k="shift"]{width:96px;height:96px;font-size:15px}
+    body.embed .pad [data-k="menu"]{width:44px;height:44px;position:absolute;left:6px;top:8px}
+  }
 </style>
 </head>
 <body>
@@ -70,6 +79,7 @@
     <button class="tool" id="btnPause" type="button">Pause</button>
     <button class="tool" id="btnFull" type="button">Vollbild</button>
     <button class="tool" id="btnMenu" type="button">Menü</button>
+    <button class="tool" id="btnCalm" type="button" aria-pressed="false">Blitze: an</button>
   </div>
 </header>
 
@@ -77,11 +87,11 @@
 
 <div class="pad" aria-hidden="true">
   <div class="dpad">
-    <button type="button" data-dir="up">▲</button><button type="button" data-dir="left">◀</button>
-    <button type="button" data-dir="right">▶</button><button type="button" data-dir="down">▼</button>
+    <button type="button" tabindex="-1" data-dir="up">▲</button><button type="button" tabindex="-1" data-dir="left">◀</button>
+    <button type="button" tabindex="-1" data-dir="right">▶</button><button type="button" tabindex="-1" data-dir="down">▼</button>
   </div>
-  <button type="button" data-k="menu" aria-label="Pause / Menü">≡</button>
-  <button type="button" data-k="shift">SHIFT</button>
+  <button type="button" tabindex="-1" data-k="menu" aria-label="Pause / Menü">≡</button>
+  <button type="button" tabindex="-1" data-k="shift">SHIFT</button>
 </div>
 
 <div class="about">

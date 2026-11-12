@@ -13,6 +13,7 @@ on:
       - 'src/**'
       - 'assets/**'
       - 'tools/build-itch.py'
+      - 'test/**'
       - '.github/workflows/itch.yml'
   workflow_dispatch:
 
@@ -40,6 +41,15 @@ jobs:
 
       - name: Tests (rules, solver, minigames)
         run: node --test test/core.test.cjs test/minigames.test.cjs
+
+      # The whole game in a real browser: every hour won in DE and EN, both endings, the intro, rewind, input.
+      - name: Browser check
+        run: |
+          npm install --no-save --no-audit --no-fund playwright@1.63.0
+          npx playwright install --with-deps chromium
+          python3 -m http.server 8770 --bind 127.0.0.1 &
+          sleep 1
+          node test/browser-check.cjs http://127.0.0.1:8770/
 
       - name: Build the package
         run: |

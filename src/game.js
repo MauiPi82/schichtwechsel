@@ -8,7 +8,8 @@ const embedded = (() => { try { return window.top !== window.self; } catch (_) {
 if (embedded) document.body.classList.add('embed');
 const W = 320, H = 180, Z = 4, T = 16, FY = 16;
 const STEP_FRAMES = 8;
-const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+// Less motion and softer flashes: from the system setting, or switched on the page (saved).
+let reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const isTouch = matchMedia('(pointer: coarse)').matches;
 const levels = LEVELS.map(d => C.parseLevel(d));
 
@@ -109,6 +110,8 @@ function applyLanguage() {
   btnPause.textContent = t().pause;
   btnFull.textContent = t().full;
   btnMenu.textContent = t().menu;
+  btnCalm.textContent = lang === 'de' ? `Blitze: ${reduced ? 'gedämpft' : 'an'}` : `Flashes: ${reduced ? 'soft' : 'on'}`;
+  btnCalm.setAttribute('aria-pressed', String(reduced));
 }
 langSel.addEventListener('change', () => { lang = langSel.value; store.set('lang', lang); applyLanguage(); langSel.blur(); });
 
@@ -331,10 +334,10 @@ const audio = {
       case 'freeze': [1568, 2093, 2637].forEach((f, i) => this.tone('sine', f, t0 + 0.05 + i * 0.05, 0.5, 0.035)); break;
       case 'emo': this.tone('square', 120, t0, 0.05, 0.18); this.tone('sawtooth', 220, t0 + 0.05, 0.7, 0.08, null, 35); break;
       case 'rewind': {
-        const o2 = this.tone('sawtooth', 180, t0, 0.95, 0.06, null, 1400);
+        this.tone('sawtooth', 180, t0, 0.95, 0.06, null, 1400);
         this.burst(t0, 0.9, 0.06, 'highpass', 2500);
         for (let i = 0; i < 10; i++) this.tone('square', 900 + i * 120, t0 + i * 0.085, 0.03, 0.02);
-        void o2; break;
+        break;
       }
       case 'tool-wait': this.tone('square', 330, t0, 0.05, 0.04); this.tone('square', 330, t0 + 0.09, 0.05, 0.04); break;
       case 'sting':
@@ -556,7 +559,7 @@ function pollPad() {
 let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0, shake = 0;
 let progress = clamp(parseInt(store.get('level'), 10) || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
 const deathsBy = levels.map(() => 0);
-const BUILD = '0.54 · 2026-11-12';
+const BUILD = '0.55 · 2026-11-12';
 // Testers can jump to an hour: ?stunde=3 or ?hour=3 opens the third hour.
 const jump = parseInt(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || '0', 10) || 0;
 if (jump >= 1 && jump <= levels.length) progress = jump - 1;
@@ -1256,7 +1259,7 @@ function renderPlay() {
       }
       ctx.restore();
     }
-    ctx.fillStyle = fxLayer ? `rgba(255,180,50,${0.35 * a})` : `rgba(230,245,255,${0.45 * a})`;
+    ctx.fillStyle = fxLayer ? `rgba(255,180,50,${(reduced ? 0.12 : 0.35) * a})` : `rgba(230,245,255,${(reduced ? 0.15 : 0.45) * a})`;
     ctx.fillRect(0, 0, W, H);
   }
   if (blockedT > 0 && !introMode) {
@@ -1695,7 +1698,9 @@ function renderMode() {
 }
 
 /* ---------- Page controls ---------- */
-const btnSound = document.getElementById('btnSound'), btnPause = document.getElementById('btnPause'), btnFull = document.getElementById('btnFull'), btnMenu = document.getElementById('btnMenu');
+const btnSound = document.getElementById('btnSound'), btnPause = document.getElementById('btnPause'), btnFull = document.getElementById('btnFull'), btnMenu = document.getElementById('btnMenu'), btnCalm = document.getElementById('btnCalm');
+if (store.get('calm') === '1') reduced = true;
+btnCalm.addEventListener('click', e => { reduced = !reduced; store.set('calm', reduced ? '1' : '0'); applyLanguage(); e.currentTarget.blur(); });
 btnMenu.addEventListener('click', e => { menu(); e.currentTarget.blur(); });
 btnSound.addEventListener('click', e => { audio.unlock(); audio.toggle(); e.currentTarget.blur(); });
 const volume = document.getElementById('volume');
