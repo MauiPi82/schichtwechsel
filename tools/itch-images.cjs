@@ -51,13 +51,14 @@ function serve() {
   await scene(6, 3, 3, 0, 'right', 33); await save('shot-3-plasma.png');
   // 4: the implanter as a minigame: the magnet on As+, the dose filling.
   await page.evaluate(() => {
-    __schicht.start(4); __schicht.mini('implant'); for (let f = 0; f < 40; f++) __schicht.update();
+    // Every step opens with its brief; SHIFT starts it.
+    __schicht.start(4); __schicht.mini('implant'); for (let f = 0; f < 30; f++) __schicht.update(); __schicht.press('shift'); for (let f = 0; f < 40; f++) __schicht.update();
     __schicht.miniGame.B = window.SchichtMini.fieldFor(75); __schicht.press('shift');
     for (let f = 0; f < 200; f++) { const m = __schicht.miniGame; m.B += (window.SchichtMini.fieldFor(75) - m.B) * 0.3; __schicht.update(); }
   });
   await save('shot-4-implanter.png');
   // 5: the RCA clean, in the HF bath, the wafer dewetting.
-  await page.evaluate(() => { __schicht.start(0); __schicht.mini('clean'); for (let f = 0; f < 36 + 250; f++) __schicht.update(); __schicht.press('shift'); for (let f = 0; f < 44 + 36 + 250; f++) __schicht.update(); __schicht.press('shift'); for (let f = 0; f < 44 + 36 + 300; f++) __schicht.update(); });
+  await page.evaluate(() => { __schicht.start(0); __schicht.mini('clean'); for (let f = 0; f < 30; f++) __schicht.update(); __schicht.press('shift'); for (let f = 0; f < 130 + 36 + 250; f++) __schicht.update(); __schicht.press('shift'); for (let f = 0; f < 44 + 36 + 250; f++) __schicht.update(); __schicht.press('shift'); for (let f = 0; f < 44 + 36 + 300; f++) __schicht.update(); });
   await save('shot-5-clean.png');
 
   // Cover: the same spot split into your shift and the shift before, the title across it.
@@ -113,7 +114,7 @@ function serve() {
     s.enemies[0].pi = 0; s.enemies[0].x = 4; s.enemies[0].y = 8; __schicht.setLayer(1); __schicht.setMode('play');
   }, 54, () => { for (let f = 0; f < 5; f++) { const s = __schicht.state; s.lastShift = s.step; __schicht.update(); } });
   // The implanter: the magnet runs up the mass spectrum until As+ passes the slit.
-  await gif('implanter.gif', () => { __schicht.start(4); __schicht.mini('implant'); for (let f = 0; f < 30; f++) __schicht.update(); __schicht.miniGame.B = 0.17; }, 48,
+  await gif('implanter.gif', () => { __schicht.start(4); __schicht.mini('implant'); for (let f = 0; f < 30; f++) __schicht.update(); __schicht.press('shift'); for (let f = 0; f < 30; f++) __schicht.update(); __schicht.miniGame.B = 0.17; }, 48,
     () => { const m = __schicht.miniGame; m.B = Math.min(window.SchichtMini.fieldFor(75), m.B + 0.0017); for (let f = 0; f < 5; f++) __schicht.update(); });
 
   await browser.close(); server.close();

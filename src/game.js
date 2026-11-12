@@ -439,7 +439,7 @@ function press(what) {
   if (mode === 'mini') { if (what === 'enter') window.SchichtMini.skip(mini); else miniPressed = true; return; }
   // After a death the picture waits; a key brings you back to the last process step, in your own shift.
   if (mode === 'dead') { if (deadT > DEAD_LEN) { queuedDir = null; queuedShift = false; startRewind(); } return; }
-  if (mode === 'process') { if (procT > 40) mode = 'play'; return; }
+  if (mode === 'process') { if (procT > 40) endProcess(); return; }
   if (mode === 'note') { if (noteT > 25) { mode = 'play'; queuedDir = null; queuedShift = false; } return; }
   if (mode === 'play') { if (what === 'shift') { queuedShift = true; shiftQueuedAt = frame; } return; }
   if (mode === 'book') { if (bookSel <= openUpTo()) transition(() => startCard(bookSel), 24, 30); return; }
@@ -486,7 +486,7 @@ function pollPad() {
 let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0, shake = 0;
 let progress = clamp(+store.get('level') || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
 const deathsBy = levels.map(() => 0);
-const BUILD = '0.35 · 2026-11-12';
+const BUILD = '0.36 · 2026-11-12';
 // Testers can jump to an hour: ?stunde=3 or ?hour=3 opens the third hour.
 const jump = +(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || 0);
 if (jump >= 1 && jump <= levels.length) progress = jump - 1;
@@ -700,6 +700,11 @@ function introStep() {
   }
 }
 // Your locker: the door opens, jacket and bag go in, then the note inside the door.
+// A process window closes; after the incoming check, the traveller of the lot.
+function endProcess() {
+  mode = 'play';
+  if (procType === 'intake' && introMode) toast(INTRO.pickup[lang], 480);
+}
 function updateLocker() {
   if (++lockerT === 34) audio.sfx('rustle');
   if (lockerT > 80) { lockerDone = true; mode = 'note'; noteT = 0; noteSrc = 'locker'; audio.sfx('sting'); }
@@ -822,7 +827,7 @@ function doStep(action) {
     audio.sfx('reticle'); procType = 'reticle'; procT = 0; mode = 'process';
   }
   // In the gowning intro the only station is the handover cart: you pick up lot 4471.
-  if (state.events.includes('station') && introMode) toast(INTRO.pickup[lang], 480);
+  if (state.events.includes('station') && introMode) { procType = 'intake'; procT = 0; mode = 'process'; }
   else if (state.events.includes('station') && state.status === 'play') {
     checkpoint = C.clone(state); history = []; toast(t().checkpoint, 100);
     const step = LEVELS[levelIndex].route && LEVELS[levelIndex].route[state.got - 1];
@@ -891,7 +896,7 @@ function update() {
   if (flashFx && ++flashFx.t > 34) flashFx = null;
   if (mode === 'cinema') updateCinema();
   if (mode === 'epilogue') updateEpilogue();
-  if (mode === 'process' && ++procT > window.SchichtProcess.duration(procType)) mode = 'play';
+  if (mode === 'process' && ++procT > window.SchichtProcess.duration(procType)) endProcess();
   if (mode === 'shower') updateShower();
   if (mode === 'gown') updateGown();
   if (mode === 'locker') updateLocker();

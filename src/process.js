@@ -17,6 +17,8 @@ function text(s, x, y, o = {}) {
 const CAP = {
   clean: {de: ['REINIGEN · RCA', 'SC-1 hebt Partikel ab, SC-2 löst Metalle, HF nimmt das native Oxid.'],
     en: ['CLEAN · RCA', 'SC-1 lifts particles, SC-2 dissolves metals, HF strips the native oxide.']},
+  intake: {de: ['EINGANGSKONTROLLE · LOS 4471', 'Ein Los: 25 Siliziumscheiben in einer Box (FOUP). Jede bekommt dieselben Schichten.'],
+    en: ['INCOMING CHECK · LOT 4471', 'A lot: 25 silicon wafers in a box (FOUP). Every one gets the same layers.']},
   inspect: {de: ['PRÜFEN · PARTIKELMESSUNG', 'Ein Laser fährt spiralförmig über den Wafer. Jedes Streulicht ist ein Partikel.'],
     en: ['INSPECT · PARTICLE SCAN', 'A laser spirals across the wafer. Every flash of scattered light is a particle.']},
   oxidize: {de: ['OXIDIEREN · 1000 °C, TROCKEN', 'O₂ wandert durchs Oxid zum Silizium. 44 % der Schicht wachsen nach unten.'],
@@ -242,6 +244,55 @@ function nitride(t, x, y, w, h) {
   text('SiO₂ 50 nm', px + 4, st.base - 6 - 8, {color: '#cfe8ff'});
   if (k > 0.2) text(`Si₃N₄ ${Math.round(100 * k)} nm`, px + pw - 4, st.top - 10, {align: 'right', color: '#bfe6c8'});
   text('3 SiH₂Cl₂ + 4 NH₃ → Si₃N₄', px + pw / 2, y + 4, {align: 'center', color: '#9aa6b5', font: 'IBM Plex Sans', size: 7, max: pw});
+}
+// Incoming check: the FOUP opens, a laser maps its 25 slots, one wafer comes out and is shown from above.
+function intake(t, x, y, w, h) {
+  const de = lang === 'de', fx = x + 10, fy = y + 8, fw = 84, fh = 88;
+  // The FOUP from the front: grey shell, handle on top, the door slides down; red HOT LOT tag on the side.
+  R('#7c8693', fx - 4, fy - 4, fw + 8, fh + 8); R('#9aa3ad', fx - 4, fy - 4, fw + 8, 3); R('#5a6370', fx + fw / 2 - 12, fy - 9, 24, 5);
+  R('#d8262a', fx + fw + 4, fy + 10, 5, 14); R('#ffffff', fx + fw + 5, fy + 14, 3, 1);
+  R('#141a28', fx, fy, fw, fh);
+  const slotY = n => fy + 6 + n * 3.1, mapped = Math.floor(clamp((t - 55) / 55, 0, 1) * 25), out = 12;
+  const pull = clamp((t - 125) / 40, 0, 1);
+  for (let n = 0; n < 25; n++) {
+    R('#3a4058', fx + 2, slotY(n) - 1, 3, 3); R('#3a4058', fx + fw - 5, slotY(n) - 1, 3, 3);
+    if (n === out && pull > 0) continue;
+    R('#c9ced6', fx + 6, slotY(n), fw - 12, 1); R('#eef1f4', fx + 10 + (n * 7) % 20, slotY(n), 10, 1);
+  }
+  const door = ease((t - 12) / 36);
+  if (door < 1) { R('#8d97a4', fx, fy + fh * door, fw, fh * (1 - door)); R('#a9b1bc', fx + 6, fy + fh * door + 6, fw - 12, 2); text('FOUP', fx + fw / 2, fy + fh * door + fh * (1 - door) / 2 - 4, {align: 'center', color: '#3a4058'}); }
+  // Mapping: a red laser runs down the slots and finds a wafer in each.
+  if (t > 55 && t < 112) { const ly = slotY(mapped); R('rgba(255,70,50,.9)', fx - 6, ly, fw + 12, 1); circle('#ff4632', fx - 7, ly, 2); }
+  // Right: the slot map while mapping, then the wafer that was pulled out, seen from above.
+  const px = x + 108, pw = w - 114;
+  if (t < 125) {
+    text(de ? 'SLOT-MAPPING' : 'SLOT MAP', px + pw / 2, y + 4, {align: 'center', color: '#9fe0ff'});
+    for (let n = 0; n < 25; n++) {
+      const cx = px + 6 + (n % 5) * ((pw - 12) / 5), cy = y + 16 + Math.floor(n / 5) * 14, on = n < mapped;
+      R(on ? '#1f6a36' : '#1a2030', cx, cy, (pw - 12) / 5 - 3, 11);
+      text(String(n + 1), cx + ((pw - 12) / 5 - 3) / 2, cy + 2, {align: 'center', color: on ? '#bff5cf' : '#3a4058', max: 18});
+    }
+    text(`${mapped}/25`, px + pw / 2, y + 88, {align: 'center', color: mapped === 25 ? '#3fe06a' : '#e9e4d6'});
+  } else {
+    // The wafer slides out of slot 13 and turns to face us: polished silicon, 300 mm, with its notch.
+    const k = ease((t - 125) / 45), cx = px + pw / 2, cy = y + 50, r = 6 + 34 * k;
+    if (k < 1) R('#c9ced6', fx + 6 + (cx - fx - 40) * k, slotY(out), fw - 12, 1);
+    if (k > 0.05) {
+      circle('#5a6370', cx, cy, r + 1);
+      const g = ctx.createLinearGradient(cx - r, cy - r, cx + r, cy + r);
+      g.addColorStop(0, '#e8ecf2'); g.addColorStop(0.45, '#9aa6b5'); g.addColorStop(0.55, '#f7f9fc'); g.addColorStop(1, '#7c8693');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.fill();
+      R('#0d111a', cx - 1, cy + r - 2, 3, 3);
+    }
+    if (t > 172) {
+      const L2 = (a2, b2) => de ? a2 : b2;
+      text('Si', cx, cy - 5, {align: 'center', color: '#3a4058', size: 8});
+      text(L2('Ø 300 MM', 'Ø 300 MM'), cx, y + 2, {align: 'center', color: '#ffcf5a', max: pw});
+      text(L2('775 µm DICK · POLIERT', '775 µm THICK · POLISHED'), cx, y + 92, {align: 'center', color: '#c9c2ae', max: pw, font: 'IBM Plex Sans', size: 7});
+      text(L2('KERBE', 'NOTCH'), cx + 10, cy + 33, {color: '#6b7190', font: 'IBM Plex Sans', size: 6});
+    }
+  }
+  if (t > 205) { R('rgba(10,30,16,.9)', fx + 8, fy + fh / 2 - 8, fw - 16, 16); text(de ? '25/25 · OK' : '25/25 · OK', fx + fw / 2, fy + fh / 2 - 4, {align: 'center', color: '#3fe06a'}); }
 }
 // Ellipsometry: linear polarisation in, elliptical out; the fit finds both thicknesses.
 function ellipso(t, x, y, w, h) {
@@ -553,7 +604,7 @@ function drawReticleFound(t, info) {
 // The animations are written for 230 frames. Each one plays slower than that, so there is time to look:
 // the clean takes about ten seconds, one bath after another. At the end the picture rests a moment.
 const BASE = 230, HOLD = 150;
-const DUR = {clean: 620, inspect: 480, oxidize: 540, nitride: 480, ellipso: 460, rs: 420, reticle: 230};
+const DUR = {intake: 620, clean: 620, inspect: 480, oxidize: 540, nitride: 480, ellipso: 460, rs: 420, reticle: 230};
 function duration(type) { return (DUR[type] || 330) + (type === 'reticle' ? 0 : HOLD); }
 function draw(c, type, t, language, info) {
   ctx = c; lang = language; lotInfo = info && info.lot;
@@ -569,7 +620,7 @@ function draw(c, type, t, language, info) {
   text('LOT 4471', PX + PW - 6, y0 + 2, {align: 'right', color: '#ffcf5a'});
   ctx.save(); ctx.beginPath(); ctx.rect(PX, y0 + 12, PW, PH - 28); ctx.clip();
   R('#0d111a', PX, y0 + 12, PW, PH - 28);
-  const fn = {clean, inspect, oxidize, nitride, ellipso, rs, coat, expose, cexpose: expose, develop, measure}[type];
+  const fn = {intake, clean, inspect, oxidize, nitride, ellipso, rs, coat, expose, cexpose: expose, develop, measure}[type];
   const tp = Math.min(tt, BASE + 10);
   if (fn) fn(tp, PX, y0 + 12, PW, PH - 28); else section(tp, PX, y0 + 12, PW, PH - 28, type);
   ctx.restore();
