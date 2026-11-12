@@ -34,6 +34,7 @@
   .dpad [data-dir="up"]{grid-column:2;grid-row:1}.dpad [data-dir="left"]{grid-column:1;grid-row:2}
   .dpad [data-dir="right"]{grid-column:3;grid-row:2}.dpad [data-dir="down"]{grid-column:2;grid-row:3}
   .pad [data-k="shift"]{width:120px;height:120px;border-radius:50%;font-size:18px;background:#2a1e08;border-color:var(--night);color:var(--night)}
+  .pad [data-k="menu"]{width:54px;height:54px;border-radius:50%;font-size:22px;align-self:flex-end}
   @media (pointer:coarse){.pad{display:flex}.keys{display:none}}
   .about{width:100%;max-width:980px;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
   .about section{background:var(--panel);border:1px solid var(--edge);border-radius:10px;padding:12px 14px}
@@ -79,6 +80,7 @@
     <button type="button" data-dir="up">▲</button><button type="button" data-dir="left">◀</button>
     <button type="button" data-dir="right">▶</button><button type="button" data-dir="down">▼</button>
   </div>
+  <button type="button" data-k="menu" aria-label="Pause / Menü">≡</button>
   <button type="button" data-k="shift">SHIFT</button>
 </div>
 

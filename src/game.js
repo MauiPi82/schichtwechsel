@@ -115,7 +115,7 @@ function txt(s, x, y, o = {}) {
 
 /* ---------- Audio ---------- */
 const audio = {
-  ctx: null, on: store.get('sound') !== 'off', vol: clamp(+(store.get('volume') ?? 80) / 100, 0, 1), master: null, layer: 0, noise: null, radioNext: 0, radioPos: 0,
+  ctx: null, on: store.get('sound') !== 'off', vol: (v => Number.isFinite(v) ? clamp(v / 100, 0, 1) : 0.8)(parseFloat(store.get('volume') ?? 80)), master: null, layer: 0, noise: null, radioNext: 0, radioPos: 0,
   unlock() {
     if (this.ctx) { if (this.ctx.state !== 'running' && this.ctx.state !== 'closed') this.ctx.resume(); return; }
     const AC = window.AudioContext || window.webkitAudioContext;
@@ -158,7 +158,7 @@ const audio = {
   },
   setLayer(layer) {
     this.layer = layer;
-    if (!this.ctx) return;
+    if (!this.ctx || !this.dayBus) return;
     const now = this.ctx.currentTime;
     this.dayBus.gain.setTargetAtTime(layer ? 0 : 1, now, 0.03);
     this.nightBus.gain.setTargetAtTime(layer ? 1 : 0, now, 0.03);
@@ -401,6 +401,7 @@ let queuedDir = null, queuedShift = false, shiftQueuedAt = 0, lastDir = null, sh
 const KEYDIR = {ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down', ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right'};
 addEventListener('keydown', e => {
   if (e.target instanceof Element && e.target.closest('select,input,textarea,button,a')) return;
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
   audio.unlock();
   const d = KEYDIR[e.code];
   if (d && mode === 'book') { e.preventDefault(); if (!e.repeat) bookSel = clamp(bookSel + (d === 'down' ? 1 : d === 'up' ? -1 : 0), 0, LEVELS.length - 1); return; }
@@ -433,7 +434,7 @@ addEventListener('keyup', e => {
   const d = KEYDIR[e.code]; if (d) held.delete(d);
   if (e.code === 'ShiftLeft' || e.code === 'ShiftRight' || e.code === 'Space') shiftHeld = false;
 });
-addEventListener('blur', () => { held.clear(); shiftHeld = false; });
+addEventListener('blur', () => { held.clear(); shiftHeld = false; if (mode === 'play') mode = 'paused'; });
 function press(what) {
   if (veilPhase === 'out') return;
   if (mode === 'cinema') { if (cinemaT > 0.4) transition(() => startIntro(), 28, 60); return; }
@@ -444,6 +445,7 @@ function press(what) {
   if (mode === 'dead') { if (deadT > DEAD_LEN) { queuedDir = null; queuedShift = false; startRewind(); } return; }
   if (mode === 'process') { if (procT > 40) endProcess(); return; }
   if (mode === 'note') { if (noteT > 25) { mode = 'play'; queuedDir = null; queuedShift = false; } return; }
+  if (mode === 'paused') { if (what === 'enter') mode = 'play'; return; }
   if (mode === 'play') { if (what === 'shift') { queuedShift = true; shiftQueuedAt = frame; } return; }
   if (mode === 'book') { if (bookSel <= openUpTo()) transition(() => startCard(bookSel), 24, 30); return; }
   if (mode === 'title') { audio.unlock(); if (progress === 0) transition(startCinema, 36, 1); else transition(() => startCard(progress), 30, 30); return; }
@@ -452,18 +454,44 @@ function press(what) {
   if (mode === 'ending' && cardT > 120) transition(toTitle, 40, 40);
   if (mode === 'finale') { if (finT < window.SchichtOdenchip.TOTAL) finT = window.SchichtOdenchip.TOTAL; else if (finT > window.SchichtOdenchip.TOTAL + 5) transition(toTitle, 40, 40); }
 }
-// Touch pad: hold a direction, tap SHIFT.
-document.querySelectorAll('.pad [data-dir]').forEach(b => {
-  const d = b.dataset.dir;
-  const on = e => { e.preventDefault(); audio.unlock(); held.add(d); lastDir = d; queuedDir = d; b.classList.add('on'); };
-  const off = e => { e.preventDefault(); held.delete(d); b.classList.remove('on'); };
-  b.addEventListener('pointerdown', on); b.addEventListener('pointerup', off);
-  b.addEventListener('pointercancel', off); b.addEventListener('pointerleave', off);
+// Touch pad: the direction follows the finger on the cross, so sliding from one arrow to the next turns.
+// In the shift log the cross moves the selection. The menu button pauses, and from the pause leads to the title.
+const dpad = document.querySelector('.pad .dpad');
+let padDir = null;
+const setPadDir = d => {
+  if (d === padDir) return;
+  if (padDir) held.delete(padDir);
+  padDir = d;
+  dpad.querySelectorAll('[data-dir]').forEach(b => b.classList.toggle('on', b.dataset.dir === d));
+  if (!d) return;
+  if (mode === 'book') { bookSel = clamp(bookSel + (d === 'down' ? 1 : d === 'up' ? -1 : 0), 0, LEVELS.length - 1); return; }
+  held.add(d); lastDir = d; queuedDir = d;
+};
+const dirAt = e => {
+  const r = dpad.getBoundingClientRect(), dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+  if (Math.hypot(dx, dy) < r.width * 0.12) return padDir;
+  return Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
+};
+dpad.addEventListener('pointerdown', e => { e.preventDefault(); audio.unlock(); try { dpad.setPointerCapture(e.pointerId); } catch (_) { /* old browser */ } setPadDir(dirAt(e)); });
+dpad.addEventListener('pointermove', e => { if (padDir) setPadDir(dirAt(e)); });
+['pointerup', 'pointercancel', 'lostpointercapture'].forEach(n => dpad.addEventListener(n, () => setPadDir(null)));
+document.querySelector('.pad [data-k="menu"]').addEventListener('pointerdown', e => {
+  e.preventDefault(); audio.unlock();
+  if (mode === 'play') mode = 'paused'; else menu();
 });
 const padShift = document.querySelector('.pad [data-k="shift"]');
 padShift.addEventListener('pointerdown', e => { e.preventDefault(); audio.unlock(); shiftHeld = true; press('shift'); padShift.classList.add('on'); });
 ['pointerup', 'pointercancel', 'pointerleave'].forEach(n => padShift.addEventListener(n, () => { shiftHeld = false; padShift.classList.remove('on'); }));
-cv.addEventListener('pointerdown', () => { window.focus(); audio.unlock(); if (mode !== 'play') press('enter'); });
+cv.addEventListener('pointerdown', e => {
+  window.focus(); audio.unlock();
+  // On the title, the two small lines are buttons too: a new night, and the shift log.
+  if (mode === 'title' && isTouch && veilPhase !== 'out') {
+    const y = (e.clientY - cv.getBoundingClientRect().top) / cv.clientHeight * H;
+    if (progress > 0 && Math.abs(y - 137) < 6) { progress = 0; store.set('level', 0); transition(startCinema, 36, 1); return; }
+    if ((progress > 0 || Object.keys(lot.s).length) && Math.abs(y - 149) < 6) { bookSel = Math.min(progress, levelIndex); transition(() => { mode = 'book'; }, 16, 16); return; }
+  }
+  if (mode !== 'play') press('enter');
+});
 ['pointerup', 'touchend', 'click'].forEach(n => document.addEventListener(n, () => audio.unlock(), {passive: true}));
 // Gamepad: stick or d-pad to move, A or a shoulder button to shift, Start to pause.
 let padPrev = {};
@@ -487,11 +515,11 @@ function pollPad() {
 
 /* ---------- Game flow ---------- */
 let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0, shake = 0;
-let progress = clamp(+store.get('level') || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
+let progress = clamp(parseInt(store.get('level'), 10) || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
 const deathsBy = levels.map(() => 0);
-const BUILD = '0.45 · 2026-11-12';
+const BUILD = '0.46 · 2026-11-12';
 // Testers can jump to an hour: ?stunde=3 or ?hour=3 opens the third hour.
-const jump = +(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || 0);
+const jump = parseInt(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || '0', 10) || 0;
 if (jump >= 1 && jump <= levels.length) progress = jump - 1;
 // Look-around mode for the author and testers: ?cheat. N finishes the hour, U toggles invulnerability (on at start),
 // O counts all eight reticles as found, and the shift log opens every hour. Nothing of it shows without the parameter.
@@ -795,7 +823,10 @@ function togglePause() {
   if (mode === 'play') mode = 'paused';
   else if (mode === 'paused') mode = 'play';
 }
-document.addEventListener('visibilitychange', () => { if (document.hidden && mode === 'play') mode = 'paused'; });
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && mode === 'play') mode = 'paused';
+  try { if (audio.ctx) { if (document.hidden) audio.ctx.suspend(); else if (audio.on) audio.ctx.resume(); } } catch (_) { /* audio unavailable */ }
+});
 
 function nextAction() {
   if (introMode) queuedShift = false;
@@ -1407,15 +1438,15 @@ function renderTitle() {
   if (!isTouch) txt(t().orSpace, W / 2, 112, {align: 'center', color: '#6b7190'});
   if (progress > 0) {
     txt(`${t().resume} ${LEVELS[progress].time}`, W / 2, 124, {align: 'center', color: '#c9c2ae'});
-    if (!isTouch) txt(t().fresh, W / 2, 134, {align: 'center', color: '#6b7190'});
+    txt(isTouch ? `${t().fresh.replace(/^N: /, '').toUpperCase()} ▸` : t().fresh, W / 2, 134, {align: 'center', color: isTouch ? '#9fe0ff' : '#6b7190'});
   }
-  txt(t().credit, W / 2, H - 10, {align: 'center', color: '#4c5470', font: 'IBM Plex Sans', size: 6});
+  txt(t().credit, W / 2, H - 10, {align: 'center', color: '#6b7190', font: 'IBM Plex Sans', size: 7});
   txt('v' + BUILD, W - 3, 3, {align: 'right', color: '#2c3248', font: 'IBM Plex Sans', size: 6, shadow: null});
   // In an iframe the keyboard only arrives after a click into the game.
-  if (embedded && !document.hasFocus() && (frame >> 5) % 2) txt(lang === 'de' ? 'INS SPIEL KLICKEN' : 'CLICK INTO THE GAME', W / 2, 146, {align: 'center', color: '#9fe0ff'});
-  if (embedded) txt(lang === 'de' ? 'L: ENGLISH · M: TON' : 'L: DEUTSCH · M: SOUND', W - 4, H - 20, {align: 'right', color: '#4c5470', font: 'IBM Plex Sans', size: 6, shadow: null});
-  if (!isTouch && (progress > 0 || Object.keys(lot.s).length || CHEAT)) txt(lang === 'de' ? 'B: SCHICHTBUCH' : 'B: SHIFT LOG', W / 2, 146, {align: 'center', color: '#6b7190'});
-  if (CHEAT) txt('CHEAT · N: STUNDE GESCHAFFT · U: UNVERWUNDBAR · O: ALLE RETIKEL · B: JEDE STUNDE · E/F: ENDEN', W / 2, 158, {align: 'center', color: '#c9a5ff', max: W - 8});
+  if (embedded && !document.hasFocus() && (frame >> 5) % 2) txt(lang === 'de' ? 'INS SPIEL KLICKEN' : 'CLICK INTO THE GAME', W / 2, 157, {align: 'center', color: '#9fe0ff'});
+  if (embedded) txt(lang === 'de' ? 'L: ENGLISH · M: TON' : 'L: DEUTSCH · M: SOUND', W - 4, H - 20, {align: 'right', color: '#8c93a8', font: 'IBM Plex Sans', size: 7, shadow: null});
+  if (progress > 0 || Object.keys(lot.s).length || CHEAT) txt(isTouch ? (lang === 'de' ? 'SCHICHTBUCH ▸' : 'SHIFT LOG ▸') : (lang === 'de' ? 'B: SCHICHTBUCH' : 'B: SHIFT LOG'), W / 2, 146, {align: 'center', color: isTouch ? '#9fe0ff' : '#6b7190'});
+  if (CHEAT) txt('CHEAT · N: STUNDE GESCHAFFT · U: UNVERWUNDBAR · O: ALLE RETIKEL · B: JEDE STUNDE · E/F: ENDEN', W / 2, 3, {align: 'center', color: '#c9a5ff', max: W - 60});
   if (store.get('odenchip') === '1') {
     ctx.save(); ctx.translate(20, 20); ctx.scale(0.06, 0.06); ctx.translate(-window.SchichtOdenchip.PK.cx, -window.SchichtOdenchip.PK.cy);
     window.SchichtOdenchip.pack({wires: 99, mold: 1, mark: 1}, ctx); ctx.restore();
@@ -1510,7 +1541,7 @@ function renderMode() {
     txt(t().paused, W / 2, 70, {align: 'center', size: 16, font: 'Pixelify Sans', weight: 700, color: '#ffcf5a'});
     txt(t().pausedHint, W / 2, 96, {align: 'center', color: '#c9c2ae'});
     txt(t().retry, W / 2, 108, {align: 'center', color: '#6b7190'});
-    txt(t().home, W / 2, 118, {align: 'center', color: '#6b7190'});
+    txt(isTouch ? (lang === 'de' ? '≡: HAUPTMENÜ · ANTIPPEN: WEITER' : '≡: MAIN MENU · TAP: RESUME') : t().home, W / 2, 118, {align: 'center', color: '#6b7190'});
   }
 }
 
@@ -1548,8 +1579,9 @@ function loop(now) {
   try {
     while (acc >= FRAME) { update(); acc -= FRAME; ticked = true; }
     if (ticked) render();
-  } catch (e) { console.error(e); }
+  } catch (e) { acc = 0; if (loopErrors++ < 5) console.error(e); }
 }
+let loopErrors = 0;
 if (new URLSearchParams(location.search).has('test')) {
   // Test hook: deterministic control for the browser check, only with ?test in the URL.
   window.__schicht = {
