@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Schichtwechsel · Spieltest</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;700&family=IBM+Plex+Sans:wght@400;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  /* Layout: one column like a lot traveller (Laufzettel) of the fab, header block, then numbered process steps. */
+  :root {
+    --night: #0b0f18;      /* page ground, the fab at night */
+    --panel: #121826;      /* traveller sheet */
+    --rule: #263048;       /* lines on the sheet */
+    --ink: #e9e4d6;        /* text */
+    --dim: #9aa3b8;        /* secondary text */
+    --amber: #ffb43a;      /* yellow light, accent */
+    --cyan: #9fe0ff;       /* your shift */
+    --hot: #e0402a;        /* hot lot tag */
+    --display: "Pixelify Sans", "Courier New", monospace;
+    --body: "IBM Plex Sans", system-ui, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, monospace;
+    color-scheme: dark;
+  }
+  body { margin: 0; background: var(--night); color: var(--ink); font: 16px/1.55 var(--body); }
+  .wrap { max-width: 760px; margin: 0 auto; padding-block: 32px 64px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 28px; }
+  header { display: grid; gap: 10px; }
+  .eyebrow { font: 500 12px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
+  h1 { font: 700 clamp(34px, 7vw, 52px)/1 var(--display); margin: 0; letter-spacing: .01em; text-wrap: balance; }
+  h1 .a { color: var(--cyan); } h1 .b { color: var(--amber); }
+  .lede { margin: 0; max-width: 62ch; color: var(--ink); }
+  .play { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .btn { display: inline-flex; align-items: center; gap: 8px; font: 600 15px/1 var(--body); color: var(--night); background: var(--amber); border: 0; border-radius: 3px; padding: 12px 16px; text-decoration: none; cursor: pointer; }
+  .btn.ghost { background: transparent; color: var(--ink); outline: 1px solid var(--rule); }
+  .btn:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+  .url { font: 400 13px/1.4 var(--mono); color: var(--dim); word-break: break-all; }
+
+  .sheet { background: var(--panel); border: 1px solid var(--rule); border-radius: 4px; }
+  .sheet-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 16px; padding: 14px 18px; border-bottom: 1px solid var(--rule); font: 500 13px/1.3 var(--mono); color: var(--dim); }
+  .tag { color: #ffe0d8; background: #7a1410; border-left: 3px solid var(--hot); padding: 3px 8px; font: 500 12px/1.2 var(--mono); letter-spacing: .08em; }
+  .brief { padding: 18px; display: grid; gap: 12px; }
+  .brief h2, .steps h2 { font: 700 20px/1.2 var(--display); margin: 0; color: var(--amber); }
+  .brief ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+  .brief li { max-width: 64ch; }
+  kbd { font: 500 12px/1 var(--mono); background: #1c2436; border: 1px solid var(--rule); border-bottom-width: 2px; border-radius: 3px; padding: 2px 6px; color: var(--ink); }
+
+  .steps { padding: 0 18px 18px; display: grid; gap: 0; }
+  .steps h2 { padding-top: 18px; padding-bottom: 6px; }
+  .step { display: grid; grid-template-columns: 56px 1fr; gap: 4px 14px; padding: 16px 0; border-top: 1px solid var(--rule); }
+  .step:first-of-type { border-top: 0; }
+  .no { font: 500 13px/1.6 var(--mono); color: var(--dim); font-variant-numeric: tabular-nums; }
+  .q { display: grid; gap: 8px; min-width: 0; }
+  .q label, .q legend { font-weight: 600; }
+  .q .hint { font-size: 14px; color: var(--dim); margin: -4px 0 0; }
+  textarea, input[type=text], select { width: 100%; box-sizing: border-box; font: 15px/1.5 var(--body); color: var(--ink); background: var(--night); border: 1px solid var(--rule); border-radius: 3px; padding: 10px 12px; }
+  textarea { min-height: 76px; resize: vertical; }
+  fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: 8px; min-width: 0; }
+  .choices { display: flex; flex-wrap: wrap; gap: 8px; }
+  .choices label { font-weight: 400; display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border: 1px solid var(--rule); border-radius: 3px; cursor: pointer; }
+  .choices input { accent-color: var(--amber); }
+  .stars { display: flex; gap: 6px; }
+  .stars label { font: 700 20px/1 var(--display); padding: 6px 10px; }
+
+  .send { display: grid; gap: 12px; padding: 18px; border-top: 1px solid var(--rule); }
+  .send p { margin: 0; color: var(--dim); font-size: 14px; max-width: 62ch; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .status { font: 500 13px/1.3 var(--mono); color: var(--cyan); }
+  #out { font: 13px/1.5 var(--mono); min-height: 160px; }
+  footer { color: var(--dim); font-size: 13px; }
+  @media (max-width: 480px) { .step { grid-template-columns: 1fr; } .no { line-height: 1; } }
+  @media (prefers-reduced-motion: no-preference) { .btn { transition: transform .12s; } .btn:active { transform: translateY(1px); } }
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Spieltest · GitHub Game Off 2026 · Thema SHIFT</div>
+    <h1><span class="a">Schicht</span><span class="b">wechsel</span></h1>
+    <p class="lede">Eine Nachtschicht in einer Chipfabrik am Lago Maggiore. Du bringst Los 4471 bis sechs Uhr durch acht Arbeitsschritte und wechselst dabei zwischen deiner Schicht und der Vorschicht, die nie gegangen ist. Danke, dass du es testest. Es dauert etwa 30 bis 45 Minuten.</p>
+    <div class="play">
+      <a class="btn" href="./" target="_blank" rel="noopener">Spiel öffnen ▸</a>
+      <span class="url">mauipi82.github.io/schichtwechsel</span>
+    </div>
+  </header>
+
+  <section class="sheet" aria-labelledby="brief-h">
+    <div class="sheet-head"><span>LAUFZETTEL · LOS 4471 · SPIELTEST</span><span class="tag">HOT LOT · 06:00</span></div>
+    <div class="brief">
+      <h2 id="brief-h">So testest du</h2>
+      <ul>
+        <li>Am Computer mit Tastatur, in Chrome, Firefox oder Edge. Ton an, wenn es geht.</li>
+        <li><kbd>Pfeile</kbd> oder <kbd>WASD</kbd> gehen, <kbd>Shift</kbd> oder <kbd>Leertaste</kbd> wechselt die Schicht, <kbd>Enter</kbd> überspringt, <kbd>P</kbd> pausiert.</li>
+        <li>Oben auf der Seite steht der Knopf „Tempo“. Wenn du selten spielst, stell ihn vor dem Start auf „ruhig“.</li>
+        <li>Frag niemanden und lies vorher nichts nach. Gerade wo du hängen bleibst, ist für uns wichtig.</li>
+        <li>Spiel so weit, wie du Lust hast. Wenn du aufhörst, ist das auch eine Antwort.</li>
+        <li>Notier dir unterwegs kurz, wo du gestorben bist oder etwas nicht verstanden hast. Danach füllst du den Zettel unten aus.</li>
+      </ul>
+    </div>
+
+    <form class="steps" id="form" aria-labelledby="steps-h">
+      <h2 id="steps-h">Nach dem Spielen</h2>
+
+      <div class="step"><div class="no">01</div><div class="q">
+        <label for="q-hour">Wie weit bist du gekommen?</label>
+        <select id="q-hour" name="Wie weit">
+          <option value="">bitte wählen</option>
+          <option>22:00 Silizium</option><option>23:00 Oxid</option><option>00:00 Fotolack</option><option>01:00 Struktur</option>
+          <option>02:00 Dotierung</option><option>03:00 Ausheilen</option><option>04:00 Kontakte</option><option>05:00 Metall</option>
+          <option>Ende erreicht (normal)</option><option>Ende mit allen acht Retikeln</option>
+        </select>
+      </div></div>
+
+      <div class="step"><div class="no">02</div><div class="q"><fieldset>
+        <legend>Mit welchem Tempo hast du gespielt?</legend>
+        <div class="choices">
+          <label><input type="radio" name="Tempo" value="normal" id="q-tempo-n"> normal</label>
+          <label><input type="radio" name="Tempo" value="ruhig" id="q-tempo-r"> ruhig</label>
+          <label><input type="radio" name="Tempo" value="gewechselt" id="q-tempo-w"> gewechselt</label>
+        </div>
+      </fieldset></div></div>
+
+      <div class="step"><div class="no">03</div><div class="q">
+        <label for="q-stuck">Wo bist du hängen geblieben oder oft gestorben, und warum?</label>
+        <p class="hint">Uhrzeit der Stunde und was passiert ist, zum Beispiel „01:00, die Glocke hat mich in die Wand gesetzt“.</p>
+        <textarea id="q-stuck" name="Hängen geblieben"></textarea>
+      </div></div>
+
+      <div class="step"><div class="no">04</div><div class="q">
+        <label for="q-unclear">Was hast du nicht verstanden?</label>
+        <p class="hint">Regeln, Anzeigen, Wörter, Minispiele.</p>
+        <textarea id="q-unclear" name="Nicht verstanden"></textarea>
+      </div></div>
+
+      <div class="step"><div class="no">05</div><div class="q">
+        <label for="q-learned">Was hast du über Chipherstellung gelernt?</label>
+        <p class="hint">In deinen eigenen Worten, ohne nachzuschlagen. „Nichts“ ist auch eine Antwort.</p>
+        <textarea id="q-learned" name="Gelernt"></textarea>
+      </div></div>
+
+      <div class="step"><div class="no">06</div><div class="q">
+        <label for="q-mini">Welches Minispiel war am besten, welches am schwächsten?</label>
+        <textarea id="q-mini" name="Minispiele"></textarea>
+      </div></div>
+
+      <div class="step"><div class="no">07</div><div class="q">
+        <label for="q-story">Was ist mit der Vorschicht passiert? Was glaubst du?</label>
+        <textarea id="q-story" name="Geschichte"></textarea>
+      </div></div>
+
+      <div class="step"><div class="no">08</div><div class="q">
+        <label for="q-tech">Technik: Gerät, Browser, Ruckeln, Fehler, Ton?</label>
+        <input type="text" id="q-tech" name="Technik" placeholder="z. B. Laptop, Chrome, lief flüssig">
+      </div></div>
+
+      <div class="step"><div class="no">09</div><div class="q"><fieldset>
+        <legend>Wie viele Sterne gibst du?</legend>
+        <div class="choices stars">
+          <label><input type="radio" name="Sterne" value="1" id="q-s1"> 1</label>
+          <label><input type="radio" name="Sterne" value="2" id="q-s2"> 2</label>
+          <label><input type="radio" name="Sterne" value="3" id="q-s3"> 3</label>
+          <label><input type="radio" name="Sterne" value="4" id="q-s4"> 4</label>
+          <label><input type="radio" name="Sterne" value="5" id="q-s5"> 5</label>
+        </div>
+        <label for="q-why">In einem Satz, warum?</label>
+        <input type="text" id="q-why" name="Warum">
+      </fieldset></div></div>
+    </form>
+
+    <div class="send">
+      <p>Deine Antworten bleiben nur in deinem Browser. Kopier sie mit dem Knopf und schick sie an die Person, die dir diesen Zettel gegeben hat, per Messenger oder Mail.</p>
+      <div class="row">
+        <button class="btn" type="button" id="copy">Antworten kopieren</button>
+        <button class="btn ghost" type="button" id="clear">Zettel leeren</button>
+        <span class="status" id="status" role="status" aria-live="polite"></span>
+      </div>
+      <textarea id="out" readonly aria-label="Deine Antworten als Text" hidden></textarea>
+    </div>
+  </section>
+
+  <footer>Schichtwechsel · Turno di notte. Ein Spiel für GitHub Game Off 2026. Alle Firmen und Anlagen im Spiel sind erfunden.</footer>
+</div>
+
+<script>
+(() => {
+  const form = document.getElementById('form'), out = document.getElementById('out'), status = document.getElementById('status');
+  const KEY = 'schichtwechsel-spieltest';
+  // A draft stays in this browser only, so a reload does not lose it.
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(Object.fromEntries(new FormData(form)))); } catch (_) { /* storage blocked */ } };
+  try {
+    const d = JSON.parse(localStorage.getItem(KEY) || '{}');
+    for (const [k, v] of Object.entries(d)) {
+      const els = form.querySelectorAll(`[name="${CSS.escape(k)}"]`);
+      els.forEach(el => { if (el.type === 'radio') el.checked = el.value === v; else el.value = v; });
+    }
+  } catch (_) { /* nothing saved or storage blocked */ }
+  form.addEventListener('input', save); form.addEventListener('change', save);
+  form.addEventListener('submit', e => e.preventDefault());
+
+  const compose = () => {
+    const data = new FormData(form), lines = ['Schichtwechsel · Spieltest'];
+    const order = ['Wie weit', 'Tempo', 'Hängen geblieben', 'Nicht verstanden', 'Gelernt', 'Minispiele', 'Geschichte', 'Technik', 'Sterne', 'Warum'];
+    for (const k of order) { const v = (data.get(k) || '').toString().trim(); lines.push(`${k}: ${v || '–'}`); }
+    return lines.join('\n');
+  };
+  document.getElementById('copy').addEventListener('click', () => {
+    const text = compose();
+    out.value = text; out.hidden = false;
+    const fallback = () => { out.focus(); out.select(); status.textContent = 'Text markiert: jetzt mit Strg+C oder Cmd+C kopieren.'; };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(() => { status.textContent = 'Kopiert. Jetzt einfügen und abschicken.'; }, fallback);
+    } else fallback();
+  });
+  // Clearing asks inside the page: a second press within a few seconds empties the sheet.
+  let armed = 0;
+  document.getElementById('clear').addEventListener('click', e => {
+    if (Date.now() - armed > 4000) { armed = Date.now(); status.textContent = 'Nochmal drücken, um alles zu löschen.'; return; }
+    form.reset(); out.hidden = true; out.value = ''; armed = 0;
+    try { localStorage.removeItem(KEY); } catch (_) { /* storage blocked */ }
+    status.textContent = 'Zettel geleert.';
+  });
+})();
+</script>
+
+</body>
+</html>
