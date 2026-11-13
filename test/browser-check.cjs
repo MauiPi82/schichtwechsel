@@ -122,7 +122,8 @@ if (!url) throw new Error('Pass the URL of the served repository root.');
       assert.equal(await page.evaluate(() => __schicht.mode), 'play', 'the prologue skips to the gowning intro');
       await page.keyboard.press('Enter'); await until(() => __schicht.mode === 'card' && __schicht.cardT > 30);
       assert.equal(await page.evaluate(() => __schicht.mode), 'card', 'Enter skips the intro');
-      await page.keyboard.press('Enter'); await settled('play');
+      // The first key shows the whole card, the second starts the hour.
+      await page.keyboard.press('Enter'); await page.waitForTimeout(100); await page.keyboard.press('Enter'); await settled('play');
       assert.equal(await page.evaluate(() => __schicht.mode), 'play');
       const x0 = await page.evaluate(() => __schicht.state.x);
       await page.keyboard.down('ArrowRight'); await page.waitForTimeout(500); await page.keyboard.up('ArrowRight');

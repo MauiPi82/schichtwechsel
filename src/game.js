@@ -23,8 +23,7 @@ const UI = {
     sticky: 'Tipp: Die Leertaste wechselt auch die Schicht (Windows-Einrastfunktion).',
     resume: 'Weiter ab', fresh: 'N: neue Nacht ab 22:00', physics: 'PHYSIK DER SCHICHT',
     caught: 'ERWISCHT', noticed: 'BEMERKT', crushed: 'EINGEMAUERT', robot: 'ÜBERFAHREN', beam: 'IM STRAHL', heat: 'VERBRANNT', plasma: 'IM PLASMA',
-    beatTip: 'Oben unter der Kopfzeile läuft der Takt der nächsten Sekunden. Weiße Striche: die Glocke. Blau: Gefahr nahe bei dir in deiner Schicht. Gelb: in der Vorschicht.',
-    trialWarn: 'Die Glocke! Beim Schlag trägt sie dich in die andere Schicht. Grüner Rahmen: Dort kannst du stehen. Roter Rahmen: Dort ist Wand, geh weiter. Der erste Schlag ist ein Probeschlag.',
+    trialWarn: 'Die Glocke! Beim Schlag trägt sie dich in die andere Schicht. Grüner Rahmen: Dort kannst du stehen. Orange: Du landest neben einem von ihnen. Rot: Wand, geh weiter. Der erste Schlag ist ein Probeschlag.',
     trialShift: l => l ? 'Probeschlag: Die Glocke hat dich in die Vorschicht getragen. Ab jetzt zählt jeder Schlag. Vor jedem zündet hinten der Verascher (er brennt Lack weg) sein Plasma.' : 'Probeschlag: Die Glocke hat dich in deine Schicht getragen. Ab jetzt zählt jeder Schlag.',
     trialStay: 'Probeschlag: Drüben wäre hier Wand gewesen. Ab dem nächsten Schlag mauert sie dich ein. Stell dich vorher auf ein grün umrahmtes Feld.',
     paused: 'PAUSE', pausedHint: 'P oder ESC: weiter', bell: 'GLOCKE', ion: 'IONEN', retry: 'R: neu versuchen',
@@ -47,8 +46,7 @@ const UI = {
     sticky: 'Tip: Space changes the shift too (Windows Sticky Keys).',
     resume: 'Continue from', fresh: 'N: new night from 22:00', physics: 'PHYSICS OF THE SHIFT',
     caught: 'CAUGHT', noticed: 'NOTICED', crushed: 'WALLED IN', robot: 'RUN OVER', beam: 'IN THE BEAM', heat: 'BURNED', plasma: 'IN THE PLASMA',
-    beatTip: 'Under the header runs the beat of the next seconds. White marks: the bell. Blue: danger near you in your shift. Amber: in the shift before.',
-    trialWarn: 'The bell! When it strikes it carries you into the other shift. Green frame: you can stand there. Red frame: there is a wall, move on. The first strike is a trial.',
+    trialWarn: 'The bell! When it strikes it carries you into the other shift. Green frame: you can stand there. Orange: you land next to one of them. Red: a wall, move on. The first strike is a trial.',
     trialShift: l => l ? 'Trial strike: the bell carried you into the shift before. From now on every strike counts. Before each one the asher at the back (it burns resist off) fires its plasma.' : 'Trial strike: the bell carried you into your shift. From now on every strike counts.',
     trialStay: 'Trial strike: over there this was a wall. From the next strike on it walls you in. Stand on a tile framed in green before it.',
     paused: 'PAUSED', pausedHint: 'P or ESC: resume', bell: 'BELL', ion: 'IONS', retry: 'R: try again',
@@ -483,7 +481,7 @@ addEventListener('keyup', e => {
 });
 // Losing focus pauses: the fab with its pause screen, a minigame or a film by holding still until a key or tap.
 let blurHold = false;
-const HOLD_MODES = ['mini', 'process', 'note', 'cinema', 'epilogue', 'finale', 'shower', 'gown', 'locker'];
+const HOLD_MODES = ['mini', 'process', 'note', 'beatinfo', 'cinema', 'epilogue', 'finale', 'shower', 'gown', 'locker'];
 addEventListener('blur', () => { held.clear(); shiftHeld = false; if (mode === 'play') mode = 'paused'; else if (HOLD_MODES.includes(mode)) blurHold = true; });
 function press(what) {
   if (veilPhase === 'out') return;
@@ -506,6 +504,7 @@ function press(what) {
   if (mode === 'dead') { if (deadT > DEAD_LEN) { queuedDir = null; queuedShift = false; startRewind(); } return; }
   if (mode === 'process') { if (procT > 20) endProcess(); return; }
   if (mode === 'note') { if (noteT > 25) { mode = 'play'; queuedDir = null; queuedShift = false; } return; }
+  if (mode === 'beatinfo') { if (beatT > 25) { mode = 'play'; queuedDir = null; queuedShift = false; } return; }
   if (mode === 'paused') { if (what === 'enter') mode = 'play'; return; }
   if (mode === 'play') { if (what === 'shift' && frame - windowClosedAt > 6 && frame - bellAt > 10) { queuedShift = true; shiftQueuedAt = frame; } return; }
   if (mode === 'book') {
@@ -514,7 +513,12 @@ function press(what) {
     return;
   }
   if (mode === 'title') { audio.unlock(); if (progress === 0) transition(startCinema, 36, 1); else transition(() => startCard(progress), 30, 30); return; }
-  if (mode === 'card' && cardT > 20) { transition(() => { checkpoint = null; startLevel(levelIndex); }, 22, 36); return; }
+  if (mode === 'card' && cardT > 20) {
+    // The first key shows the whole card at once; the next one starts the hour.
+    const def = LEVELS[levelIndex], full = Math.max(def.log[lang].join('').length * 1.5 + 2, def.plain && !easy ? 161 : 0);
+    if (cardT < full) { cardT = full; return; }
+    transition(() => { checkpoint = null; startLevel(levelIndex); }, 22, 36); return;
+  }
   const toTitle = () => { mode = 'title'; audio.setLayer(0); };
   if (mode === 'ending' && cardT > 120) transition(toTitle, 40, 40);
   if (mode === 'finale') { if (finT < window.SchichtOdenchip.TOTAL) finT = window.SchichtOdenchip.TOTAL; else if (finT > window.SchichtOdenchip.TOTAL + 5) transition(toTitle, 40, 40); }
@@ -593,7 +597,7 @@ function pollPad() {
 let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0, shake = 0;
 let progress = clamp(parseInt(store.get('level'), 10) || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
 const deathsBy = levels.map(() => 0);
-const BUILD = '0.67 · 2026-11-13';
+const BUILD = '0.68 · 2026-11-13';
 // Testers can jump to an hour: ?stunde=3 or ?hour=3 opens the third hour.
 const jump = parseInt(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || '0', 10) || 0;
 if (jump >= 1 && jump <= levels.length) progress = jump - 1;
@@ -909,7 +913,7 @@ function startLevel(i, resume = false) {
     state.safeUntil = state.step + 14; state.bellFrom = state.step; state.graceFrom = state.step;
   } else { state = C.newState(levels[i]); hintT = 0; toastT = 0; shiftHintT = 0; paDone = new Set(); paQueue = []; paNow = null; noteRead = false; scareDone = false; reading = null; extra = null; extraDone = false; }
   // The first hour that keeps time: the hour waits while the beat bar is explained, once.
-  if (!resume && hasBeat(state.level) && store.get('beattip') !== '1') { store.set('beattip', '1'); waitKey = true; toast(t().beatTip, 600); }
+  if (!resume && hasBeat(state.level) && store.get('beattip') !== '1') { store.set('beattip', '1'); mode = 'beatinfo'; beatT = 0; }
   selfTrail = [];
   scare = null; freezeT = 0; history = [];
   queuedDir = null; queuedShift = false;
@@ -1031,9 +1035,9 @@ function doStep(action) {
 }
 
 // The SHIFT that closes a window must not also shift the layer: for a moment after it, SHIFT is ignored.
-let lastMode = null, windowClosedAt = -99, waitKey = false, bellAt = -99, laterToast = null, toastY = 0;
+let lastMode = null, windowClosedAt = -99, waitKey = false, bellAt = -99, laterToast = null, toastY = 0, beatT = 0;
 const trialTold = new Set();
-const CLOSERS = new Set(['mini', 'process', 'note', 'locker', 'gown', 'shower', 'card', 'paused']);
+const CLOSERS = new Set(['mini', 'process', 'note', 'beatinfo', 'locker', 'gown', 'shower', 'card', 'paused']);
 function update() {
   frame++; pollPad();
   if (blurHold) return;
@@ -1074,6 +1078,7 @@ function update() {
   if (fx > 0) fx--;
   if (shake > 0) shake--;
   if (mode === 'note') noteT++;
+  if (mode === 'beatinfo') beatT++;
   if (mode === 'mini' && mini) {
     window.SchichtMini.update(mini, {pressed: miniPressed, held: shiftHeld, up: held.has('up'), down: held.has('down'), left: held.has('left'), right: held.has('right')});
     miniPressed = false;
@@ -1208,6 +1213,32 @@ function drawBeat(L) {
   ctx.restore();
   // Now: the left edge, a small notch.
   R('#e9e4d6', x0 - 1, y - 1, 1, 6);
+}
+
+// The beat bar explained once, in a window: a drawn example with its three parts named, then SHIFT.
+function drawBeatInfo() {
+  const de = lang === 'de', x = 30, y = 26, w = W - 60, h = 124, k = clamp(beatT / 14, 0, 1);
+  ctx.globalAlpha = k;
+  R('rgba(3,4,8,.6)', 0, 0, W, H);
+  R('#0b0f18', x - 2, y - 2, w + 4, h + 4); R('#ffb43a', x - 2, y - 2, w + 4, 1); R('#1c160c', x, y, w, 12);
+  txt(de ? 'DER TAKT' : 'THE BEAT', x + 6, y + 2, {color: '#ffcf5a'});
+  txt(de ? 'Unter der Kopfzeile läuft der Takt der nächsten Sekunden nach links.' : 'Under the header the beat of the next seconds runs to the left.', x + w / 2, y + 17, {align: 'center', font: 'IBM Plex Sans', size: 8, color: '#e9e4d6', max: w - 12});
+  // The example: now at the left, a bell later, danger here soon, danger over there after the bell.
+  const ex = x + 20, ew = w - 40, ey = y + 44, per = ew / 24;
+  R('#141a28', ex, ey, ew, 8);
+  R('#5fb8e8', ex + per * 3, ey, per * 5, 4);
+  R('#e8962a', ex + per * 14, ey + 4, per * 6, 4);
+  R('#ffffff', ex + per * 11 - 1, ey - 4, 3, 16);
+  R('#e9e4d6', ex - 2, ey - 2, 2, 12);
+  const label = (s, lx, ly, col, align = 'center') => txt(s, lx, ly, {align, font: 'IBM Plex Sans', size: 7, color: col, max: 120});
+  label(de ? 'jetzt' : 'now', ex - 2, ey - 13, '#c9c2ae', 'left');
+  label(de ? 'die Glocke schlägt' : 'the bell strikes', ex + per * 11, ey - 13, '#ffffff');
+  label(de ? 'Gefahr nahe bei dir, in deiner Schicht' : 'danger near you, in your shift', ex + per * 5.5, ey + 12, '#5fb8e8');
+  label(de ? 'Gefahr nahe bei dir, in der Vorschicht' : 'danger near you, in the shift before', ex + per * 17, ey + 22, '#e8962a');
+  txt(de ? 'Gefahr heißt: Plasma oder Ofenhitze in höchstens zwei Feldern Abstand.' : 'Danger means plasma or furnace heat at most two tiles away.', x + w / 2, y + 88, {align: 'center', font: 'IBM Plex Sans', size: 7, color: '#c9c2ae', max: w - 12});
+  txt(de ? 'Wo genau, zeigt der Boden: violett blinkt Plasma, rot gerahmt die Hitze.' : 'Where exactly, the floor shows: plasma blinks violet, heat is framed red.', x + w / 2, y + 98, {align: 'center', font: 'IBM Plex Sans', size: 7, color: '#c9c2ae', max: w - 12});
+  if (beatT > 25 && (frame >> 5) % 2) txt(t().cont, x + w / 2, y + h - 10, {align: 'center', color: '#8c93a8'});
+  ctx.globalAlpha = 1;
 }
 
 function drawHUD() {
@@ -1473,6 +1504,8 @@ function bellPreview() {
   if (left > warn) return;
   const other = 1 - state.layer, a = 0.35 + 0.25 * Math.sin(frame / 4), at = state.step + left;
   // What the other layer holds at the moment of the strike: plasma, furnace heat, by day the ion beam.
+  // Into the shift before: a tile within their noticing distance (plus one step they may walk) of one of them.
+  const watched = (x, y) => other === 1 && state.enemies.some(e => !C.frozen(state, e) && (() => { const d = L.dist[y * C.W + x][e.y * C.W + e.x]; return d >= 0 && d <= L.alertRadius + 1; })());
   const deadly = (x, y) => C.timedHazard(L, other, at, x, y, n => C.pulseStopped(state, n, at), state.bellFrom || 0) ||
     (other === 0 && !(at < (state.hazardOff ? state.hazardOff.beam : 0)) && L.beams.some(b => b.phases[C.beamPhase(b, at)].cells[y * C.W + x]));
   for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
@@ -1484,9 +1517,12 @@ function bellPreview() {
       for (let k = 0; k < T; k += 3) R('#ff6a3a', x * T + k, FY + y * T + (k % 2 ? 0 : T - 1), 1, 1);
       ctx.strokeStyle = '#ff6a3a'; ctx.lineWidth = 1; ctx.strokeRect(x * T + 1.5, FY + y * T + 1.5, T - 3, T - 3);
     } else if (deadly(x, y)) { R('rgba(190,110,255,.35)', x * T + 1, FY + y * T + 1, T - 2, T - 2); }
+    else if (watched(x, y)) { R('rgba(255,170,50,.28)', x * T + 1, FY + y * T + 1, T - 2, T - 2); }
   }
   ctx.globalAlpha = 0.6 + 0.4 * Math.sin(frame / 3);
-  ctx.strokeStyle = C.walkable(L, other, state.x, state.y) && !deadly(state.x, state.y) ? '#3fe06a' : '#ff4a3a'; ctx.lineWidth = 1;
+  // Green: you land safely. Orange: you land right next to one of them. Red: a wall or a hazard.
+  const land = !C.walkable(L, other, state.x, state.y) || deadly(state.x, state.y) ? '#ff4a3a' : watched(state.x, state.y) ? '#ffb43a' : '#3fe06a';
+  ctx.strokeStyle = land; ctx.lineWidth = 1;
   ctx.strokeRect(state.x * T + 0.5, FY + state.y * T + 0.5, T - 1, T - 1);
   ctx.globalAlpha = 1;
 }
@@ -1672,7 +1708,8 @@ function renderCard() {
   // First the hour in plain words, then the physics in small print.
   if (def.plain) txt(def.plain[lang], 18, y0 + 9, {color: '#e9e4d6', font: 'IBM Plex Sans', size: 8, max: W - 36});
   // The physics in small print comes a moment later: first the sentence everyone reads, then the numbers.
-  ctx.globalAlpha = def.plain ? clamp((cardT - 120) / 40, 0, 1) : 1;
+  // In the calm pace it stays away: the plain sentence is the card.
+  ctx.globalAlpha = def.plain ? (easy ? 0 : clamp((cardT - 120) / 40, 0, 1)) : 1;
   def.fact[lang].forEach((line, i) => txt(line, 18, y0 + (def.plain ? 20 : 10) + i * (def.plain ? 8 : 9), {color: '#9aa6b5', font: 'IBM Plex Sans', size: def.plain ? 6 : 7, max: W - 36}));
   ctx.globalAlpha = 1;
   if (cardT > 20 && (frame >> 5) % 2) txt(t().cont, W / 2, H - 9, {align: 'center', color: '#6b7190'});
@@ -1789,7 +1826,8 @@ function renderEnding() {
   ctx.fillStyle = g; ctx.fillRect(0, 110, W, 70);
   txt(`${t().layerWord} ${LEVELS.length + 1}`, 16, 20, {color: '#6b7190'});
   txt(ENDING.layer[lang].toUpperCase(), 16, 30, {size: 24, font: 'Pixelify Sans', weight: 700, color: '#e0402a', shadow: '#2a0800', max: 180});
-  txt(ENDING.time, 16, 58, {color: '#8c93a8', font: 'IBM Plex Sans', size: 8});
+  // What the word means: the last protective layer over a chip. This one is no glass.
+  txt(`${ENDING.time} · ${lang === 'de' ? 'Passivierung: die Schutzschicht obenauf' : 'passivation: the protective top layer'}`, 16, 58, {color: '#8c93a8', font: 'IBM Plex Sans', size: 8, max: 184});
   const shown = Math.floor(cardT / 2);
   let used = 0;
   ENDING.log[lang].forEach((line, i) => {
@@ -1867,6 +1905,7 @@ function renderMode() {
   if (mode === 'rewind') return renderRewind();
   renderPlay();
   if (mode === 'note') drawNote();
+  if (mode === 'beatinfo') drawBeatInfo();
   if (mode === 'mini' && mini) window.SchichtMini.draw(ctx, mini, lang);
   if (mode === 'process') window.SchichtProcess.draw(ctx, procType, procT, lang, {n: levelIndex + 1, found: found.size, total: LEVELS.length, lot});
   if (mode === 'clear') {

@@ -614,7 +614,8 @@ const etch = {
     // Right top: optical emission over time; CN while the nitride etches, CO while the oxide etches.
     const gx = a.x + 104, gy = a.y + 4, gw = a.w - 108, gh = 50;
     R('#0b0f18', gx, gy, gw, gh); text('OES', gx + gw - 3, gy + 2, {align: 'right', color: '#4c5470'});
-    const lines = [[m.cn, '#7fe0ff', 'CN 387 nm', 2], [m.co, '#d6a8ff', 'CO 483 nm', 12]];
+    // The two lines by what they mean: CN glows while nitride is etched, CO while oxide is.
+    const lines = [[m.cn, '#7fe0ff', L('NITRID (CN)', 'NITRIDE (CN)'), 2], [m.co, '#d6a8ff', L('OXID (CO)', 'OXIDE (CO)'), 12]];
     lines.forEach(([tr, colr]) => {
       const shown = tr.slice(-(gw - 2));
       ctx.strokeStyle = colr; ctx.lineWidth = 1; ctx.beginPath();
@@ -622,7 +623,7 @@ const etch = {
       ctx.stroke();
     });
     // The names over the traces, on their own dark ground.
-    lines.forEach(([, colr, name, ly]) => { R('rgba(11,15,24,.85)', gx + 2, gy + ly - 1, 58, 10); text(name, gx + 3, gy + ly, {color: colr, max: 56}); });
+    lines.forEach(([, colr, name, ly]) => { R('rgba(11,15,24,.85)', gx + 2, gy + ly - 1, 70, 10); text(name, gx + 3, gy + ly, {color: colr, max: 68}); });
     // When the CO line has dropped, the tool calls the endpoint and counts the over-etch from there.
     if (past) {
       const ex = gx + gw - 1 - (m.g - T);
@@ -711,7 +712,7 @@ const implant = {
     }
     ctx.fillStyle = '#c9ced6'; ctx.beginPath(); ctx.ellipse(slitX, a.y + a.h - 4, 20, 4, 0, 0, 7); ctx.fill();
     const rx = a.x + a.w - 80;
-    text(`B = ${num(m.B * 1000, 1)} mT`, rx, ey + 38, {color: '#ffcf5a', max: 76});
+    text(`${L('MAGNET', 'MAGNET')} ${num(m.B * 1000, 1)} mT`, rx, ey + 38, {color: '#ffcf5a', max: 76});
     text(ion ? (ion === 'As+' ? L('As⁺ IM SPALT', 'As⁺ IN THE SLIT') : L(`${ion} IM SPALT`, `${ion} IN THE SLIT`)) : L('KEIN STRAHL', 'NO BEAM'), rx, ey + 2, {color: ion === 'As+' ? '#9cff9c' : ion ? '#e0402a' : '#6b7190', max: 76});
     if (m.st === 'implant') {
       R('#1a2030', rx, ey + 18, 72, 5); R('#9cff9c', rx, ey + 18, 72 * m.good / IMPLANT_FRAMES, 5);
@@ -924,7 +925,7 @@ const sputter = {
     ctx.strokeStyle = '#9fe0ff'; ctx.lineWidth = 1; ctx.beginPath();
     m.hist.forEach((p, i) => ctx[i ? 'lineTo' : 'moveTo'](gx + gw - m.hist.length + i, toY(p))); ctx.stroke();
     const inBand = m.p >= SP_BAND[0] && m.p <= SP_BAND[1];
-    text(`Ar ${num(m.p)} µbar`, gx + gw - 3, gy + 2, {align: 'right', color: inBand ? '#3fe06a' : m.p > SP_BAND[1] ? '#ff8a5a' : '#ffcf5a', max: gw - 4});
+    text(`${L('ARGON', 'ARGON')} ${num(m.p)} µbar`, gx + gw - 3, gy + 2, {align: 'right', color: inBand ? '#3fe06a' : m.p > SP_BAND[1] ? '#ff8a5a' : '#ffcf5a', max: gw - 4});
     const ty = gy + gh + 8;
     text(`Al ${Math.round(m.al)} / ${SP_TARGET} nm`, gx + gw / 2, ty, {align: 'center', color: '#e9e4d6', max: gw});
     R('#141a28', gx + 4, ty + 12, gw - 8, 6); R('#c9ced6', gx + 4, ty + 12, Math.round((gw - 8) * m.al / SP_TARGET), 6);
@@ -942,8 +943,8 @@ const BRIEF = {
     de: ['Wozu: Glas (Oxid) und Nitrid darauf decken ab, wo später kein Arsen hin soll. Das Glas ist das Polster darunter: Nitrid direkt auf Silizium gäbe Risse.', 'Das Glas wächst, während Sauerstoff strömt. Zu heiß wird es zu dick, zu kalt zu dünn. Der Ofen ist träge: früh gegensteuern.', '↑ ↓ Heizleistung · die gelbe Kurve ist das Rezept.'],
     en: ['Why: glass (oxide) and nitride on top cover where no arsenic may go later. The glass is the cushion below: nitride right on silicon would crack it.', 'The glass grows while oxygen flows. Too hot and it grows too thick, too cold and too thin. The furnace is slow: steer early.', '↑ ↓ heater power · the yellow curve is the recipe.']},
   nitride: {title: ['NITRID · LPCVD', 'NITRIDE · LPCVD'], goal: ['Mach alle zwölf Wafer gleich dick: wärmer wächst es schneller.', 'Make all twelve wafers equally thick: warmer, it grows faster.'],
-    de: ['Wozu: Nitrid ist hart und dicht, weder Sauerstoff noch Arsen kommen hindurch. Wo es liegen bleibt, ist der Wafer geschützt.', 'Das Gas strömt von oben ins Rohr und wird unterwegs verbraucht: Die unteren Wafer bekommen weniger.', '↑↓ Zone · ←→ Temperatur · SHIFT startet die Abscheidung.'],
-    en: ['Why: nitride is hard and dense; neither oxygen nor arsenic gets through. Where it stays, the wafer is protected.', 'The gas enters the tube at the top and is used up on the way down: the lower wafers get less.', '↑↓ zone · ←→ temperature · SHIFT starts the deposition.']},
+    de: ['Wozu: Nitrid, eine Verbindung aus Silizium und Stickstoff, ist hart und dicht: Weder Sauerstoff noch Arsen kommen hindurch. Wo es liegen bleibt, ist der Wafer geschützt.', 'Das Gas strömt von oben ins Rohr und wird unterwegs verbraucht: Die unteren Wafer bekommen weniger.', '↑↓ Zone · ←→ Temperatur · SHIFT startet die Abscheidung.'],
+    en: ['Why: nitride, a compound of silicon and nitrogen, is hard and dense; neither oxygen nor arsenic gets through. Where it stays, the wafer is protected.', 'The gas enters the tube at the top and is used up on the way down: the lower wafers get less.', '↑↓ zone · ←→ temperature · SHIFT starts the deposition.']},
   coat: {title: ['BELACKEN · SPIN-COATING', 'COAT · SPIN COATING'], goal: ['Schleudere genau 100 nm Lack auf: Dreh bis 2000, nicht darüber.', 'Spin on exactly 100 nm of resist: up to 2000, not past it.'],
     de: ['Der Lack wird aufgeschleudert: je schneller, desto dünner. Was abfliegt, kommt nicht zurück.', 'Ziel: 100 nm Lack, das sind 2000 Umdrehungen pro Minute. Taste dich heran, nicht drüber.', 'SHIFT halten: schneller · ↑↓ fein · loslassen: Lack trocknet.'],
     en: ['The resist is spun on: the faster, the thinner. What flies off does not come back.', 'Target: 100 nm of resist, that is 2000 revolutions per minute. Creep up on it, not past it.', 'Hold SHIFT: faster · ↑↓ fine · let go: the resist dries.']},

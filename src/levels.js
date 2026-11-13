@@ -82,7 +82,7 @@
         de: ['In der Vorschicht steht jemand.', 'Laut Stempeluhr ist Turno B noch im Werk.'],
         en: ['Someone is standing in the shift before.', 'By the time clock, shift B is still inside.'],
       },
-      plain: {de: 'Im Ofen wächst Glas (Oxid), darauf Nitrid. Die beiden decken ab, wo später kein Arsen hin soll.', en: 'In the furnace glass grows (oxide), nitride on top. Together they cover where no arsenic may go later.'},
+      plain: {de: 'Im Ofen wächst Glas (Oxid), darauf hartes Nitrid. Beide decken ab, wo später kein Arsen hin soll.', en: 'In the furnace glass grows (oxide), hard nitride on top. Both cover where no arsenic may go later.'},
       fact: {
         de: ['Thermisches Oxid: Bei 1000 °C wächst SiO₂ in trockenem O₂ nur einige', 'zehn nm pro Stunde, je dicker, desto langsamer (Deal-Grove). Darauf', 'scheidet der LPCVD-Ofen bei 780 °C Siliziumnitrid ab: Si₃N₄, 100 nm.'],
         en: ['Thermal oxide: at 1000 °C, SiO₂ grows in dry O₂ by only a few tens', 'of nm per hour, slower the thicker it gets (Deal-Grove). On top, the', 'LPCVD furnace deposits silicon nitride at 780 °C: Si₃N₄, 100 nm.'],
@@ -329,7 +329,7 @@
         de: ['Die Öfen öffnen sich von selbst, einer nach dem anderen.', 'Im Rohr liegen Wafer, die niemand geladen hat.'],
         en: ['The furnaces open by themselves, one after another.', 'Inside the tubes lie wafers nobody loaded.'],
       },
-      plain: {de: 'Hitze repariert das Kristallgitter, das der Strahl zerschossen hat.', en: 'Heat repairs the crystal lattice the beam has shot up.'},
+      plain: {de: 'Hitze rückt die Atome im Silizium wieder in Reih und Glied, die der Strahl verschoben hat.', en: 'Heat puts the silicon atoms back in rank and file after the beam knocked them about.'},
       fact: {
         de: ['Wärme breitet sich nach ∂T/∂t = α·∇²T aus, Dotieratome wandern', 'genauso: Diffusionslänge ≈ 2·√(D·t). Im Rohrofen heilt das Gitter', 'bei 1000 °C in 30 min aus. RTP-Anlagen schaffen es in Sekunden.'],
         en: ['Heat spreads as ∂T/∂t = α·∇²T, and dopant atoms wander the same', 'way: diffusion length ≈ 2·√(D·t). In the tube furnace the lattice', 'heals at 1000 °C in 30 min. RTP tools manage it in seconds.'],
@@ -541,8 +541,8 @@
     ],
     // The handover: lot 4471 on its cart, fresh from the stocker, where Rossi set it down at 21:31. Read when picked up.
     pickup: {
-      de: 'Los 4471: 25 blanke Wafer, noch kein einziger Schritt. Roter Reiter: HOT LOT, es hat Vorrang vor allen anderen, fällig um 06:00. Laufzettel: abgestellt 21:31, Rossi.',
-      en: 'Lot 4471: 25 bare wafers, not a single step yet. Red tag: HOT LOT, it goes before every other lot, due at 06:00. Traveller: set down at 21:31, Rossi.',
+      de: 'Los 4471: 25 blanke Wafer, dünne Siliziumscheiben, aus denen die Chips werden. Noch kein einziger Schritt. Roter Reiter: HOT LOT, es hat Vorrang vor allen anderen, fällig um 06:00. Laufzettel: abgestellt 21:31, Rossi.',
+      en: 'Lot 4471: 25 bare wafers, thin silicon discs the chips will be made on. Not a single step yet. Red tag: HOT LOT, it goes before every other lot, due at 06:00. Traveller: set down at 21:31, Rossi.',
     },
     route: [{de: 'Los 4471 abholen', en: 'Pick up lot 4471'}],
     // The suit hangs on the gowning rack (G); standing in front of it you put it on, top to bottom.
