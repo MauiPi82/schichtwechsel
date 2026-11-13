@@ -101,8 +101,8 @@ const CLEAN_LOAD = 130, CL_RINSE = 150, CL_DRY = 130, CL_BACK = 84, CL_UNLOAD = 
 const clean = {
   init(m) { m.bath = 0; m.st = 'load'; m.bt = 0; m.res = []; m.times = []; },
   update(m, inp) {
-    // What the bench does by itself runs at double speed: you only watch it.
-    m.bt += ['load', 'rinse', 'dry', 'back', 'unload'].includes(m.st) ? 3 : 1;
+    // The robot moves the wafers at its own pace, so you can watch it; rinsing and drying run at double speed.
+    m.bt += ['rinse', 'dry', 'back'].includes(m.st) ? 2 : 1;
     if (m.st === 'load') { if (m.bt >= CLEAN_LOAD) { m.st = 'ready'; m.bt = 0; } if (m.bt % 16 === 0 && m.bt > 10 && m.bt < 90) m.sfx('click'); return; }
     // Above each bath the carrier waits for you: the clock starts only once you dip it.
     if (m.st === 'ready') { if (inp.pressed && m.bt > 6) { m.st = 'down'; m.bt = 0; m.sfx('click'); } return; }

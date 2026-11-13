@@ -597,7 +597,7 @@ function pollPad() {
 let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0, shake = 0;
 let progress = clamp(parseInt(store.get('level'), 10) || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
 const deathsBy = levels.map(() => 0);
-const BUILD = '0.68 · 2026-11-13';
+const BUILD = '0.69 · 2026-11-13';
 // Testers can jump to an hour: ?stunde=3 or ?hour=3 opens the third hour.
 const jump = parseInt(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || '0', 10) || 0;
 if (jump >= 1 && jump <= levels.length) progress = jump - 1;
@@ -798,9 +798,8 @@ function updateCinema() {
   if (shot === 2 && t > 0.8 && t < 2.6 && frame % 6 === 0) audio.sfx('zap');
   if (cinemaT >= window.SchichtCinema.TOTAL) { startIntro(); fadeIn(70); }
 }
-// From the second night on, the way in is known: the night starts at the 22:00 card (the test hook can force it).
-function startIntro(force) {
-  if (!force && store.get('intro') === '1') { endIntro(); return; }
+// Every new night begins at the time clock: clocking in, the locker, the suit, the air shower. ENTER skips it.
+function startIntro() {
   const L = C.parseLevel(INTRO);
   // The door to the air shower opens once you wear the suit.
   L.open = new Set(); L.showerT = 0;
@@ -1972,7 +1971,7 @@ if (new URLSearchParams(location.search).has('test')) {
     levels, get state() { return state; }, get mode() { return mode; },
     card: i => startCard(i), start: i => startLevel(i), act: a => doStep(a),
     // Like a key press: the action waits for the next step of the real loop.
-    queue: a => { if (a === 'shift') { queuedShift = true; shiftQueuedAt = frame; } else if (a !== 'wait') queuedDir = a; }, get stepFrame() { return stepFrame; }, get pending() { return pendingMode; }, render, update, intro: () => startIntro(true), get showerT() { return showerT; }, get gownT() { return gownT; }, get lockerT() { return lockerT; }, get introNote() { return introNote; }, cinema: () => startCinema(), get cinemaT() { return cinemaT; },
+    queue: a => { if (a === 'shift') { queuedShift = true; shiftQueuedAt = frame; } else if (a !== 'wait') queuedDir = a; }, get stepFrame() { return stepFrame; }, get pending() { return pendingMode; }, render, update, intro: () => startIntro(), get showerT() { return showerT; }, get gownT() { return gownT; }, get lockerT() { return lockerT; }, get introNote() { return introNote; }, cinema: () => startCinema(), get cinemaT() { return cinemaT; },
     finale: () => { mode = 'finale'; finT = 0; }, get finT() { return finT; }, set finT(v) { finT = v; },
     epilogue: () => { mode = 'epilogue'; epiT = 0; }, get epiT() { return epiT; }, set epiT(v) { epiT = v; }, found,
     process: (type, tt) => { procType = type; procT = tt; mode = 'process'; },
