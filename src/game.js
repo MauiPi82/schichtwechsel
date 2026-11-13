@@ -7,11 +7,12 @@ const cv = document.getElementById('game'), ctx = cv.getContext('2d');
 const embedded = (() => { try { return window.top !== window.self; } catch (_) { return true; } })() || new URLSearchParams(location.search).has('embed');
 if (embedded) document.body.classList.add('embed');
 const W = 320, H = 180, Z = 4, T = 16, FY = 16;
-const STEP_FRAMES = 8;
+// Frames per step: 8 at the normal pace, 10 in the calm mode (time runs a fifth slower).
+let STEP_FRAMES = 8;
 // Less motion and softer flashes: from the system setting, or switched on the page (saved).
 let reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const isTouch = matchMedia('(pointer: coarse)').matches;
-const levels = LEVELS.map(d => C.parseLevel(d));
+let levels = LEVELS.map(d => C.parseLevel(d)), easy = false;
 
 /* ---------- Language ---------- */
 const UI = {
@@ -22,6 +23,7 @@ const UI = {
     sticky: 'Tipp: Die Leertaste wechselt auch die Schicht (Windows-Einrastfunktion).',
     resume: 'Weiter ab', fresh: 'N: neue Nacht ab 22:00', physics: 'PHYSIK DER SCHICHT',
     caught: 'ERWISCHT', noticed: 'BEMERKT', crushed: 'EINGEMAUERT', robot: 'ÜBERFAHREN', beam: 'IM STRAHL', heat: 'VERBRANNT', plasma: 'IM PLASMA',
+    beatTip: 'Oben unter der Kopfzeile läuft der Takt der nächsten Sekunden. Weiße Striche: die Glocke. Blau: Gefahr nahe bei dir in deiner Schicht. Gelb: in der Vorschicht.',
     trialWarn: 'Die Glocke! Beim Schlag trägt sie dich in die andere Schicht. Grüner Rahmen: Dort kannst du stehen. Roter Rahmen: Dort ist Wand, geh weiter. Der erste Schlag ist ein Probeschlag.',
     trialShift: l => l ? 'Probeschlag: Die Glocke hat dich in die Vorschicht getragen. Ab jetzt zählt jeder Schlag. Vor jedem zündet hinten der Verascher (er brennt Lack weg) sein Plasma.' : 'Probeschlag: Die Glocke hat dich in deine Schicht getragen. Ab jetzt zählt jeder Schlag.',
     trialStay: 'Probeschlag: Drüben wäre hier Wand gewesen. Ab dem nächsten Schlag mauert sie dich ein. Stell dich vorher auf ein grün umrahmtes Feld.',
@@ -45,6 +47,7 @@ const UI = {
     sticky: 'Tip: Space changes the shift too (Windows Sticky Keys).',
     resume: 'Continue from', fresh: 'N: new night from 22:00', physics: 'PHYSICS OF THE SHIFT',
     caught: 'CAUGHT', noticed: 'NOTICED', crushed: 'WALLED IN', robot: 'RUN OVER', beam: 'IN THE BEAM', heat: 'BURNED', plasma: 'IN THE PLASMA',
+    beatTip: 'Under the header runs the beat of the next seconds. White marks: the bell. Blue: danger near you in your shift. Amber: in the shift before.',
     trialWarn: 'The bell! When it strikes it carries you into the other shift. Green frame: you can stand there. Red frame: there is a wall, move on. The first strike is a trial.',
     trialShift: l => l ? 'Trial strike: the bell carried you into the shift before. From now on every strike counts. Before each one the asher at the back (it burns resist off) fires its plasma.' : 'Trial strike: the bell carried you into your shift. From now on every strike counts.',
     trialStay: 'Trial strike: over there this was a wall. From the next strike on it walls you in. Stand on a tile framed in green before it.',
@@ -104,6 +107,13 @@ const store = {
   },
   set(k, v) { storeCache.set(k, String(v)); try { localStorage.setItem('schichtwechsel-' + k, v); } catch (_) { /* storage blocked or full */ } },
 };
+// The calm mode: gentler rounds, a longer ring, an earlier bell warning, and time a fifth slower. Every hour is
+// proven solvable in it too. It takes effect when an hour starts.
+function setEasy(on) {
+  easy = on; STEP_FRAMES = on ? 10 : 8;
+  levels = LEVELS.map(d => C.parseLevel(d, {easy: on}));
+}
+setEasy(store.get('easy') === '1');
 let lang = store.get('lang') || ((navigator.language || 'en').toLowerCase().startsWith('de') ? 'de' : 'en');
 if (lang !== 'de' && lang !== 'en') lang = 'en';
 const t = () => UI[lang];
@@ -118,6 +128,15 @@ function applyLanguage() {
   btnMenu.textContent = t().menu;
   btnCalm.textContent = lang === 'de' ? `Blitze: ${reduced ? 'gedämpft' : 'an'}` : `Flashes: ${reduced ? 'soft' : 'on'}`;
   btnCalm.setAttribute('aria-pressed', String(reduced));
+  btnEasy.textContent = lang === 'de' ? `Tempo: ${easy ? 'ruhig' : 'normal'}` : `Pace: ${easy ? 'calm' : 'normal'}`;
+  btnEasy.setAttribute('aria-pressed', String(easy));
+}
+// Switching the pace: on the title or a card it applies to the next hour; in the fab it says how to apply it now.
+function toggleEasy() {
+  setEasy(!easy); store.set('easy', easy ? '1' : '0'); applyLanguage();
+  const de = lang === 'de';
+  if (['play', 'paused'].includes(mode) && !introMode) toast(de ? `Tempo ${easy ? 'ruhig' : 'normal'}: gilt ab dem nächsten Start der Stunde (R startet sie neu).` : `Pace ${easy ? 'calm' : 'normal'}: from the next start of the hour (R restarts it).`, 300);
+  else toast(de ? `Tempo ${easy ? 'ruhig' : 'normal'}` : `Pace ${easy ? 'calm' : 'normal'}`, 120);
 }
 langSel.addEventListener('change', () => { lang = langSel.value; store.set('lang', lang); applyLanguage(); langSel.blur(); });
 
@@ -445,6 +464,7 @@ addEventListener('keydown', e => {
   // H: in the fab it pauses first; from the pause (or any card or film) it goes to the main menu.
   if (is('KeyH', 'h')) { if (mode === 'play') mode = 'paused'; else menu(); return; }
   if (is('KeyM', 'm')) { audio.toggle(); return; }
+  if (is('KeyT', 't') && ['title', 'card', 'paused', 'book'].includes(mode)) { toggleEasy(); return; }
   if (CHEAT && is('KeyN', 'n') && mode === 'play' && !introMode) { cheatWin(); return; }
   if (CHEAT && is('KeyU', 'u')) { cheatSafe = !cheatSafe; toast(cheatSafe ? 'CHEAT: UNVERWUNDBAR' : 'CHEAT: VERWUNDBAR', 90); return; }
   // With the cheat, both endings can be watched from the title: E the normal one, F the Odenchip.
@@ -573,7 +593,7 @@ function pollPad() {
 let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0, shake = 0;
 let progress = clamp(parseInt(store.get('level'), 10) || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
 const deathsBy = levels.map(() => 0);
-const BUILD = '0.65 · 2026-11-12';
+const BUILD = '0.66 · 2026-11-13';
 // Testers can jump to an hour: ?stunde=3 or ?hour=3 opens the third hour.
 const jump = parseInt(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || '0', 10) || 0;
 if (jump >= 1 && jump <= levels.length) progress = jump - 1;
@@ -885,6 +905,8 @@ function startLevel(i, resume = false) {
     state.px = state.x; state.py = state.y;
     state.safeUntil = state.step + 14; state.bellFrom = state.step;
   } else { state = C.newState(levels[i]); hintT = 0; toastT = 0; shiftHintT = 0; paDone = new Set(); paQueue = []; paNow = null; noteRead = false; scareDone = false; reading = null; extra = null; extraDone = false; }
+  // The first hour that keeps time: the hour waits while the beat bar is explained, once.
+  if (!resume && hasBeat(state.level) && store.get('beattip') !== '1') { store.set('beattip', '1'); waitKey = true; toast(t().beatTip, 600); }
   selfTrail = [];
   scare = null; freezeT = 0; history = [];
   queuedDir = null; queuedShift = false;
@@ -985,7 +1007,7 @@ function doStep(action) {
   if (state.events.includes('alert')) { audio.sfx('alert'); if (store.get('alerttip') !== '1') { store.set('alerttip', '1'); toast(t().alertTip, 300); } }
   // An hour with a trial bell: before its first strike what the frame means, after it what has changed.
   if (state.level.bellTrial && !introMode && !trialTold.has(levelIndex)) {
-    if (state.events.includes('bell-warning') && C.bellIn(state) > C.bellWarning(state.level.bell) / 2) toast(t().trialWarn, 420);
+    if (state.events.includes('bell-warning') && C.bellIn(state) > C.bellWarning(state.level.bell, state.level.easy) / 2) toast(t().trialWarn, 420);
     if (state.events.includes('bell-trial')) { trialTold.add(levelIndex); toast(state.layer !== before ? t().trialShift(state.layer) : t().trialStay, 480); }
   }
   if (state.events.includes('freeze')) audio.sfx('freeze');
@@ -1006,7 +1028,7 @@ function doStep(action) {
 }
 
 // The SHIFT that closes a window must not also shift the layer: for a moment after it, SHIFT is ignored.
-let lastMode = null, windowClosedAt = -99, waitKey = false, bellAt = -99, laterToast = null;
+let lastMode = null, windowClosedAt = -99, waitKey = false, bellAt = -99, laterToast = null, toastY = 0;
 const trialTold = new Set();
 const CLOSERS = new Set(['mini', 'process', 'note', 'locker', 'gown', 'shower', 'card', 'paused']);
 function update() {
@@ -1148,6 +1170,42 @@ function drawStack(x0, y0, w, h, n) {
 }
 
 /* ---------- Drawing: HUD ---------- */
+/* ---------- The beat: what the next seconds bring, under the header ---------- */
+// 48 steps ahead, scrolling left as time runs. White marks: the bell. Two lanes for danger near you (within two
+// tiles): the upper one in your shift (blue), the lower one in the shift before (amber): plasma, or furnace heat.
+const BEAT_STEPS = 48;
+const hasBeat = L => !!(L.bell || L.pulses.length || L.heat);
+function beatDanger(L, layer, at) {
+  const from = state.bellFrom || 0, near = 2;
+  for (let n = 0; n < L.pulses.length; n++) {
+    const p = L.pulses[n];
+    if (p.layer !== layer || C.pulseStopped(state, n, at)) continue;
+    const dx = Math.max(p.x0 - state.x, 0, state.x - p.x1), dy = Math.max(p.y0 - state.y, 0, state.y - p.y1);
+    if (Math.max(dx, dy) <= near && C.pulseOn(p, at, from)) return true;
+  }
+  if (layer === C.DAY && L.heat) {
+    for (let y = state.y - 1; y <= state.y + 1; y++) for (let x = state.x - 1; x <= state.x + 1; x++) {
+      if (x >= 0 && y >= 0 && x < C.W && y < C.H && C.timedHazard(L, C.DAY, at, x, y, true, from) === 'heat') return true;
+    }
+  }
+  return false;
+}
+function drawBeat(L) {
+  const x0 = 4, x1 = W - 4, w = x1 - x0, y = 11, per = w / BEAT_STEPS;
+  const k = mode === 'play' && freezeT <= 0 && !waitKey ? clamp(stepFrame / STEP_FRAMES, 0, 1) : 0;
+  R('#141a28', x0, y, w, 4);
+  ctx.save(); ctx.beginPath(); ctx.rect(x0, y - 2, w, 7); ctx.clip();
+  for (let j = 0; j <= BEAT_STEPS + 1; j++) {
+    const at = state.step + j, x = x0 + (j - k) * per;
+    if (beatDanger(L, C.DAY, at)) R('#5fb8e8', x, y, per + 0.5, 2);
+    if (beatDanger(L, C.NIGHT, at)) R('#e8962a', x, y + 2, per + 0.5, 2);
+    if (L.bell && j > 0 && (at - (state.bellFrom || 0)) % L.bell === 0) { R('#ffffff', Math.round(x) - 1, y - 2, 2, 7); }
+  }
+  ctx.restore();
+  // Now: the left edge, a small notch.
+  R('#e9e4d6', x0 - 1, y - 1, 1, 6);
+}
+
 function drawHUD() {
   if (introMode) {
     R('#0d1420', 0, 0, W, FY); R('#2f6db3', 0, FY - 1, W, 1);
@@ -1164,21 +1222,24 @@ function drawHUD() {
     return;
   }
   const L = state.level, def = LEVELS[levelIndex], night = state.layer === 1;
+  // Hours that keep time (bell, plasma, furnace heat) carry the beat of the next seconds under the header.
+  const beat = hasBeat(L), ty = beat ? 2 : 4;
   R(night ? '#0c0803' : '#0d1420', 0, 0, W, FY);
   R(night ? '#5a4214' : '#2f6db3', 0, FY - 1, W, 1);
-  txt(`${t().layerWord} ${levelIndex + 1}/${LEVELS.length}`, 4, 4, {color: night ? '#ffcf5a' : '#9fe0ff'});
-  txt(def.layer[lang].toUpperCase(), 66, 4, {color: '#8c93a8', max: 64});
-  txt(night ? t().night : t().day, W / 2 + 18, 4, {align: 'center', color: night ? '#ffb43a' : '#e9eef5'});
+  txt(`${t().layerWord} ${levelIndex + 1}/${LEVELS.length}`, 4, ty, {color: night ? '#ffcf5a' : '#9fe0ff'});
+  txt(def.layer[lang].toUpperCase(), 66, ty, {color: '#8c93a8', max: 64});
+  txt(night ? t().night : t().day, W / 2 + 18, ty, {align: 'center', color: night ? '#ffb43a' : '#e9eef5'});
   let right = '';
   // While a station's window is open, the header names that step, not the next one.
   const cur = (mode === 'mini' || (mode === 'process' && procType !== 'reticle')) && state.got > 0 ? state.got - 1 : state.got;
   if (cur < L.stations.length && def.route) right = `${cur + 1}/${L.stations.length} ${def.route[cur][lang].toUpperCase()}`;
   else right = state.got === L.stations.length && L.stations.length ? t().open : t().airlock;
-  txt(right, W - 4, 4, {align: 'right', color: state.got === L.stations.length ? '#7be08f' : '#c9c2ae', max: 96});
-  if (L.bell) {
+  txt(right, W - 4, ty, {align: 'right', color: state.got === L.stations.length ? '#7be08f' : '#c9c2ae', max: 96});
+  if (beat) drawBeat(L);
+  else if (L.bell) {
     const left = C.bellIn(state), w = 40, k = 1 - left / L.bell;
     R('#1a1e2a', W / 2 - 2 - w / 2 + 18, 13, w, 2);
-    R(left <= C.bellWarning(L.bell) && (frame >> 3) % 2 ? '#ff6a3a' : '#c9a15a', W / 2 - 2 - w / 2 + 18, 13, Math.round(w * k), 2);
+    R(left <= C.bellWarning(L.bell, L.easy) && (frame >> 3) % 2 ? '#ff6a3a' : '#c9a15a', W / 2 - 2 - w / 2 + 18, 13, Math.round(w * k), 2);
   }
   const def2 = LEVELS[levelIndex], by = FY + C.H * T - 13;
   const tool = nearTool();
@@ -1339,7 +1400,7 @@ function renderPlay() {
       return [1, 2, 3].map(k => cells[(e.pi + k) % cells.length]).map(c => [c.x, c.y]);
     }),
     frozen: state.enemies.map(e => C.frozen(state, e)), alert: state.enemies.map(e => state.step < (e.alert || 0)), flash: flashFx && {...flashFx, a: 1 - flashFx.t / 34},
-    grace: !introMode && state.layer === 1 && state.enemies.length ? clamp(1 - (C.sinceRing(state) * STEP_FRAMES + stepFrame) / (C.GRACE * STEP_FRAMES), 0, 1) : 0,
+    grace: !introMode && state.layer === 1 && state.enemies.length ? clamp(1 - (C.sinceRing(state) * STEP_FRAMES + stepFrame) / (state.level.grace * STEP_FRAMES), 0, 1) : 0,
     ...storyView()});
   ctx.restore();
   ctx.setTransform(Z, 0, 0, Z, 0, 0);
@@ -1379,6 +1440,7 @@ function renderPlay() {
     // Over the top of the room, unless the player stands there: then over the bottom, so you see yourself.
     const top = paNow && !introMode && paY() === FY + 1 ? FY + 30 : FY + 4, bottom = FY + C.H * T - h - 16;
     const ty = covers(bottom, h, W / 2, w) < covers(top, h, W / 2, w) ? bottom : top;
+    toastY = ty;
     R('rgba(5,6,10,.85)', W / 2 - w / 2, ty, w, h); R(state.layer ? '#ffb43a' : '#9fe0ff', W / 2 - w / 2, ty + h - 1, w, 1);
     lines.forEach((l, i) => txt(l, W / 2, ty + 3 + i * 10, {align: 'center', color: '#e9e4d6', max: w - 10}));
     ctx.globalAlpha = 1;
@@ -1387,7 +1449,8 @@ function renderPlay() {
   if (waitKey && mode === 'play' && !introMode && (frame >> 5) % 2 === 0) {
     const s = isTouch ? (lang === 'de' ? 'WEITER: KREUZ ODER SHIFT' : 'GO ON: D-PAD OR SHIFT') : (lang === 'de' ? 'WEITER: PFEIL ODER SHIFT' : 'GO ON: ARROW OR SHIFT');
     ctx.font = '400 8px "Silkscreen", monospace';
-    const w = ctx.measureText(s).width + 12, y = FY + C.H * T - 28;
+    // Under the header when a tip already sits at the bottom, else just above the tool bar.
+    const w = ctx.measureText(s).width + 12, y = toastT > 0 && toastY > FY + 60 ? FY + 4 : FY + C.H * T - 28;
     R('rgba(5,6,10,.8)', W / 2 - w / 2, y, w, 11); txt(s, W / 2, y + 2, {align: 'center', color: '#c9c2ae'});
   }
 }
@@ -1397,7 +1460,7 @@ function renderPlay() {
 function bellPreview() {
   const L = state.level;
   if (!L.bell || introMode || mode !== 'play' || state.status !== 'play') return;
-  const left = C.bellIn(state), warn = C.bellWarning(L.bell);
+  const left = C.bellIn(state), warn = C.bellWarning(L.bell, L.easy);
   if (left > warn) return;
   const other = 1 - state.layer, a = 0.35 + 0.25 * Math.sin(frame / 4), at = state.step + left;
   // What the other layer holds at the moment of the strike: plasma, furnace heat, by day the ion beam.
@@ -1599,7 +1662,10 @@ function renderCard() {
   if (def.hint) txt(`${lang === 'de' ? 'TIPP' : 'TIP'}: ${def.hint[lang]}`, W - 16, y0 - 1, {align: 'right', color: '#ffcf5a', font: 'IBM Plex Sans', size: 7, max: W - 140});
   // First the hour in plain words, then the physics in small print.
   if (def.plain) txt(def.plain[lang], 18, y0 + 9, {color: '#e9e4d6', font: 'IBM Plex Sans', size: 8, max: W - 36});
+  // The physics in small print comes a moment later: first the sentence everyone reads, then the numbers.
+  ctx.globalAlpha = def.plain ? clamp((cardT - 120) / 40, 0, 1) : 1;
   def.fact[lang].forEach((line, i) => txt(line, 18, y0 + (def.plain ? 20 : 10) + i * (def.plain ? 8 : 9), {color: '#9aa6b5', font: 'IBM Plex Sans', size: def.plain ? 6 : 7, max: W - 36}));
+  ctx.globalAlpha = 1;
   if (cardT > 20 && (frame >> 5) % 2) txt(t().cont, W / 2, H - 9, {align: 'center', color: '#6b7190'});
 }
 
@@ -1695,6 +1761,7 @@ function renderTitle() {
   // In an iframe the keyboard only arrives after a click into the game.
   if (embedded && !document.hasFocus() && (frame >> 5) % 2) txt(lang === 'de' ? 'INS SPIEL KLICKEN' : 'CLICK INTO THE GAME', W / 2, 157, {align: 'center', color: '#9fe0ff'});
   if (embedded) txt(lang === 'de' ? 'L: ENGLISH · M: TON' : 'L: DEUTSCH · M: SOUND', W - 4, H - 20, {align: 'right', color: '#8c93a8', font: 'IBM Plex Sans', size: 7, shadow: null});
+  txt(lang === 'de' ? `T: Tempo ${easy ? 'ruhig' : 'normal'}` : `T: pace ${easy ? 'calm' : 'normal'}`, 4, H - 20, {color: easy ? '#9fe0ff' : '#8c93a8', font: 'IBM Plex Sans', size: 7, shadow: null});
   if (progress > 0 || Object.keys(lot.s).length || CHEAT) txt(isTouch ? (lang === 'de' ? 'SCHICHTBUCH ▸' : 'SHIFT LOG ▸') : (lang === 'de' ? 'B: SCHICHTBUCH' : 'B: SHIFT LOG'), W / 2, 146, {align: 'center', color: isTouch ? '#9fe0ff' : '#6b7190'});
   if (CHEAT) txt('CHEAT · N: STUNDE GESCHAFFT · U: UNVERWUNDBAR · O: ALLE RETIKEL · B: JEDE STUNDE · E/F: ENDEN', W / 2, 3, {align: 'center', color: '#c9a5ff', max: W - 60});
   if (store.get('odenchip') === '1') {
@@ -1808,9 +1875,10 @@ function renderMode() {
 }
 
 /* ---------- Page controls ---------- */
-const btnSound = document.getElementById('btnSound'), btnPause = document.getElementById('btnPause'), btnFull = document.getElementById('btnFull'), btnMenu = document.getElementById('btnMenu'), btnCalm = document.getElementById('btnCalm');
+const btnSound = document.getElementById('btnSound'), btnPause = document.getElementById('btnPause'), btnFull = document.getElementById('btnFull'), btnMenu = document.getElementById('btnMenu'), btnCalm = document.getElementById('btnCalm'), btnEasy = document.getElementById('btnEasy');
 if (store.get('calm') === '1') reduced = true;
 btnCalm.addEventListener('click', e => { reduced = !reduced; store.set('calm', reduced ? '1' : '0'); applyLanguage(); e.currentTarget.blur(); });
+btnEasy.addEventListener('click', e => { toggleEasy(); e.currentTarget.blur(); });
 btnMenu.addEventListener('click', e => { menu(); e.currentTarget.blur(); });
 btnSound.addEventListener('click', e => { audio.unlock(); audio.toggle(); e.currentTarget.blur(); });
 const volume = document.getElementById('volume');

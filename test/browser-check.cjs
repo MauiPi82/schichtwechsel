@@ -42,6 +42,17 @@ if (!url) throw new Error('Pass the URL of the served repository root.');
         }, {a: finish(6), b: finish(7)});
         assert.deepEqual(r, ['card', 'epilogue', 'finale'], 'the last hour is played, then the ending');
       }
+      // The calm mode, switched on the page: the hours with rounds and a bell, played with the calm solutions.
+      if (locale === 'de-DE') {
+        await page.click('#btnEasy');
+        for (const i of [2, 3, 6, 7]) {
+          const solution = core.solve(core.parseLevel(LEVELS[i], {easy: true}));
+          const r = await page.evaluate(({i, solution}) => { __schicht.start(i); for (const a of solution) __schicht.act(a); return [__schicht.state.status, __schicht.state.level.easy]; }, {i, solution});
+          assert.deepEqual(r, ['won', true], `${LEVELS[i].time} in the calm mode`);
+        }
+        await page.click('#btnEasy');
+        assert.equal(await page.evaluate(() => { __schicht.start(0); return __schicht.state.level.easy; }), false, 'back to the normal pace');
+      }
       // A death after a process step rewinds to that step, also in hours where the shift before walks rounds.
       for (const i of [1, 2, 5]) {
         const solution = core.solve(core.parseLevel(LEVELS[i]));
@@ -138,6 +149,6 @@ if (!url) throw new Error('Pass the URL of the served repository root.');
       assert.deepEqual(errors, [], `no page errors in ${locale}`);
       await page.close();
     }
-    console.log('PASS: all levels won in the browser (DE and EN), the last hour and both endings, rewind to the last process step, the gowning intro, keyboard input, a minigame with the keyboard, the way to the main menu, reload with saved states, no page errors.');
+    console.log('PASS: all levels won in the browser (DE and EN), the calm mode, the last hour and both endings, rewind to the last process step, the gowning intro, keyboard input, a minigame with the keyboard, the way to the main menu, reload with saved states, no page errors.');
   } finally { await browser.close(); }
 })().catch(e => { console.error(e); process.exit(1); });

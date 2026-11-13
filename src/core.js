@@ -32,7 +32,11 @@
   // Plasma glows faintly this many steps before it fires.
   const PULSE_WARN = 10;
   // The warning comes in the last third of the interval, at most BELL_WARNING steps before the bell.
-  const bellWarning = bell => Math.min(BELL_WARNING, Math.floor(bell / 3));
+  // In the calm mode the warning comes earlier: in the last half of the interval.
+  const bellWarning = (bell, easy = false) => Math.min(BELL_WARNING, Math.floor(bell / (easy ? 2 : 3)));
+  // The calm mode: the same hours, gentler. Their rounds take two of your steps per tile where they took one,
+  // the ring after a shift lasts longer, and they notice you only from closer.
+  const EASY = {grace: 10, alert: 2, slower: 2};
   // Tiles: # wall, M machine, = glass, o hole, . floor, P start, X airlock exit,
   // 1-8 process stations (visited in order), V previous shift (night only).
   // K lockers, B bench, D door (closed until the game opens it; only in the intro).
@@ -44,7 +48,7 @@
 
   const idx = (x, y) => y * W + x;
 
-  function parseLevel(def) {
+  function parseLevel(def, {easy = false} = {}) {
     const layers = [def.day, def.night].map((rows, layer) => {
       if (rows.length !== H || rows.some(r => r.length !== W)) {
         throw new Error(`Level ${def.id}: layer ${layer} must be ${W} x ${H}`);
@@ -81,8 +85,9 @@
     });
     const level = {
       ...def, layers, walk, start, stations, exits, enemyStarts: enemies, robots,
-      enemyEvery: def.enemyEvery || 3,
-      bell: def.bell || 0,
+      enemyEvery: (def.enemyEvery || 3) * (easy ? EASY.slower : 1),
+      bell: def.bell || 0, easy,
+      grace: easy ? EASY.grace : GRACE, alertRadius: easy ? EASY.alert : ALERT_RADIUS,
       dist: distanceFields(walk[NIGHT]),
     };
     // Rounds of the previous shift: waypoints joined by straight lines, walked as a loop in a fixed rhythm.
@@ -96,7 +101,7 @@
       }
       for (const c of cells) if (!walk[NIGHT][idx(c.x, c.y)]) throw new Error(`Level ${def.id}: patrol ${n} crosses a solid night tile at ${c.x},${c.y}`);
       // every: steps per tile in the shift before; by day, while you watch their shadows, half as fast.
-      return {cells, every: pt.every || 2, start: pt.start || 0};
+      return {cells, every: (pt.every || 2) * (easy ? EASY.slower : 1), start: pt.start || 0};
     });
     level.blocks = layers.map((map, layer) => toolBlocks(def, map));
     level.blockAt = level.blocks.map(list => { const a = new Int16Array(N).fill(-1); list.forEach((b, n) => { for (let y = b.y0; y <= b.y1; y++) for (let x = b.x0; x <= b.x1; x++) a[idx(x, y)] = n; }); return a; });
@@ -365,7 +370,7 @@
     if (L.bell) {
       // bellFrom: after a resume the bell starts a full interval again (0 for a fresh hour and the solver).
       const bs = state.step - (state.bellFrom || 0), left = L.bell - (bs % L.bell);
-      const warn = bellWarning(L.bell);
+      const warn = bellWarning(L.bell, L.easy);
       if (left === warn || left === Math.floor(warn / 2)) state.events.push('bell-warning');
       if (bs % L.bell === 0) {
         const other = 1 - state.layer;
@@ -425,7 +430,7 @@
       // They notice you only once the ring is gone: a quick pass right after a shift goes unseen, lingering does not.
       // Noticing startles them for a step: they neither move nor catch you in it, you have a moment to react.
       const way = L.dist[idx(state.x, state.y)][idx(e.x, e.y)];
-      if (state.layer === NIGHT && !safe && sinceRing(state) >= GRACE && way >= 0 && way <= ALERT_RADIUS) {
+      if (state.layer === NIGHT && !safe && sinceRing(state) >= L.grace && way >= 0 && way <= L.alertRadius) {
         if (!(state.step < (e.alert || 0))) { state.events.push('alert'); e.startled = state.step; }
         e.alert = state.step + ALERT_STEPS;
       }
@@ -458,7 +463,7 @@
     // Grace after a shift into the night: time to shift back after a misjudgement. In it they cannot catch
     // you, but whoever walks into one of them yourself is caught all the same: you cannot pass through them.
     if (state.layer === NIGHT && !safe) {
-      const grace = sinceRing(state) < GRACE, walked = state.x !== state.px || state.y !== state.py;
+      const grace = sinceRing(state) < L.grace, walked = state.x !== state.px || state.y !== state.py;
       for (const e of state.enemies) {
         if (frozen(state, e) || e.startled === state.step) continue;
         const onPlayer = e.x === state.x && e.y === state.y;
@@ -503,7 +508,7 @@
     const period = [level.enemyEvery * 2, level.bell || 1, ...level.robots.map(r => r.length), ...level.beams.map(b => b.every * b.species.length),
       level.heat ? level.heat.period : 1, ...level.pulses.map(p => p.period), ...level.patrols.map(p => p.every * 2)]
       .reduce((a, b) => a / gcd(a, b) * b, 1);
-    const key = s => `${s.x},${s.y},${s.layer},${s.got},${s.reticle ? 1 : 0},${s.step % period},${Math.min(s.step - s.lastShift, Math.max(SHIFT_COOLDOWN, GRACE))},` +
+    const key = s => `${s.x},${s.y},${s.layer},${s.got},${s.reticle ? 1 : 0},${s.step % period},${Math.min(s.step - s.lastShift, Math.max(SHIFT_COOLDOWN, level.grace))},` +
       s.enemies.map(e => e.pt === undefined ? e.x + ':' + e.y
         : 'p' + e.pi + (e.off || s.step < (e.alert || 0) ? `@${e.x}:${e.y}:${Math.max(0, (e.alert || 0) - s.step)}` : '')).join(';');
     const actions = noShift ? ACTIONS.filter(a => a !== 'shift') : ACTIONS;
