@@ -430,7 +430,8 @@
       // They notice you only once the ring is gone: a quick pass right after a shift goes unseen, lingering does not.
       // Noticing startles them for a step: they neither move nor catch you in it, you have a moment to react.
       const way = L.dist[idx(state.x, state.y)][idx(e.x, e.y)];
-      if (state.layer === NIGHT && !safe && sinceRing(state) >= L.grace && way >= 0 && way <= L.alertRadius) {
+      // Not on the step that reaches a station: its window opens, and nobody notices you while it is open.
+      if (state.layer === NIGHT && !safe && sinceRing(state) >= L.grace && way >= 0 && way <= L.alertRadius && !state.events.includes('station')) {
         if (!(state.step < (e.alert || 0))) { state.events.push('alert'); e.startled = state.step; }
         e.alert = state.step + ALERT_STEPS;
       }

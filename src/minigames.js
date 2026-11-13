@@ -665,7 +665,8 @@ const implant = {
   update(m, inp) {
     const dir = (inp.up || inp.right ? 1 : 0) - (inp.down || inp.left ? 1 : 0);
     m.hold = dir ? m.hold + 1 : 0;
-    m.B = clamp(m.B + dir * (m.hold > 30 ? 0.0004 : 0.0001), BMIN, BMAX);
+    // Held longer than three quarters of a second it speeds up, gently: fine taps stay fine.
+    m.B = clamp(m.B + dir * (m.hold > 45 ? 0.00025 : 0.0001), BMIN, BMAX);
     if (m.st === 'tune') { if (inp.pressed) { m.st = 'implant'; m.sfx('click'); } return; }
     m.it++;
     m.B += Math.sin(m.it / 60 + m.drift) * 0.00002;

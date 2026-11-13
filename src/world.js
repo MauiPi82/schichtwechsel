@@ -780,6 +780,17 @@ function heatAndPlasma(L, layer, s) {
       ctx.fillRect(x, y, T, T);
       if (v >= L.heat.threshold && !reduced) for (let k = 0; k < 2; k++) R('rgba(255,230,160,.3)', x + ((F + i * 3 + k * 11) % 28), y + ((i * 7 + k * 13) % 24) + 4, 1, 3);
     }
+    // Where the heat arrives in the next steps: a red frame on the tile, blinking, before it burns.
+    const hotNow = L.heat.hot[s.step % L.heat.period];
+    if ((F >> 3) % 2) for (let i = 0; i < C.W * C.H; i++) {
+      if (hotNow[i] || !L.walk[0][i]) continue;
+      let soon = 0;
+      for (let k = 1; k <= 6 && !soon; k++) if (L.heat.hot[(s.step + k) % L.heat.period][i]) soon = k;
+      if (!soon) continue;
+      const x = (i % C.W) * T, y = FY + ((i / C.W) | 0) * T;
+      ctx.strokeStyle = `rgba(255,70,40,${(0.9 - soon * 0.1).toFixed(2)})`; ctx.lineWidth = 2; ctx.setLineDash([5, 3]);
+      ctx.strokeRect(x + 2, y + 2, T - 4, T - 4); ctx.setLineDash([]);
+    }
   }
   for (let n = 0; n < L.pulses.length; n++) {
     const pl = L.pulses[n];
@@ -862,6 +873,21 @@ function alertMark(px, py, big) {
 // One silhouette per facing, drawn once from the figure itself in a single dark colour (violet when set by light).
 const shadowSprites = {};
 let trails = [], trailLevel = null;
+// Edges of the walkable floor in the shift before, around the player: wall and hole outlines in the lamp light.
+function nightEdges(L, s, reach) {
+  const walk = L.walk[1];
+  for (let y = Math.max(0, s.y - reach); y <= Math.min(C.H - 1, s.y + reach); y++) for (let x = Math.max(0, s.x - reach); x <= Math.min(C.W - 1, s.x + reach); x++) {
+    if (walk[y * C.W + x]) continue;
+    const d = Math.max(Math.abs(x - s.x), Math.abs(y - s.y)), a = 0.5 * (1 - d / (reach + 1));
+    if (a <= 0.03) continue;
+    ctx.fillStyle = `rgba(255,190,90,${a.toFixed(3)})`;
+    const px = x * T, py = FY + y * T, open = (nx, ny) => nx >= 0 && ny >= 0 && nx < C.W && ny < C.H && walk[ny * C.W + nx];
+    if (open(x, y - 1)) ctx.fillRect(px, py, T, 2);
+    if (open(x, y + 1)) ctx.fillRect(px, py + T - 2, T, 2);
+    if (open(x - 1, y)) ctx.fillRect(px, py, 2, T);
+    if (open(x + 1, y)) ctx.fillRect(px + T - 2, py, 2, T);
+  }
+}
 // Chevrons along a round: each tile points to the next. near(cell) scales the strength (1 by day).
 function routeMarks(routes, enemies, near, rgb, strength) {
   if (!routes) return;
@@ -1077,7 +1103,8 @@ function draw(c, s, o) {
   if (night) {
     // The helmet lamp: wide enough to read the room, and the dark never quite black.
     // The light falloffs are drawn once into small sprites and only copied, scaled, every frame.
-    const lx = ppx + 16, ly = ppy + 12, r = 150 + (reduced ? 0 : (hash(F >> 2) - 0.5) * 6), sp = lightSprites(), k = r / 150;
+    // In the calm pace the lamp reaches further.
+    const lx = ppx + 16, ly = ppy + 12, r = (o.easy ? 185 : 150) + (reduced ? 0 : (hash(F >> 2) - 0.5) * 6), sp = lightSprites(), k = r / 150;
     const smooth = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = true;
     ctx.save(); ctx.beginPath(); ctx.rect(0, FY, WW, C.H * T); ctx.clip();
     ctx.drawImage(sp.dark, lx - 700 * k, ly - 400 * k, 1400 * k, 800 * k);
@@ -1106,6 +1133,8 @@ function draw(c, s, o) {
       const gx = o.note.x * T + 14, gy = FY + o.note.y * T + 15;
       ctx.globalAlpha = Math.sin((F % 90) / 30 * Math.PI) * 0.7; R('#fff6dc', gx, gy, 3, 2); ctx.globalAlpha = 1;
     }
+    // Where the floor ends (a wall, a hole) its edge catches the lamp: faint lines, brighter the closer they are.
+    nightEdges(L, s, o.easy ? 6 : 5);
     // In the dark the chevrons glow faintly amber, close to the helmet lamp a little more.
     routeMarks(o.routes, o.enemies, ([x, y]) => clamp((9 - Math.hypot(x - s.x, y - s.y)) / 5, 0, 1), 'rgba(255,180,58,', 0.45);
     // The set ones glow faintly violet in the dark, so you can see that they are stuck.

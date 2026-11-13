@@ -593,7 +593,7 @@ function pollPad() {
 let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0, shake = 0;
 let progress = clamp(parseInt(store.get('level'), 10) || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
 const deathsBy = levels.map(() => 0);
-const BUILD = '0.66 · 2026-11-13';
+const BUILD = '0.67 · 2026-11-13';
 // Testers can jump to an hour: ?stunde=3 or ?hour=3 opens the third hour.
 const jump = parseInt(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || '0', 10) || 0;
 if (jump >= 1 && jump <= levels.length) progress = jump - 1;
@@ -896,14 +896,17 @@ function startLevel(i, resume = false) {
   levelIndex = i; mode = 'play'; stepFrame = 0; fx = 0; deadT = 0;
   if (resume && checkpoint) {
     state = C.clone(checkpoint);
-    // Chasers go back to their posts; the rounds keep walking where they were (they have no post, only a rhythm).
+    // Chasers go back to their posts; the rounds keep walking where they were (they have no post, only a rhythm),
+    // but whoever had noticed you has forgotten it and is back on the round.
     state.enemies.forEach((e, n) => {
       const s0 = levels[i].enemyStarts[n];
       if (s0 && e.pt === undefined) Object.assign(e, {x: s0.x, y: s0.y});
+      if (e.pt !== undefined) { const c = state.level.patrols[e.pt].cells[e.pi]; Object.assign(e, {x: c.x, y: c.y, off: false, alert: 0, startled: -1}); }
       Object.assign(e, {px: e.x, py: e.y, moved: -1, fx: undefined, fy: undefined});
     });
     state.px = state.x; state.py = state.y;
-    state.safeUntil = state.step + 14; state.bellFrom = state.step;
+    // A moment of safety, and in the shift before the ring as well, so you see how long it lasts.
+    state.safeUntil = state.step + 14; state.bellFrom = state.step; state.graceFrom = state.step;
   } else { state = C.newState(levels[i]); hintT = 0; toastT = 0; shiftHintT = 0; paDone = new Set(); paQueue = []; paNow = null; noteRead = false; scareDone = false; reading = null; extra = null; extraDone = false; }
   // The first hour that keeps time: the hour waits while the beat bar is explained, once.
   if (!resume && hasBeat(state.level) && store.get('beattip') !== '1') { store.set('beattip', '1'); waitKey = true; toast(t().beatTip, 600); }
@@ -1049,7 +1052,8 @@ function update() {
   if (mode === 'finale') updateFinale();
   if (mode === 'play') {
     hintT++;
-    if (waitKey && (queuedDir || queuedShift || held.size || shiftHeld)) waitKey = false;
+    // The key that ends the wait only ends it: it does not also step or shift.
+    if (waitKey && (queuedDir || queuedShift || held.size || shiftHeld)) { waitKey = false; queuedDir = null; queuedShift = false; }
     if (freezeT > 0 || waitKey) { if (freezeT > 0) freezeT--; }
     else if (++stepFrame >= STEP_FRAMES) {
       // A window that a step opened waits until the figure stands on the field, then opens; afterwards the
@@ -1308,8 +1312,13 @@ function nextTarget() {
 function covers(y, h, x0, w) {
   const hit = (tx, ty) => FY + ty * T + T > y - 6 && FY + ty * T < y + h + 6 && (w === undefined || Math.abs(tx * T + 8 - x0) < w / 2 + 10);
   const tg = nextTarget();
-  // The player counts most, then the next station, then each of shift B nearby: you must see who comes.
-  return (state && hit(state.x, state.y) ? 4 : 0) + (tg && hit(tg.x, tg.y) ? 2 : 0) + (state ? state.enemies.filter(e => hit(e.x, e.y)).length : 0);
+  // The player counts most, then the next station, then each of shift B nearby, then plasma or furnace heat
+  // in these rows: you must see who comes and what burns.
+  if (!state) return 0;
+  const L = state.level, rows = (a, b) => { for (let r = a; r <= b; r++) if (FY + r * T + T > y - 6 && FY + r * T < y + h + 6) return true; return false; };
+  const plasma = L.pulses.some(p => p.layer === state.layer && rows(p.y0, p.y1));
+  const heat = state.layer === 0 && L.heat && L.heat.temps[state.step % L.heat.period].some((v, i) => v >= 35 && rows((i / C.W) | 0, (i / C.W) | 0));
+  return (hit(state.x, state.y) ? 4 : 0) + (tg && hit(tg.x, tg.y) ? 2 : 0) + state.enemies.filter(e => hit(e.x, e.y)).length + (plasma ? 1 : 0) + (heat ? 1 : 0);
 }
 // Over the outer wall at the top, or at the bottom: whichever covers less of what matters.
 const PA_H = 22;
@@ -1392,7 +1401,7 @@ function renderPlay() {
     extraShadow: extra && !introMode ? {x: extra.x, y: extra.y, a: Math.sin(Math.PI * extra.t / 120)} : null,
     // Now and then, for two seconds: your own shadow lags behind you, in their shape.
     selfShadow: !introMode && levelIndex >= 6 && state.layer === 0 && selfTrail.length > 12 && frame % 600 < 130 ? [...selfTrail[selfTrail.length - 12], Math.sin(Math.PI * (frame % 600) / 130)] : null,
-    screens: window.SchichtProcess && window.SchichtProcess.screens({lot}),
+    screens: window.SchichtProcess && window.SchichtProcess.screens({lot}), easy: state.level.easy,
     routes: introMode ? null : state.enemies.map(e => {
       // Where a round goes next: the next tiles of its loop, so you can tell its direction before you shift.
       if (e.pt === undefined || e.off || state.step < (e.alert || 0) || C.frozen(state, e)) return null;
