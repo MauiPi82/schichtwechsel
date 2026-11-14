@@ -37,6 +37,49 @@
   .pad [data-k="shift"]{width:120px;height:120px;border-radius:50%;font-size:18px;background:#2a1e08;border-color:var(--night);color:var(--night)}
   .pad [data-k="menu"]{width:54px;height:54px;border-radius:50%;font-size:22px;align-self:flex-end}
   @media (pointer:coarse){.pad{display:flex}.keys{display:none}}
+  .stage{width:100%;display:flex;flex-direction:column;align-items:center;gap:12px;position:relative}
+  .pad .side{display:flex;flex-direction:column;gap:12px;align-items:center;align-self:flex-end}
+  .pad>*,.pad .side>*{flex-shrink:0}
+  .pad [data-k="setup"]{width:54px;height:54px;border-radius:50%;font-size:22px}
+  .pad [data-k="menu"]{align-self:auto}
+  /* Moved and sized by the player: every control sits where it was put, over the whole stage. */
+  .pad.free{position:absolute;inset:0;display:block;pointer-events:none;padding:0;max-width:none}
+  .pad.free [data-move]{position:absolute;pointer-events:auto;margin:0}
+  .pad.free .side{display:contents}
+  .pad.edit [data-move]{outline:2px dashed var(--night);outline-offset:4px;cursor:grab;touch-action:none}
+  /* The whole square of the cross is one touch area, its gaps included: the direction comes from its centre. */
+  .pad .dpad{pointer-events:auto;touch-action:none}
+  .padbar{position:absolute;z-index:5;left:50%;top:max(10px,env(safe-area-inset-top,0px));transform:translateX(-50%);width:min(92vw,520px);background:rgba(15,20,34,.94);border:1px solid var(--night);border-radius:10px;padding:10px 12px;display:grid;gap:8px;text-align:center}
+  .padbar[hidden]{display:none}
+  .padbar p{margin:0;font-size:13px;color:var(--text)}
+  .padbar .row{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+  .padbar .done{border-color:var(--night);color:var(--night)}
+  /* Touch screens: the game comes first and fills the first screen; title, settings and the rest follow below. */
+  @media (pointer:coarse){
+    body:not(.embed){padding:0 0 28px;gap:18px}
+    body:not(.embed) .stage{order:-1;height:100vh;height:100dvh;gap:0;justify-content:flex-start}
+    body:not(.embed) header,body:not(.embed) .about,body:not(.embed) footer{padding:0 16px}
+    .stage .frame{max-width:none;padding:0;border:0;border-radius:0}
+    .stage canvas{border-radius:0}
+  }
+  /* Upright: the picture on top, the controls fill the rest of the screen, large. */
+  @media (pointer:coarse) and (orientation:portrait){
+    body:not(.embed) .stage .pad:not(.free){flex:1;max-width:none;padding:12px 18px max(14px,env(safe-area-inset-bottom,0px));align-items:center;position:relative}
+    body:not(.embed) .pad:not(.free) .side{position:absolute;top:14px;left:50%;transform:translateX(-50%);flex-direction:row}
+    body:not(.embed) .dpad{grid-template-columns:repeat(3,64px);grid-template-rows:repeat(3,64px);gap:6px}
+    body:not(.embed) .pad [data-k="shift"]{width:132px;height:132px;font-size:19px}
+  }
+  /* On its side: the picture in the middle, as tall as the screen, the cross and SHIFT in the strips beside it. */
+  @media (pointer:coarse) and (orientation:landscape){
+    body:not(.embed) .stage{justify-content:center}
+    body:not(.embed) .frame{width:min(calc(100vw - 300px),calc(100dvh*16/9))}
+    body:not(.embed) .pad:not(.free){position:absolute;inset:0;max-width:none;padding:0 max(6px,env(safe-area-inset-right,0px)) 0 max(6px,env(safe-area-inset-left,0px));pointer-events:none;align-items:center}
+    body:not(.embed) .pad:not(.free) button{pointer-events:auto}
+    body:not(.embed) .dpad{grid-template-columns:repeat(3,44px);grid-template-rows:repeat(3,44px)}
+    body:not(.embed) .pad [data-k="shift"]{width:96px;height:96px;font-size:15px}
+    body:not(.embed) .pad:not(.free) .side{position:absolute;left:max(6px,env(safe-area-inset-left,0px));top:8px;flex-direction:row}
+    body:not(.embed) .pad [data-k="menu"],body:not(.embed) .pad [data-k="setup"]{width:44px;height:44px;font-size:18px}
+  }
   .about{width:100%;max-width:980px;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
   .about section{background:var(--panel);border:1px solid var(--edge);border-radius:10px;padding:12px 14px}
   .about h2{margin:0 0 6px;font:700 15px "Pixelify Sans",monospace;color:var(--night)}
@@ -50,15 +93,18 @@
   body.embed header,body.embed .about,body.embed footer{display:none}
   body.embed .frame{width:min(100vw,calc(100vh*16/9));width:min(100vw,calc(100dvh*16/9));max-width:none;padding:0;border:0;border-radius:0}
   body.embed canvas{border-radius:0}
-  body.embed .pad{position:fixed;left:0;right:0;bottom:10px;max-width:none;padding:0 14px;pointer-events:none}
+  body.embed .stage{height:100vh;height:100dvh;justify-content:center;gap:0}
+  body.embed .pad:not(.free){position:absolute;left:0;right:0;bottom:10px;max-width:none;padding:0 14px;pointer-events:none}
   body.embed .pad button{pointer-events:auto;opacity:.75}
+  body.embed .pad.edit button{opacity:1}
   /* A phone on its side: the picture leaves a strip left and right, the cross and SHIFT sit there, not on the fab. */
   @media (pointer:coarse) and (orientation:landscape){
     body.embed .frame{width:min(calc(100vw - 300px),calc(100dvh*16/9))}
-    body.embed .pad{top:0;bottom:0;align-items:center;padding:0 6px}
+    body.embed .pad:not(.free){top:0;bottom:0;align-items:center;padding:0 6px}
     body.embed .dpad{grid-template-columns:repeat(3,44px);grid-template-rows:repeat(3,44px)}
     body.embed .pad [data-k="shift"]{width:96px;height:96px;font-size:15px}
-    body.embed .pad [data-k="menu"]{width:44px;height:44px;position:absolute;left:6px;top:8px}
+    body.embed .pad:not(.free) .side{position:absolute;left:6px;top:8px;flex-direction:row}
+    body.embed .pad [data-k="menu"],body.embed .pad [data-k="setup"]{width:44px;height:44px}
   }
 </style>
 </head>
@@ -84,16 +130,37 @@
   </div>
 </header>
 
+<main class="stage">
 <div class="frame"><canvas id="game" width="1280" height="720" aria-label="Schichtwechsel"></canvas></div>
 
 <div class="pad" aria-hidden="true">
-  <div class="dpad">
+  <div class="dpad" data-move="dpad">
     <button type="button" tabindex="-1" data-dir="up">▲</button><button type="button" tabindex="-1" data-dir="left">◀</button>
     <button type="button" tabindex="-1" data-dir="right">▶</button><button type="button" tabindex="-1" data-dir="down">▼</button>
   </div>
-  <button type="button" tabindex="-1" data-k="menu" aria-label="Pause / Menü">≡</button>
-  <button type="button" tabindex="-1" data-k="shift">SHIFT</button>
+  <div class="side">
+    <button type="button" tabindex="-1" data-k="menu" data-move="menu" aria-label="Pause / Menü">≡</button>
+    <button type="button" tabindex="-1" data-k="setup" data-move="setup" aria-label="Tasten und Einstellungen">⚙</button>
+  </div>
+  <button type="button" tabindex="-1" data-k="shift" data-move="shift">SHIFT</button>
 </div>
+
+<!-- On touch screens: the controls can be moved and sized; sound and pace are here too, for the embedded game. -->
+<div class="padbar" hidden>
+  <p data-de="Zieh Kreuz und Knöpfe dorthin, wo deine Daumen sie haben wollen." data-en="Drag the cross and the buttons to where your thumbs want them.">Zieh Kreuz und Knöpfe dorthin, wo deine Daumen sie haben wollen.</p>
+  <div class="row">
+    <button type="button" class="tool" data-bar="smaller" data-de="Kleiner" data-en="Smaller">Kleiner</button>
+    <button type="button" class="tool" data-bar="bigger" data-de="Größer" data-en="Bigger">Größer</button>
+    <button type="button" class="tool" data-bar="reset" data-de="Zurücksetzen" data-en="Reset">Zurücksetzen</button>
+  </div>
+  <div class="row">
+    <button type="button" class="tool" data-bar="sound">Ton</button>
+    <button type="button" class="tool" data-bar="easy">Tempo</button>
+    <button type="button" class="tool" data-bar="lang">EN</button>
+    <button type="button" class="tool done" data-bar="done" data-de="Fertig" data-en="Done">Fertig</button>
+  </div>
+</div>
+</main>
 
 <div class="about">
   <section class="keys">

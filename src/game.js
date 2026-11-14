@@ -548,11 +548,83 @@ document.querySelector('.pad [data-k="menu"]').addEventListener('pointerdown', e
   e.preventDefault(); audio.unlock();
   if (mode === 'play') mode = 'paused'; else menu();
 });
+/* ---------- Touch controls the player can move and size, one layout upright and one on the side ---------- */
+// The gear opens a small panel over the stage: drag the cross and the buttons, make them smaller or bigger, reset;
+// sound, pace and language are there too (an embedded game has no page around it). The game holds still meanwhile.
+const padEl = document.querySelector('.pad'), stageEl = document.querySelector('.stage'), padbar = document.querySelector('.padbar');
+const movables = () => [...padEl.querySelectorAll('[data-move]')];
+let padEdit = false, padDrag = null, padPaused = false;
+const padOrient = () => (innerWidth > innerHeight ? 'land' : 'port');
+const padKey = () => `pad-${padOrient()}`;
+const padLoad = () => { try { const v = JSON.parse(store.get(padKey()) || 'null'); return v && v.items ? v : null; } catch (_) { return null; } };
+const padSave = v => store.set(padKey(), v ? JSON.stringify(v) : '');
+function padApply() {
+  const v = padLoad();
+  padEl.classList.toggle('free', !!v);
+  for (const el of movables()) {
+    const it = v && v.items[el.dataset.move];
+    el.style.left = it ? `${(it[0] * 100).toFixed(2)}%` : ''; el.style.top = it ? `${(it[1] * 100).toFixed(2)}%` : '';
+    el.style.transform = it ? `translate(-50%,-50%) scale(${v.scale})` : '';
+  }
+}
+// From the layout as it stands (the default one or a saved one): every control's centre as a share of the stage.
+function padSnapshot() {
+  const r = stageEl.getBoundingClientRect(), v = padLoad();
+  const items = {};
+  for (const el of movables()) { const b = el.getBoundingClientRect(); items[el.dataset.move] = [(b.left + b.width / 2 - r.left) / r.width, (b.top + b.height / 2 - r.top) / r.height]; }
+  return {scale: v ? v.scale : 1, items};
+}
+function padBarText() {
+  const de = lang === 'de';
+  padbar.querySelector('[data-bar="sound"]').textContent = t().sound(audio.on);
+  padbar.querySelector('[data-bar="easy"]').textContent = de ? `Tempo: ${easy ? 'ruhig' : 'normal'}` : `Pace: ${easy ? 'calm' : 'normal'}`;
+  padbar.querySelector('[data-bar="lang"]').textContent = de ? 'English' : 'Deutsch';
+}
+function padEditMode(on) {
+  padEdit = on; padbar.hidden = !on; padEl.classList.toggle('edit', on); setPadDir(null);
+  // The fab holds still while you arrange the controls, and goes on where it was once you are done.
+  if (on) { padPaused = mode === 'play'; if (padPaused) mode = 'paused'; padBarText(); }
+  else if (padPaused && mode === 'paused') { mode = 'play'; padPaused = false; }
+}
+padEl.addEventListener('pointerdown', e => {
+  if (!padEdit) return;
+  const el = e.target.closest('[data-move]'); if (!el) return;
+  e.preventDefault(); e.stopPropagation();
+  // The first move turns the default layout into a free one, from where everything stands now.
+  if (!padLoad()) { padSave(padSnapshot()); padApply(); }
+  const r = stageEl.getBoundingClientRect(), b = el.getBoundingClientRect();
+  padDrag = {el, id: e.pointerId, dx: e.clientX - (b.left + b.width / 2), dy: e.clientY - (b.top + b.height / 2), r};
+  try { el.setPointerCapture(e.pointerId); } catch (_) { /* old browser */ }
+}, true);
+addEventListener('pointermove', e => {
+  if (!padDrag || e.pointerId !== padDrag.id) return;
+  const {el, r, dx, dy} = padDrag, v = padLoad();
+  const x = clamp((e.clientX - dx - r.left) / r.width, 0.03, 0.97), y = clamp((e.clientY - dy - r.top) / r.height, 0.03, 0.97);
+  v.items[el.dataset.move] = [x, y]; padSave(v); padApply();
+});
+['pointerup', 'pointercancel'].forEach(n => addEventListener(n, () => { padDrag = null; }));
+padbar.addEventListener('click', e => {
+  const k = e.target.closest('[data-bar]'); if (!k) return;
+  const what = k.dataset.bar;
+  if (what === 'smaller' || what === 'bigger') {
+    const v = padLoad() || padSnapshot();
+    v.scale = clamp(Math.round((v.scale + (what === 'bigger' ? 0.1 : -0.1)) * 10) / 10, 0.6, 1.6); padSave(v); padApply();
+  } else if (what === 'reset') { padSave(null); padApply(); }
+  else if (what === 'sound') { audio.unlock(); audio.toggle(); }
+  else if (what === 'easy') toggleEasy();
+  else if (what === 'lang') { lang = lang === 'de' ? 'en' : 'de'; store.set('lang', lang); applyLanguage(); }
+  else if (what === 'done') padEditMode(false);
+  padBarText();
+});
+document.querySelector('.pad [data-k="setup"]').addEventListener('pointerdown', e => { e.preventDefault(); audio.unlock(); padEditMode(!padEdit); });
+addEventListener('resize', () => { padApply(); });
+padApply();
 const padShift = document.querySelector('.pad [data-k="shift"]');
 padShift.addEventListener('pointerdown', e => { e.preventDefault(); audio.unlock(); shiftHeld = true; press('shift'); padShift.classList.add('on'); });
 ['pointerup', 'pointercancel', 'pointerleave'].forEach(n => padShift.addEventListener(n, () => { shiftHeld = false; padShift.classList.remove('on'); }));
 cv.addEventListener('pointerdown', e => {
   window.focus(); audio.unlock();
+  if (padEdit) return;
   if (blurHold) { blurHold = false; return; }
   // On the title, the two small lines are buttons too: a new night, and the shift log.
   if (mode === 'title' && isTouch && veilPhase !== 'out') {
@@ -597,7 +669,7 @@ function pollPad() {
 let mode = 'title', levelIndex = 0, state = null, frame = 0, stepFrame = 0, cardT = 0, fx = 0, fxLayer = 0, deadT = 0, shake = 0;
 let progress = clamp(parseInt(store.get('level'), 10) || 0, 0, levels.length - 1), deaths = 0, totalShifts = 0, heartT = 0, hintT = 0;
 const deathsBy = levels.map(() => 0);
-const BUILD = '0.69 · 2026-11-13';
+const BUILD = '0.70 · 2026-11-14';
 // Testers can jump to an hour: ?stunde=3 or ?hour=3 opens the third hour.
 const jump = parseInt(new URLSearchParams(location.search).get('stunde') || new URLSearchParams(location.search).get('hour') || '0', 10) || 0;
 if (jump >= 1 && jump <= levels.length) progress = jump - 1;
